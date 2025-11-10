@@ -40,17 +40,20 @@ v0.1.5-BETA → Testing
 v0.2.0 → Next stable release
 ```
 
-## Current Version: v0.0.1-BETA
+## Current Version: v0.0.3-BETA
 
 ### Completed Features
 - ✅ Core infrastructure (config, transport, logger)
 - ✅ OData Client Layer with Basic Auth
 - ✅ Connection Manager
 - ✅ Response Parser
+- ✅ MCP Tools implementation (19 tools)
+- ✅ Tool handlers integration
+- ✅ Testing guide
 
-### Upcoming for v0.0.3-BETA
-- MCP Tools implementation (21 tools)
-- Tool handlers integration
+### Upcoming for v0.0.5-BETA
+- CLI implementation
+- Configuration commands
 
 ### Upcoming for v0.0.5-BETA
 - CLI implementation

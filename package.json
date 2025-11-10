@@ -1,6 +1,6 @@
 {
   "name": "fms-odata-mcp",
-  "version": "0.0.1-BETA",
+  "version": "0.0.3-BETA",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration with database introspection for AI agents. Compatible with Claude, Windsurf, Cursor, Cline, and other MCP-enabled assistants.",
   "type": "module",
   "main": "dist/index.js",
