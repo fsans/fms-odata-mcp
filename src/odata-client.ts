@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+import https from "https";
 import { logger } from "./logger.js";
 
 export interface ODataClientConfig {
@@ -51,6 +52,10 @@ export class ODataClient {
         "Content-Type": "application/json",
         "Accept": "application/json",
       },
+      // Accept self-signed certificates (common in FileMaker Server)
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: false,
+      }),
     });
 
     // Add request interceptor for Basic Auth
