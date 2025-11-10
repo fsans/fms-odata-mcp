@@ -8,6 +8,7 @@ export interface ODataClientConfig {
   user: string;
   password: string;
   timeout?: number;
+  verifySsl?: boolean;
 }
 
 export interface ODataQueryOptions {
@@ -52,9 +53,11 @@ export class ODataClient {
         "Content-Type": "application/json",
         "Accept": "application/json",
       },
-      // Accept self-signed certificates (common in FileMaker Server)
+      // Configure SSL certificate verification
+      // verifySsl defaults to true for production security
+      // Set to false for self-signed certificates (development/local networks)
       httpsAgent: new https.Agent({
-        rejectUnauthorized: false,
+        rejectUnauthorized: config.verifySsl !== false, // true by default
       }),
     });
 

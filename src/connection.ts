@@ -17,12 +17,14 @@ export class ConnectionManager {
   /**
    * Create an OData client from a connection configuration
    */
-  private createClient(connection: Connection): ODataClient {
+  private createClient(connection: Connection, verifySsl?: boolean, timeout?: number): ODataClient {
     const config: ODataClientConfig = {
       server: connection.server,
       database: connection.database,
       user: connection.user,
       password: connection.password,
+      verifySsl: verifySsl,
+      timeout: timeout,
     };
 
     return new ODataClient(config);
@@ -31,7 +33,7 @@ export class ConnectionManager {
   /**
    * Get or create a client for a connection
    */
-  getClient(connectionName: string): ODataClient {
+  getClient(connectionName: string, verifySsl?: boolean, timeout?: number): ODataClient {
     // Check if we already have a client for this connection
     if (this.clients.has(connectionName)) {
       return this.clients.get(connectionName)!;
@@ -44,7 +46,7 @@ export class ConnectionManager {
     }
 
     // Create and cache the client
-    const client = this.createClient(connection);
+    const client = this.createClient(connection, verifySsl, timeout);
     this.clients.set(connectionName, client);
     this.currentConnectionName = connectionName;
 
@@ -55,8 +57,8 @@ export class ConnectionManager {
   /**
    * Create a client with inline credentials (temporary, not saved)
    */
-  createInlineClient(connection: Connection): ODataClient {
-    const client = this.createClient(connection);
+  createInlineClient(connection: Connection, verifySsl?: boolean, timeout?: number): ODataClient {
+    const client = this.createClient(connection, verifySsl, timeout);
     
     // Store with a unique temporary name
     const tempName = `inline_${Date.now()}`;

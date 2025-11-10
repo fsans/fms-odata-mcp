@@ -113,6 +113,9 @@ export async function handleConnectionTool(name: string, args: any): Promise<any
 
 // Connection Tool Handlers
 async function handleConnect(args: any) {
+  const { getConfig } = await import("../config.js");
+  const config = getConfig();
+  
   const connection: Connection = {
     server: args.server,
     database: args.database,
@@ -120,7 +123,11 @@ async function handleConnect(args: any) {
     password: args.password,
   };
 
-  const client = connectionManager.createInlineClient(connection);
+  const client = connectionManager.createInlineClient(
+    connection, 
+    config.filemaker.verifySsl, 
+    config.filemaker.timeout
+  );
   
   // Test the connection
   const isConnected = await client.testConnection();

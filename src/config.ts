@@ -14,6 +14,8 @@ export interface FileMakerConfig {
   database: string;
   user: string;
   password?: string;
+  verifySsl?: boolean;
+  timeout?: number;
 }
 
 export interface SecurityConfig {
@@ -123,6 +125,10 @@ export function getConfig(): AppConfig {
       database: process.env.FM_DATABASE || fileConfig.filemaker?.database || "",
       user: process.env.FM_USER || fileConfig.filemaker?.user || "",
       password: process.env.FM_PASSWORD || fileConfig.filemaker?.password,
+      verifySsl: process.env.FM_VERIFY_SSL 
+        ? process.env.FM_VERIFY_SSL.toLowerCase() === "true"
+        : fileConfig.filemaker?.verifySsl !== false, // Default to true
+      timeout: parseInt(process.env.FM_TIMEOUT || String(fileConfig.filemaker?.timeout || 30000), 10),
     },
     security: {
       certPath: process.env.MCP_CERT_PATH || fileConfig.security?.certPath,

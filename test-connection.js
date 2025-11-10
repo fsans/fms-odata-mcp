@@ -13,6 +13,7 @@ const config = {
   database: 'Contacts',
   user: 'admin',
   password: '***REMOVED***',
+  verifySsl: false, // Allow self-signed certificates
   timeout: 30000,
 };
 
