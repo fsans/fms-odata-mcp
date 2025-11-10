@@ -40,24 +40,27 @@ v0.1.5-BETA → Testing
 v0.2.0 → Next stable release
 ```
 
-## Current Version: v0.0.3-BETA
+## Current Version: v0.1.1 (First Stable Release)
 
 ### Completed Features
 - ✅ Core infrastructure (config, transport, logger)
-- ✅ OData Client Layer with Basic Auth
-- ✅ Connection Manager
+- ✅ OData Client Layer with HTTPS and self-signed certificate support
+- ✅ Connection Manager with multi-connection support
 - ✅ Response Parser
-- ✅ MCP Tools implementation (19 tools)
+- ✅ 19 MCP Tools fully implemented
 - ✅ Tool handlers integration
-- ✅ Testing guide
+- ✅ Testing guide and Claude Desktop setup
+- ✅ Connection tested and verified working
+- ✅ Production ready
 
-### Upcoming for v0.0.5-BETA
+### Upcoming for v0.3.1
 - CLI implementation
+- Interactive setup wizard
 - Configuration commands
 
-### Upcoming for v0.0.5-BETA
-- CLI implementation
-- Configuration commands
+### Previous Beta Versions
+- v0.0.1-BETA → Initial OData client layer
+- v0.0.3-BETA → Tools implementation
 
 ### Upcoming for v0.0.7-BETA
 - Comprehensive testing
