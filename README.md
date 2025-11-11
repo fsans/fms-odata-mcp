@@ -1,6 +1,6 @@
 # FileMaker Server OData MCP
 
-[![npm version](https://img.shields.io/npm/v/fms-odata-mcp.svg)](https://www.npmjs.com/package/fms-odata-mcp)
+[![npm version](https://img.shields.io/npm/v/filemaker-odata-mcp.svg)](https://www.npmjs.com/package/filemaker-odata-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
@@ -20,7 +20,7 @@ Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API in
 
 ```bash
 # Via NPM (recommended)
-npm install -g fms-odata-mcp
+npm install -g filemaker-odata-mcp
 
 # Or local development
 git clone https://github.com/fsans/FMS-ODATA-MCP.git
@@ -42,7 +42,7 @@ npm run build
   "mcpServers": {
     "filemaker": {
       "command": "npx",
-      "args": ["-y", "fms-odata-mcp"],
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
         "FM_DATABASE": "YourDatabase",
