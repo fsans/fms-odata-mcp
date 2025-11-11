@@ -31,6 +31,15 @@ FileMaker Server exposes databases through an OData 4.01 compliant RESTful API t
 - Complex type support
 - Collection support
 
+## Quick Start
+
+**New to this project? Start here:**
+
+1. **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - One-page setup guide (start here!)
+2. **[CLAUDE_DESKTOP_SETUP.md](CLAUDE_DESKTOP_SETUP.md)** - Detailed Claude Desktop configuration
+3. **[WINDSURF_SETUP.md](WINDSURF_SETUP.md)** - Detailed Windsurf configuration
+4. **[CLAUDE_DESKTOP_PROMPTS.md](CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt examples and usage
+
 ## Architecture Plan
 
 ### MCP Server Components

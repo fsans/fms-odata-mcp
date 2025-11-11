@@ -155,7 +155,11 @@ async function handleConnect(args: any) {
 }
 
 async function handleSetConnection(args: any) {
-  connectionManager.setCurrentConnection(args.name);
+  const { getConfig } = await import("../config.js");
+  const config = getConfig();
+  
+  // Pass verifySsl and timeout from global config
+  connectionManager.setCurrentConnection(args.name, config.filemaker.verifySsl, config.filemaker.timeout);
   
   // Test the connection
   const isConnected = await connectionManager.testConnection(args.name);

@@ -25,6 +25,7 @@ The configuration file location depends on your OS:
 
 Open the file in a text editor and add this configuration:
 
+**For Development/Testing (Self-Signed Certificates):**
 ```json
 {
   "mcpServers": {
@@ -37,7 +38,29 @@ Open the file in a text editor and add this configuration:
         "FM_SERVER": "https://192.168.0.24",
         "FM_DATABASE": "Contacts",
         "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***"
+        "FM_PASSWORD": "***REMOVED***",
+        "FM_VERIFY_SSL": "false"
+      }
+    }
+  }
+}
+```
+
+**For Production (Valid SSL Certificates):**
+```json
+{
+  "mcpServers": {
+    "filemaker-odata": {
+      "command": "node",
+      "args": [
+        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+      ],
+      "env": {
+        "FM_SERVER": "https://filemaker.company.com",
+        "FM_DATABASE": "Production",
+        "FM_USER": "api_user",
+        "FM_PASSWORD": "secure_password",
+        "FM_VERIFY_SSL": "true"
       }
     }
   }
@@ -46,8 +69,24 @@ Open the file in a text editor and add this configuration:
 
 **Important Notes:**
 - Replace `/Users/fsans/Desktop/FMS-ODATA-MCP` with your actual path if different
-- Make sure to use HTTPS (not HTTP)
+- Use HTTPS (not HTTP) for FileMaker Server URLs
+- Set `FM_VERIFY_SSL` to `"false"` only for development/testing with self-signed certificates
+- Set `FM_VERIFY_SSL` to `"true"` (or omit it) for production with valid SSL certificates
 - If you already have other MCP servers configured, just add the "filemaker-odata" section inside the existing "mcpServers" object
+
+### SSL Configuration Guide
+
+**When to use `FM_VERIFY_SSL: "false"`:**
+- Local development with self-signed certificates
+- Testing environments
+- Internal networks without proper SSL setup
+
+**When to use `FM_VERIFY_SSL: "true"` (or omit):**
+- Production environments
+- Public-facing servers
+- Any server with valid, trusted SSL certificates
+
+**Security Warning:** Disabling SSL verification (`"false"`) makes connections vulnerable to man-in-the-middle attacks. Only use this in trusted, isolated environments.
 
 ### Step 3: Build the Project (if not done)
 
@@ -188,6 +227,7 @@ Should output formatted JSON without errors.
 
 Here's a complete example of what your `claude_desktop_config.json` should look like:
 
+**Development/Testing (with self-signed certificates):**
 ```json
 {
   "mcpServers": {
@@ -201,6 +241,7 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
         "FM_DATABASE": "Contacts",
         "FM_USER": "admin",
         "FM_PASSWORD": "***REMOVED***",
+        "FM_VERIFY_SSL": "false",
         "DEBUG": "fms-odata-mcp:*"
       }
     }
@@ -208,7 +249,29 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
 }
 ```
 
-The `DEBUG` line is optional but helpful for troubleshooting.
+**Production (with valid SSL certificates):**
+```json
+{
+  "mcpServers": {
+    "filemaker-odata": {
+      "command": "node",
+      "args": [
+        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+      ],
+      "env": {
+        "FM_SERVER": "https://filemaker.company.com",
+        "FM_DATABASE": "Production",
+        "FM_USER": "api_user",
+        "FM_PASSWORD": "secure_password",
+        "FM_VERIFY_SSL": "true",
+        "DEBUG": "fms-odata-mcp:*"
+      }
+    }
+  }
+}
+```
+
+**Note:** The `DEBUG` line is optional but helpful for troubleshooting. The `FM_VERIFY_SSL` setting is critical - use `"false"` only for development/testing with self-signed certificates.
 
 ## What to Tell Claude
 

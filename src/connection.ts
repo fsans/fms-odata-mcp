@@ -95,13 +95,13 @@ export class ConnectionManager {
   /**
    * Set the current connection
    */
-  setCurrentConnection(connectionName: string): void {
+  setCurrentConnection(connectionName: string, verifySsl?: boolean, timeout?: number): void {
     const connection = getConnection(connectionName);
     if (!connection) {
       throw new Error(`Connection "${connectionName}" not found`);
     }
 
-    this.getClient(connectionName);
+    this.getClient(connectionName, verifySsl, timeout);
     this.currentConnectionName = connectionName;
     logger.info(`Switched to connection: ${connectionName}`);
   }
