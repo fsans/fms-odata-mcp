@@ -45,7 +45,14 @@ export class ODataClient {
 
   constructor(config: ODataClientConfig) {
     this.config = config;
-    this.baseUrl = `${config.server}/fmi/odata/v4/${config.database}`;
+    // Check if server URL already includes the OData path
+    if (config.server.endsWith('/fmi/odata/v4')) {
+      this.baseUrl = `${config.server}/${config.database}`;
+    } else {
+      this.baseUrl = `${config.server}/fmi/odata/v4/${config.database}`;
+    }
+    
+    logger.debug(`OData Client initialized with baseUrl: ${this.baseUrl}`);
 
     this.axiosInstance = axios.create({
       timeout: config.timeout || 30000,

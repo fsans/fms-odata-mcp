@@ -28,6 +28,10 @@ export const connectionTools = [
           type: "string",
           description: "Password",
         },
+        verifySsl: {
+          type: "boolean",
+          description: "Verify SSL certificate (default: true)",
+        },
       },
       required: ["server", "database", "user", "password"],
     },
@@ -121,11 +125,12 @@ async function handleConnect(args: any) {
     database: args.database,
     user: args.user,
     password: args.password,
+    verifySsl: args.verifySsl !== undefined ? args.verifySsl : config.filemaker.verifySsl,
   };
 
   const client = connectionManager.createInlineClient(
     connection, 
-    config.filemaker.verifySsl, 
+    connection.verifySsl, 
     config.filemaker.timeout
   );
   
@@ -155,11 +160,28 @@ async function handleConnect(args: any) {
 }
 
 async function handleSetConnection(args: any) {
-  const { getConfig } = await import("../config.js");
+  const { getConfig, getConnection } = await import("../config.js");
   const config = getConfig();
   
-  // Pass verifySsl and timeout from global config
-  connectionManager.setCurrentConnection(args.name, config.filemaker.verifySsl, config.filemaker.timeout);
+  const connection = getConnection(args.name);
+  if (!connection) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Connection "${args.name}" not found`,
+        },
+      ],
+      isError: true,
+    };
+  }
+  
+  // Use verifySsl from the connection config, fallback to global config
+  connectionManager.setCurrentConnection(
+    args.name, 
+    connection.verifySsl !== undefined ? connection.verifySsl : config.filemaker.verifySsl, 
+    config.filemaker.timeout
+  );
   
   // Test the connection
   const isConnected = await connectionManager.testConnection(args.name);

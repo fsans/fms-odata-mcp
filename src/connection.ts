@@ -23,7 +23,7 @@ export class ConnectionManager {
       database: connection.database,
       user: connection.user,
       password: connection.password,
-      verifySsl: verifySsl,
+      verifySsl: verifySsl !== undefined ? verifySsl : connection.verifySsl,
       timeout: timeout,
     };
 

@@ -17,7 +17,7 @@ import { allTools, handleToolCall } from "./tools/index.js";
 /**
  * Main server class
  */
-class FileMakerODataServer {
+export class FileMakerODataServer {
   private server: Server;
 
   constructor() {

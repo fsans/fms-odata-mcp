@@ -29,6 +29,7 @@ export interface Connection {
   database: string;
   user: string;
   password: string;
+  verifySsl?: boolean;
 }
 
 export interface AppConfig {
