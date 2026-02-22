@@ -2,6 +2,9 @@
 
 [![npm version](https://img.shields.io/npm/v/filemaker-odata-mcp.svg)](https://www.npmjs.com/package/filemaker-odata-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker Pulls](https://img.shields.io/docker/pulls/fsans/filemaker-odata-mcp)](https://hub.docker.com/r/fsans/filemaker-odata-mcp)
+[![Docker Image Size](https://img.shields.io/docker/image-size/fsans/filemaker-odata-mcp)](https://hub.docker.com/r/fsans/filemaker-odata-mcp)
+[![Docker Stars](https://img.shields.io/docker/stars/fsans/filemaker-odata-mcp)](https://hub.docker.com/r/fsans/filemaker-odata-mcp)
 
 Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration
 for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
