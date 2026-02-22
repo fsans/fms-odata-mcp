@@ -1,6 +1,6 @@
 {
   "name": "filemaker-odata-mcp",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration with database introspection for AI agents. Compatible with Claude, Windsurf, Cursor, Cline, and other MCP-enabled assistants.",
   "type": "module",
   "main": "dist/index.js",
@@ -20,7 +20,11 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "docker:build": "docker build -t filemaker-odata-mcp:local .",
+    "docker:run": "docker run -d --name filemaker-odata-mcp -p 3333:3333 filemaker-odata-mcp:local",
+    "docker:stop": "docker stop filemaker-odata-mcp && docker rm filemaker-odata-mcp",
+    "docker:test": "./test-docker.sh"
   },
   "keywords": [
     "mcp",

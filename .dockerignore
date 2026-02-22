@@ -1,0 +1,47 @@
+# Node modules
+node_modules
+npm-debug.log*
+
+# Source code
+src
+tsconfig.json
+*.ts
+*.js.map
+
+# Development files
+dev_stuf
+test
+*.test.js
+.coverage
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+!LICENSE
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Config files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Build artifacts (keep dist for Docker)
+# dist
+!dist/bin/cli.js
