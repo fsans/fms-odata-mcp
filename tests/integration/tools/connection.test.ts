@@ -155,6 +155,30 @@ describe("Connection Tools", () => {
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain("Connection not found");
       });
+
+      it("should ensure getCurrentClient returns client after set_connection", async () => {
+        const mockClient = {
+          testConnection: jest.fn(() => Promise.resolve(true)),
+        };
+        
+        // Mock getClient to return a client
+        (connectionManager.getClient as jest.Mock).mockReturnValue(mockClient);
+        
+        // Mock getCurrentClient to initially return null
+        (connectionManager.getCurrentClient as jest.Mock).mockReturnValue(null);
+
+        const result = await handleConnectionTool("fm_odata_set_connection", {
+          name: "test-connection",
+        });
+
+        expect(connectionManager.setCurrentConnection).toHaveBeenCalledWith(
+          "test-connection",
+          false,
+          30000
+        );
+
+        expect(result.content[0].text).toContain("Switched to connection: test-connection");
+      });
     });
 
     describe("fm_odata_list_connections", () => {

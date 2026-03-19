@@ -38,6 +38,10 @@ export const configurationTools = [
           type: "string",
           description: "Password",
         },
+        verifySsl: {
+          type: "boolean",
+          description: "Verify SSL certificate (default: true)",
+        },
       },
       required: ["name", "server", "database", "user", "password"],
     },
@@ -150,13 +154,14 @@ async function handleAddConnection(args: any) {
     database: args.database,
     user: args.user,
     password: args.password,
+    verifySsl: args.verifySsl !== undefined ? args.verifySsl : true,
   });
 
   return {
     content: [
       {
         type: "text",
-        text: `Connection "${args.name}" added successfully.\nServer: ${args.server}\nDatabase: ${args.database}\nUser: ${args.user}`,
+        text: `Connection "${args.name}" added successfully.\nServer: ${args.server}\nDatabase: ${args.database}\nUser: ${args.user}\nSSL Verification: ${args.verifySsl !== undefined ? args.verifySsl : true}`,
       },
     ],
   };
@@ -193,7 +198,8 @@ async function handleListConnections() {
   const list = connections
     .map((conn) => {
       const isDefault = conn.name === defaultName ? " (default)" : "";
-      return `- ${conn.name}${isDefault}: ${conn.server}/${conn.database} (user: ${conn.user})`;
+      const sslStatus = conn.verifySsl !== false ? "SSL:✓" : "SSL:✗";
+      return `- ${conn.name}${isDefault}: ${conn.server}/${conn.database} (user: ${conn.user}) [${sslStatus}]`;
     })
     .join("\n");
 
@@ -228,7 +234,7 @@ async function handleGetConnection(args: any) {
     content: [
       {
         type: "text",
-        text: `Connection: ${connection.name}${isDefault}\nServer: ${connection.server}\nDatabase: ${connection.database}\nUser: ${connection.user}\nPassword: ******`,
+        text: `Connection: ${connection.name}${isDefault}\nServer: ${connection.server}\nDatabase: ${connection.database}\nUser: ${connection.user}\nPassword: ******\nSSL Verification: ${connection.verifySsl !== false ? true : false}`,
       },
     ],
   };

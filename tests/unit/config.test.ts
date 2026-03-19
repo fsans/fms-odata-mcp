@@ -222,6 +222,25 @@ describe('Config Module', () => {
       expect(saved).toEqual({ ...connection, name: 'test-conn' });
     });
 
+    test('should add a connection with verifySsl setting', () => {
+      const connection = {
+        server: 'https://test.com',
+        database: 'TestDB',
+        user: 'admin',
+        password: 'password',
+        verifySsl: false,
+      };
+
+      expect(() => {
+        addConnection('test-conn-ssl', connection);
+      }).not.toThrow();
+
+      const saved = getConnection('test-conn-ssl');
+      expect(saved).toBeTruthy();
+      expect(saved).toEqual({ ...connection, name: 'test-conn-ssl' });
+      expect(saved!.verifySsl).toBe(false);
+    });
+
     test('should not allow duplicate connection names', () => {
       const connection = {
         server: 'https://test.com',

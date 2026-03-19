@@ -82,7 +82,15 @@ export class ConnectionManager {
       return null;
     }
 
-    return this.clients.get(this.currentConnectionName) || null;
+    // Always try to get/create the client for the current connection
+    // This ensures the client exists even if it was removed from cache
+    try {
+      return this.getClient(this.currentConnectionName);
+    } catch (error) {
+      // If connection not found, clear the current connection name
+      this.currentConnectionName = undefined;
+      return null;
+    }
   }
 
   /**
