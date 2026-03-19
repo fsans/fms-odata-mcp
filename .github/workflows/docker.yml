@@ -36,6 +36,8 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        platforms: linux/amd64,linux/arm64
 
     - name: Set lowercase image name
       run: echo "LOWERCASE_IMAGE_NAME=${{ github.repository_owner }}/$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
@@ -67,6 +69,7 @@ jobs:
       with:
         context: .
         push: ${{ github.event_name != 'pull_request' }}
+        platforms: linux/amd64,linux/arm64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
@@ -79,12 +82,14 @@ jobs:
       with:
         context: .
         push: ${{ github.event_name != 'pull_request' }}
+        platforms: linux/amd64,linux/arm64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
 
     - name: Test Docker image
       run: |
         docker run -d --name test-container \
+          --platform linux/amd64 \
           -e MCP_TRANSPORT=http \
           -e MCP_PORT=3333 \
           -p 3333:3333 \
