@@ -4,8 +4,8 @@
  * Quick test script to verify connectivity and basic operations
  */
 
-import { ODataClient } from './dist/odata-client.js';
-import { ODataParser } from './dist/odata-parser.js';
+import { ODataClient } from '../dist/odata-client.js';
+import { ODataParser } from '../dist/odata-parser.js';
 
 // Test configuration
 const config = {
