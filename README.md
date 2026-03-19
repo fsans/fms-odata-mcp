@@ -173,8 +173,11 @@ const response = await fetch('http://localhost:3333/mcp', {
 #### Option A: Using Docker Run
 
 ```bash
-# Pull the image
-docker pull ghcr.io/fsans/filemaker-odata-mcp:latest
+# Clone and build
+git clone https://github.com/fsans/FMS-ODATA-MCP.git
+cd FMS-ODATA-MCP
+npm run build
+docker build -t filemaker-odata-mcp:latest .
 
 # Run the container
 docker run -d \
