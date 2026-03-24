@@ -1,6 +1,6 @@
 # NPM Publishing Guide
 
-This guide walks through the process of publishing the `fms-odata-mcp` package to NPM.
+This guide walks through the process of publishing the `filemaker-odata-mcp` package to NPM.
 
 ## Prerequisites
 
@@ -37,23 +37,24 @@ ls -la dist/
 ```
 
 **Expected Results:**
-- ✅ All 65 unit tests passing
+- ✅ All unit tests passing
 - ✅ Core functionality has 80%+ coverage
 - ✅ Clean build with no TypeScript errors
 - ✅ `dist/` directory contains compiled JavaScript
 
 ### 2. Update Version Number
 
-The current version is `0.1.2`. For the first stable release:
+The current version is `0.2.6`. To bump the version:
 
 ```bash
-# Update to v1.0.0 for first stable release
-npm version 1.0.0 --no-git-tag-version
+# For a patch release (bug fixes)
+npm version patch  # e.g., 0.2.6 -> 0.2.7
 
-# Or for a minor update
-npm version patch  # 0.1.2 -> 0.1.3
-npm version minor  # 0.1.2 -> 0.2.0
-npm version major  # 0.1.2 -> 1.0.0
+# For a minor release (new features)
+npm version minor  # e.g., 0.2.6 -> 0.3.0
+
+# For a major release
+npm version major  # e.g., 0.2.6 -> 1.0.0
 ```
 
 ### 3. Review package.json
@@ -62,8 +63,8 @@ Ensure these fields are correct:
 
 ```json
 {
-  "name": "fms-odata-mcp",
-  "version": "1.0.0",
+  "name": "filemaker-odata-mcp",
+  "version": "0.2.6",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration",
   "author": "Francesc Sans <fsans@ntwk.es>",
   "license": "MIT",
@@ -101,11 +102,11 @@ Ensure these fields are correct:
 npm pack
 
 # Extract and inspect
-tar -xzf fms-odata-mcp-*.tgz
+tar -xzf filemaker-odata-mcp-*.tgz
 ls -la package/
 
 # Clean up
-rm -rf package/ fms-odata-mcp-*.tgz
+rm -rf package/ filemaker-odata-mcp-*.tgz
 ```
 
 **Verify the package includes:**
@@ -118,11 +119,13 @@ rm -rf package/ fms-odata-mcp-*.tgz
 
 ## Publishing Steps
 
-### Option 1: Publish Stable Release (v1.0.0)
+### Option 1: Publish a New Patch/Minor/Major Release
 
 ```bash
-# 1. Update version
-npm version 1.0.0 --no-git-tag-version
+# 1. Bump version (choose one)
+npm version patch   # bug fixes
+npm version minor   # new features
+npm version major   # breaking changes
 
 # 2. Build
 npm run build
@@ -133,14 +136,8 @@ npm test
 # 4. Publish to NPM
 npm publish
 
-# 5. Create git tag
-git add package.json
-git commit -m "Release v1.0.0"
-git tag -a v1.0.0 -m "Release v1.0.0 - First stable release"
-
-# 6. Push to GitHub (once repo is created)
-git push origin master
-git push origin v1.0.0
+# 5. Push tag to GitHub
+git push origin main --tags
 ```
 
 ### Option 2: Publish Beta/RC Version
@@ -149,11 +146,11 @@ For testing before stable release:
 
 ```bash
 # Publish as beta
-npm version 1.0.0-beta.1
+npm version 0.3.0-beta.1
 npm publish --tag beta
 
 # Users install with:
-# npm install fms-odata-mcp@beta
+# npm install filemaker-odata-mcp@beta
 ```
 
 ### Option 3: Publish with Dry Run
@@ -170,16 +167,16 @@ npm publish --dry-run
 
 ```bash
 # Check on NPM
-npm view fms-odata-mcp
+npm view filemaker-odata-mcp
 
 # Install in a test project
 mkdir test-install
 cd test-install
 npm init -y
-npm install fms-odata-mcp
+npm install filemaker-odata-mcp
 
-# Test the installation
-node -e "const mcp = require('fms-odata-mcp'); console.log('Success!');"
+# Test via npx
+npx filemaker-odata-mcp --help
 ```
 
 ### 2. Update Documentation
@@ -201,33 +198,36 @@ Once the GitHub repository is created:
 ## Features
 - MCP server for FileMaker Server OData 4.01 API
 - 19 tools for database introspection and CRUD operations
-- Connection management with SSL support
-- Comprehensive documentation and examples
+- HTTP/HTTPS transport for standalone server mode
+- Docker deployment support
+- Connection management with saved/default connections
+- SSL support for self-signed certificates
 
 ## Installation
 \`\`\`bash
-npm install fms-odata-mcp
+npm install -g filemaker-odata-mcp
+# or via npx (no install needed)
+npx filemaker-odata-mcp
 \`\`\`
 
 ## Documentation
-- [Quick Start](./QUICK_START_TEST.md)
-- [Claude Desktop Setup](./CLAUDE_DESKTOP_SETUP.md)
-- [Prompt Reference](./CLAUDE_DESKTOP_PROMPTS.md)
+- [Quick Start](./dev_stuf/QUICK_START_TEST.md)
+- [Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)
+- [Prompt Reference](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)
 ```
 
 ## Troubleshooting
 
-### "Package name taken"
+### Package is already published
 
-The package name `fms-odata-mcp` may already be taken. Check availability:
+The package `filemaker-odata-mcp` is already live on NPM. Check current state:
 
 ```bash
-npm view fms-odata-mcp
+npm view filemaker-odata-mcp
 ```
 
-If taken, consider alternative names:
-- `filemaker-odata-mcp`
-- `@your-username/fms-odata-mcp` (scoped package)
+For scoped alternatives if needed:
+- `@your-username/filemaker-odata-mcp`
 
 ### "Need to authenticate"
 

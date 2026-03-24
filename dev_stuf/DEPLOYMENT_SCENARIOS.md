@@ -37,10 +37,10 @@ This is how the MCP server communicates with FileMaker Server.
       "args": ["/path/to/FMS-ODATA-MCP/dist/index.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false"
       }
     }
@@ -73,9 +73,9 @@ export MCP_TRANSPORT=http
 export MCP_PORT=3000
 export MCP_HOST=0.0.0.0
 export FM_SERVER=https://filemaker.company.com
-export FM_DATABASE=CRM
-export FM_USER=api_user
-export FM_PASSWORD=secure_password
+export FM_DATABASE=${FM_DATABASE}
+export FM_USER=${FM_USER}
+export FM_PASSWORD=${FM_PASSWORD}
 export FM_VERIFY_SSL=true
 
 node dist/index.js
@@ -139,13 +139,15 @@ node dist/index.js
 
 **Setup:**
 ```
-[Claude Desktop] --stdio--> [fms-odata-mcp] --HTTPS--> [FileMaker Server]
-                           (npm global)             (any server)
+[Claude Desktop] --stdio--> [filemaker-odata-mcp] --HTTPS--> [FileMaker Server]
+                             (npm global / npx)           (any server)
 ```
 
 **Installation:**
 ```bash
-npm install -g fms-odata-mcp
+npm install -g filemaker-odata-mcp
+# or use npx without installing:
+npx filemaker-odata-mcp
 ```
 
 **Configuration:**
@@ -153,7 +155,8 @@ npm install -g fms-odata-mcp
 {
   "mcpServers": {
     "filemaker": {
-      "command": "fms-odata-mcp",
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
         "FM_DATABASE": "Contacts",
@@ -182,7 +185,7 @@ Controls how AI assistants connect to the MCP server:
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
 | `MCP_TRANSPORT` | stdio, http, https | stdio | How clients connect to MCP server |
-| `MCP_PORT` | 1-65535 | 3000 | Port for HTTP/HTTPS transport |
+| `MCP_PORT` | 1-65535 | 3333 | Port for HTTP/HTTPS transport |
 | `MCP_HOST` | hostname/IP | localhost | Bind address for HTTP/HTTPS |
 | `MCP_CERT_PATH` | file path | - | Certificate for HTTPS transport |
 | `MCP_KEY_PATH` | file path | - | Private key for HTTPS transport |
@@ -254,7 +257,7 @@ FM_VERIFY_SSL=true   # Require valid certificates
 - ✓ Check FileMaker Server is running
 - ✓ Verify you're using HTTPS (not HTTP)
 - ✓ Set `FM_VERIFY_SSL=false` for self-signed certs
-- ✓ Test: `curl -k https://192.168.0.24/fmi/odata/v4/YourDatabase`
+- ✓ Test: `curl -k https://your-filemaker-server.com/fmi/odata/v4/YourDatabase`
 
 ### Scenario 2 Issues (HTTP MCP Server)
 
@@ -273,9 +276,9 @@ FM_VERIFY_SSL=true   # Require valid certificates
 ### Scenario 4 Issues (NPM Global)
 
 **Problem:** "Command not found"
-- ✓ Check npm global path: `npm list -g fms-odata-mcp`
-- ✓ Verify PATH includes npm global bin
-- ✓ Reinstall: `npm install -g fms-odata-mcp`
+- ✓ Use `npx -y filemaker-odata-mcp` instead of a global install
+- ✓ Or reinstall: `npm install -g filemaker-odata-mcp`
+- ✓ Verify PATH includes npm global bin: `npm list -g filemaker-odata-mcp`
 
 ---
 

@@ -12,14 +12,15 @@
 ```json
 {
   "mcpServers": {
-    "fms-odata-local": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+    "filemaker-odata": {
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
-        "FM_SERVER": "http://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "fsans",
-        "FM_PASSWORD": "***REMOVED***"
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
+        "FM_VERIFY_SSL": "false"
       }
     }
   }
@@ -32,16 +33,13 @@
 
 Just start the server and connect via tool call (Step 3 below).
 
-## Step 2: Build and Verify
+## Step 2: Verify Server is Accessible
 
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-npm run build
+npx filemaker-odata-mcp --help
 ```
 
-**Expected output:**
-- No TypeScript errors
-- Files compiled to `dist/` directory
+**Expected output:** Help text listing available options and environment variables.
 
 ## Step 3: Test in Cline/Windsurf
 
@@ -50,10 +48,10 @@ npm run build
 **What to ask Cline:**
 ```
 Connect to my FileMaker Server:
-- Server: http://192.168.0.24
-- Database: Contacts
-- User: fsans
-- Password: ***REMOVED***
+- Server: https://your-filemaker-server.com
+- Database: YourDatabase
+- User: your-username
+- Password: your-password
 ```
 
 **What should happen:**
@@ -198,7 +196,7 @@ To see detailed logs:
 
 ```bash
 export DEBUG=fms-odata-mcp:*
-npm start
+npx filemaker-odata-mcp
 ```
 
 This will show all internal operations and help identify issues.
@@ -209,8 +207,7 @@ If Cline integration isn't working, test the server directly:
 
 ```bash
 # In one terminal, start the server
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-npm start
+npx filemaker-odata-mcp
 
 # The server is now running on stdio, waiting for MCP requests
 ```

@@ -4,10 +4,21 @@
 
 ---
 
-## 1. BUILD THE SERVER
+## 1. INSTALL THE SERVER
+
+### Option A: NPM (Recommended - no build needed)
 
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
+npm install -g filemaker-odata-mcp
+# or use directly without installing:
+npx filemaker-odata-mcp
+```
+
+### Option B: Build from Source
+
+```bash
+git clone https://github.com/fsans/FMS-ODATA-MCP.git
+cd FMS-ODATA-MCP
 npm install
 npm run build
 ```
@@ -23,18 +34,18 @@ npm run build
 ~/Library/Application Support/Claude/claude_desktop_config.json
 ```
 
-**Add This Configuration:**
+**Add This Configuration (using npx):**
 ```json
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false"
       }
     }
@@ -55,18 +66,18 @@ npm run build
 ~/.codeium/windsurf/mcp_server_config.json
 ```
 
-**Add This Configuration:**
+**Add This Configuration (using npx):**
 ```json
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false"
       }
     }
@@ -97,17 +108,14 @@ npm run build
 
 ## 4. TEST CONNECTION
 
+**Via curl:**
+
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-node test-connection.js
+curl -k -u your-username:your-password \
+  https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
 ```
 
-**Expected output:**
-```
-✓ Connection successful
-✓ 15 tables discovered
-✓ 99 contact records accessible
-```
+**Expected output:** JSON listing available entity sets.
 
 ---
 
@@ -115,15 +123,15 @@ node test-connection.js
 
 **Test URL:**
 ```
-GET https://192.168.0.24/fmi/odata/v4/Contacts
+GET https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
 ```
 
 **Authorization:**
 - Type: Basic Auth
-- Username: admin
-- Password: ***REMOVED***
+- Username: `your-username`
+- Password: `your-password`
 
-**Expected:** JSON listing all available tables
+**Expected:** JSON listing all available entity sets
 
 ---
 
@@ -171,11 +179,14 @@ Find all contacts where LastName is 'Smith'
 
 | Variable | Required | Example | Description |
 |----------|----------|---------|-------------|
-| `FM_SERVER` | Yes | `https://192.168.0.24` | Server URL (must be HTTPS) |
-| `FM_DATABASE` | Yes | `Contacts` | Database name |
-| `FM_USER` | Yes | `admin` | Username |
-| `FM_PASSWORD` | Yes | `***REMOVED***` | Password |
-| `FM_VERIFY_SSL` | No | `false` or `true` | Verify SSL (default: true) |
+| `FM_SERVER` | Yes | `https://fms.example.com` | FileMaker Server URL |
+| `FM_DATABASE` | Yes | `YourDatabase` | Database name |
+| `FM_USER` | Yes | `your-username` | Username |
+| `FM_PASSWORD` | Yes | `your-password` | Password |
+| `FM_VERIFY_SSL` | No | `false` or `true` | Verify SSL (default: `true`) |
+| `FM_TIMEOUT` | No | `30000` | Request timeout in ms |
+| `MCP_TRANSPORT` | No | `stdio`, `http`, `https` | Transport mode (default: `stdio`) |
+| `MCP_PORT` | No | `3333` | Port for HTTP/HTTPS mode |
 | `DEBUG` | No | `fms-odata-mcp:*` | Enable debug logging |
 
 ---
@@ -196,17 +207,20 @@ Find all contacts where LastName is 'Smith'
 - Add/Remove connections
 - Set default connection
 
-**Full tool reference:** See `CLAUDE_DESKTOP_PROMPTS.md` Section 12
+**Full tool reference:** See `CLAUDE_DESKTOP_PROMPTS.md`
+
+**Docker / HTTP server:** See `../DOCKER.md`
 
 ---
 
 ## DOCUMENTATION MAP
 
-- **QUICK_REFERENCE.md** ← You are here (start here!)
+- **QUICK_REFERENCE.md** - You are here (start here!)
 - **CLAUDE_DESKTOP_SETUP.md** - Detailed Claude Desktop setup
 - **WINDSURF_SETUP.md** - Detailed Windsurf setup
 - **CLAUDE_DESKTOP_PROMPTS.md** - Complete prompt examples & usage guide
 - **README.md** - Project overview
+- **DOCKER.md** - Docker and HTTP server deployment
 - **TESTING_GUIDE.md** - Testing procedures
 
 ---
@@ -225,10 +239,10 @@ Find all contacts where LastName is 'Smith'
 
 ## NEED HELP?
 
-1. **Run diagnostics:** `node test-connection.js`
-2. **Check logs:** Enable `DEBUG: "fms-odata-mcp:*"`
-3. **Verify build:** `ls -la dist/index.js`
-4. **Test manually:** `curl -k -u user:pass https://server/fmi/odata/v4/database`
+1. **Check logs:** Enable `DEBUG: "fms-odata-mcp:*"` in your MCP env config
+2. **Verify npx works:** `npx filemaker-odata-mcp --help`
+3. **Test FileMaker directly:** `curl -k -u user:pass https://server/fmi/odata/v4/database`
+4. **Docker option:** See `../DOCKER.md` for containerized deployment
 
 ---
 

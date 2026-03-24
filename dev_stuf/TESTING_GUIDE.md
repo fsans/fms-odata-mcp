@@ -25,7 +25,7 @@
 ### Step 1: Start the Server
 
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
+cd /Users/fsans/Documents/GitHub/FMS-ODATA-MCP
 npm run build
 npm start
 ```
@@ -42,14 +42,15 @@ Add to your MCP settings (`~/.config/Windsurf/User/globalStorage/saoudrizwan.cla
 ```json
 {
   "mcpServers": {
-    "fms-odata": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+    "filemaker-odata": {
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
-        "FM_SERVER": "http://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "fsans",
-        "FM_PASSWORD": "***REMOVED***"
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
+        "FM_VERIFY_SSL": "false"
       }
     }
   }
@@ -61,15 +62,15 @@ Add to your MCP settings (`~/.config/Windsurf/User/globalStorage/saoudrizwan.cla
 ### Test 1: Connection
 ```
 Ask Cline: "Connect to the FileMaker Server using these credentials:
-- Server: http://192.168.0.24
-- Database: Contacts
-- User: fsans
-- Password: ***REMOVED***"
+- Server: https://your-filemaker-server.com
+- Database: YourDatabase
+- User: your-username
+- Password: your-password"
 ```
 
 **Expected Tool Call**: `fm_odata_connect`
 
-**Expected Result**: "Connected to http://192.168.0.24/Contacts as fsans"
+**Expected Result**: "Connected to https://your-filemaker-server.com/YourDatabase as your-username"
 
 ### Test 2: List Tables
 ```

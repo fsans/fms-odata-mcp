@@ -440,16 +440,16 @@ export class Cache {
 ### `package.json`
 ```json
 {
-  "name": "fms-odata-mcp",
-  "version": "1.0.0",
+  "name": "filemaker-odata-mcp",
+  "version": "0.2.6",
   "description": "MCP server for FileMaker Server OData API",
   "type": "module",
-  "main": "build/index.js",
+  "main": "dist/index.js",
   "bin": {
-    "fms-odata-mcp": "./build/index.js"
+    "filemaker-odata-mcp": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod +x build/index.js",
+    "build": "tsc && chmod +x dist/index.js",
     "dev": "tsc --watch",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -536,7 +536,7 @@ coverage/
 ### 1. Initial Setup
 ```bash
 # Create project directory
-cd /Users/fsans/Documents/Cline/MCP
+cd /Users/fsans/Documents/GitHub/FMS-ODATA-MCP
 npx @modelcontextprotocol/create-server FMS-ODATA-MCP
 cd FMS-ODATA-MCP
 

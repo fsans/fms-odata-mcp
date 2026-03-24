@@ -1,12 +1,29 @@
 # FileMaker OData MCP - Roadmap & Future Enhancements
 
 ## Version History
-- **Current**: v0.1.2 (Basic OData 4.01 implementation)
-- **Target**: v0.2.0 (FileMaker 2025 advanced features)
+- **v0.1.0** - Initial release: Basic OData 4.01 implementation (stdio transport)
+- **v0.1.2** - Bug fixes and stability improvements
+- **v0.2.0** - HTTP/HTTPS transport, Docker deployment, CLI binary (`filemaker-odata-mcp`)
+- **v0.2.6** - **Current**: 19 MCP tools, enhanced connection management (saved/default connections), NPM package published as `filemaker-odata-mcp`
+- **Target**: v0.3.0 (FileMaker 2025 advanced OData features)
 
 ---
 
-## 🚀 Upcoming Features (v0.2.0+)
+## Completed in v0.2.x
+
+### What Was Delivered
+
+- **HTTP/HTTPS Transport** - Standalone server mode (`MCP_TRANSPORT=http|https`) on port 3333
+- **Docker Deployment** - Full Docker and Docker Compose support with health checks
+- **CLI Binary** - `filemaker-odata-mcp` command, installable via `npm install -g filemaker-odata-mcp` or `npx`
+- **19 MCP Tools** - Complete set covering Discovery, Queries, CRUD, Connection, and Configuration
+- **Saved Connections** - `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection`, `fm_odata_config_list_connections`
+- **Enhanced Error Handling** - Structured error formatting via `ODataParser.formatError()`
+- **Debug Logging** - `DEBUG=filemaker-odata-mcp:*` support
+
+---
+
+## 🚀 Upcoming Features (v0.3.0+)
 
 ### FileMaker 2025 Advanced OData Features
 
@@ -242,7 +259,7 @@ FileMaker Server 2025:
 
 ### 8. Enhanced Testing
 
-**Status**: 🔄 In Progress (65 tests currently)  
+**Status**: 🔄 In Progress  
 **Priority**: High  
 **Estimated Effort**: Ongoing
 
@@ -325,20 +342,26 @@ FileMaker Server 2025:
 
 ## 📅 Release Timeline
 
-### v0.2.0 (Q2 2025) - FileMaker 2025 Support
+### v0.2.6 (Released) - Foundation
+- 19 MCP tools
+- HTTP/HTTPS transport
+- Docker deployment
+- CLI binary via NPM
+- Saved/default connection management
+
+### v0.3.0 (Q2 2026) - FileMaker 2025 Support
 - Server version detection
 - Aggregation ($apply)
 - Type casting
-- Parametrization
-- Enhanced error handling
-
-### v0.3.0 (Q3 2025) - Advanced Features
+- Query parametrization
 - Nested queries (lambda operators)
-- Performance optimizations
-- Enhanced caching
+
+### v0.4.0 (Q3 2026) - Advanced Features
+- Performance optimizations (caching, connection pooling)
+- Enhanced testing (90%+ coverage)
 - Comprehensive documentation
 
-### v1.0.0 (Q4 2025) - Production Ready
+### v1.0.0 (Q4 2026) - Production Ready
 - All FileMaker 2025 features complete
 - 90%+ test coverage
 - Complete documentation
@@ -368,5 +391,5 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: November 2024  
+**Last Updated**: March 2025  
 **Maintainer**: Francesc Sans <fsans@ntwk.es>

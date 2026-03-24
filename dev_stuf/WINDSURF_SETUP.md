@@ -23,13 +23,20 @@ Windsurf stores its MCP configuration in:
 ~/.codeium/windsurf/mcp_server_config.json
 ```
 
-## Step 2: Build the MCP Server
+## Step 2: Install the MCP Server
 
-First, make sure the server is built:
+### Option A: NPM (Recommended)
 
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-npm run build
+npm install -g filemaker-odata-mcp
+```
+
+### Option B: Build from Source
+
+```bash
+git clone https://github.com/fsans/FMS-ODATA-MCP.git
+cd FMS-ODATA-MCP
+npm install && npm run build
 ```
 
 ## Step 3: Configure for Windsurf
@@ -50,15 +57,16 @@ Add this configuration:
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+        "-y",
+        "filemaker-odata-mcp"
       ],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false"
       }
     }
@@ -99,16 +107,11 @@ List all FileMaker tables
 ### Quick Test from Terminal
 
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-node test-connection.js
+curl -k -u your-username:your-password \
+  https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
 ```
 
-Should show:
-```
-✓ Connection successful
-✓ 15 tables discovered
-✓ 99 contact records accessible
-```
+Should return a JSON response listing available entity sets.
 
 ## Complete Configuration Examples
 
@@ -118,13 +121,13 @@ Should show:
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false",
         "DEBUG": "fms-odata-mcp:*"
       }
@@ -139,8 +142,8 @@ Should show:
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
         "FM_DATABASE": "Production",
@@ -159,19 +162,19 @@ Should show:
 {
   "mcpServers": {
     "filemaker-dev": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false"
       }
     },
     "filemaker-prod": {
-      "command": "node",
-      "args": ["/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "filemaker-odata-mcp"],
       "env": {
         "FM_SERVER": "https://production.company.com",
         "FM_DATABASE": "CRM",
@@ -242,9 +245,9 @@ Update contact with ID 123 to set email to "newemail@example.com"
 - No error messages
 
 **Solutions:**
-1. Check file path is absolute:
+1. Verify npx can run the server:
    ```bash
-   ls -la /Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js
+   npx filemaker-odata-mcp --help
    ```
 
 2. Verify JSON syntax:
@@ -267,7 +270,7 @@ Update contact with ID 123 to set email to "newemail@example.com"
 **Solutions:**
 1. Verify FileMaker Server is accessible:
    ```bash
-   curl -k -u admin:***REMOVED*** https://192.168.0.24/fmi/odata/v4/Contacts
+   curl -k -u your-username:your-password https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
    ```
 
 2. Check credentials in config file
@@ -276,10 +279,9 @@ Update contact with ID 123 to set email to "newemail@example.com"
 
 4. For self-signed certificates, use `FM_VERIFY_SSL: "false"`
 
-5. Test manually:
+5. Test FileMaker directly:
    ```bash
-   cd /Users/fsans/Desktop/FMS-ODATA-MCP
-   node test-connection.js
+   curl -k -u your-username:your-password https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
    ```
 
 ### Issue 3: Tools Load But Don't Work
@@ -301,19 +303,17 @@ Update contact with ID 123 to set email to "newemail@example.com"
 
 3. Check Windsurf console for errors
 
-4. Verify build is up to date:
+4. Verify npx is working:
    ```bash
-   cd /Users/fsans/Desktop/FMS-ODATA-MCP
-   npm run build
+   npx filemaker-odata-mcp --help
    ```
 
 ### Issue 4: Permission Errors
 
 **Solutions:**
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-chmod +x dist/index.js
 chmod 644 ~/.codeium/windsurf/mcp_server_config.json
+npx filemaker-odata-mcp --help
 ```
 
 ## Windsurf vs Claude Desktop
@@ -340,11 +340,12 @@ Run this diagnostic script:
 echo "=== FileMaker OData MCP Diagnostic ==="
 echo ""
 
-echo "1. Checking if server is built..."
-if [ -f "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js" ]; then
-  echo "   ✓ Built successfully"
+echo "1. Checking if npx can run the server..."
+npx filemaker-odata-mcp --help > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+  echo "   ✓ npx filemaker-odata-mcp OK"
 else
-  echo "   ✗ Not built - run: npm run build"
+  echo "   ✗ npx not working - check Node.js install"
 fi
 
 echo ""
@@ -360,8 +361,7 @@ fi
 
 echo ""
 echo "3. Testing FileMaker connection..."
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-node test-connection.js
+curl -sk -u "$FM_USER:$FM_PASSWORD" "$FM_SERVER/fmi/odata/v4/$FM_DATABASE" | head -c 200
 
 echo ""
 echo "=== Diagnostic Complete ==="
@@ -410,7 +410,7 @@ If you're still having issues:
 | `FM_PASSWORD` | Yes | - | Password |
 | `FM_VERIFY_SSL` | No | true | Verify SSL certificates (false for self-signed) |
 | `FM_TIMEOUT` | No | 30000 | Request timeout in milliseconds |
-| `DEBUG` | No | - | Enable debug logging (`fms-odata-mcp:*`) |
+| `DEBUG` | No | `fms-odata-mcp:*` | Enable debug logging |
 
 ## Success!
 

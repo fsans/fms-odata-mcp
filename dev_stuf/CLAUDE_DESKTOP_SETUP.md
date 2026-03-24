@@ -30,15 +30,16 @@ Open the file in a text editor and add this configuration:
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+        "-y",
+        "filemaker-odata-mcp"
       ],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false"
       }
     }
@@ -51,9 +52,10 @@ Open the file in a text editor and add this configuration:
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+        "-y",
+        "filemaker-odata-mcp"
       ],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
@@ -68,7 +70,7 @@ Open the file in a text editor and add this configuration:
 ```
 
 **Important Notes:**
-- Replace `/Users/fsans/Desktop/FMS-ODATA-MCP` with your actual path if different
+- `npx -y filemaker-odata-mcp` automatically uses the latest published version (no local install needed)
 - Use HTTPS (not HTTP) for FileMaker Server URLs
 - Set `FM_VERIFY_SSL` to `"false"` only for development/testing with self-signed certificates
 - Set `FM_VERIFY_SSL` to `"true"` (or omit it) for production with valid SSL certificates
@@ -88,12 +90,15 @@ Open the file in a text editor and add this configuration:
 
 **Security Warning:** Disabling SSL verification (`"false"`) makes connections vulnerable to man-in-the-middle attacks. Only use this in trusted, isolated environments.
 
-### Step 3: Build the Project (if not done)
+### Step 3: Install Node.js (if not done)
+
+Ensure Node.js 18+ is installed:
 
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-npm run build
+node --version
 ```
+
+If using `npx`, no separate build or install step is needed — it fetches `filemaker-odata-mcp` automatically.
 
 ### Step 4: Restart Claude Desktop
 
@@ -107,10 +112,10 @@ In Claude Desktop, try saying:
 
 ```
 Connect to my FileMaker Server with these credentials:
-Server: https://192.168.0.24
-Database: Contacts  
-User: admin
-Password: ***REMOVED***
+Server: https://your-filemaker-server.com
+Database: YourDatabase  
+User: your-username
+Password: your-password
 ```
 
 Or simply:
@@ -125,14 +130,13 @@ List all available FileMaker tables
 **Check:**
 1. Configuration file path is correct for your OS
 2. File is valid JSON (use a JSON validator)
-3. Path to `dist/index.js` is correct and absolute (not relative)
+3. `npx` is available: `npx --version`
 4. You completely restarted Claude Desktop
 
-**Test the path:**
+**Test npx works:**
 ```bash
-node /Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js
+npx filemaker-odata-mcp --help
 ```
-If this doesn't start without errors, the path is wrong or build failed.
 
 ### Issue 2: "Connection failed"
 
@@ -144,8 +148,8 @@ If this doesn't start without errors, the path is wrong or build failed.
 
 **Test manually:**
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-node test-connection.js
+curl -k -u your-username:your-password \
+  https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
 ```
 
 ### Issue 3: Tools not showing in Claude
@@ -155,15 +159,14 @@ node test-connection.js
 # Check if config file exists
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 
-# Check if build succeeded
-ls -la /Users/fsans/Desktop/FMS-ODATA-MCP/dist/
+# Verify npx can find the package
+npx filemaker-odata-mcp --help
 ```
 
 ### Issue 4: "Permission denied" errors
 
-**Fix permissions:**
+**Fix permissions (local install only):**
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
 chmod +x dist/index.js
 npm run build
 ```
@@ -182,9 +185,10 @@ cp .env.test .env
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+        "-y",
+        "filemaker-odata-mcp"
       ]
     }
   }
@@ -193,25 +197,24 @@ cp .env.test .env
 
 ### 3. Make sure .env is in the project root with:
 ```
-FM_SERVER=https://192.168.0.24
-FM_DATABASE=Contacts
-FM_USER=admin
-FM_PASSWORD=***REMOVED***
+FM_SERVER=https://your-filemaker-server.com
+FM_DATABASE=YourDatabase
+FM_USER=your-username
+FM_PASSWORD=your-password
 ```
 
 ## Verify MCP Server is Working
 
 ### Test 1: Check if server starts
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-node dist/index.js
+npx filemaker-odata-mcp
 ```
 Should show:
 ```
-Starting FMS-ODATA-MCP Server...
+Starting filemaker-odata-mcp Server...
 Transport: stdio
 Registered 19 tools
-FMS-ODATA-MCP Server running on stdio
+filemaker-odata-mcp Server running on stdio
 ```
 
 Press Ctrl+C to stop.
@@ -232,15 +235,16 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+        "-y",
+        "filemaker-odata-mcp"
       ],
       "env": {
-        "FM_SERVER": "https://192.168.0.24",
-        "FM_DATABASE": "Contacts",
-        "FM_USER": "admin",
-        "FM_PASSWORD": "***REMOVED***",
+        "FM_SERVER": "https://your-filemaker-server.com",
+        "FM_DATABASE": "YourDatabase",
+        "FM_USER": "your-username",
+        "FM_PASSWORD": "your-password",
         "FM_VERIFY_SSL": "false",
         "DEBUG": "fms-odata-mcp:*"
       }
@@ -254,17 +258,17 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
 {
   "mcpServers": {
     "filemaker-odata": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/fsans/Desktop/FMS-ODATA-MCP/dist/index.js"
+        "-y",
+        "filemaker-odata-mcp"
       ],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
         "FM_DATABASE": "Production",
         "FM_USER": "api_user",
         "FM_PASSWORD": "secure_password",
-        "FM_VERIFY_SSL": "true",
-        "DEBUG": "fms-odata-mcp:*"
+        "FM_VERIFY_SSL": "true"
       }
     }
   }
@@ -297,22 +301,21 @@ If you still have issues:
 
 1. **Check Claude Desktop logs** (usually in Console.app on Mac)
 2. **Enable debug mode** by adding `"DEBUG": "fms-odata-mcp:*"` to env in config
-3. **Test the server manually**: `node test-connection.js`
-4. **Verify FileMaker Server access**: `curl -k -u admin:***REMOVED*** https://192.168.0.24/fmi/odata/v4/Contacts`
+3. **Test npx works**: `npx filemaker-odata-mcp --help`
+4. **Verify FileMaker Server access**: `curl -k -u your-username:your-password https://your-filemaker-server.com/fmi/odata/v4/YourDatabase`
 
 ## Need More Help?
 
 Run this diagnostic:
 ```bash
-cd /Users/fsans/Desktop/FMS-ODATA-MCP
-echo "=== Testing MCP Server ==="
-node test-connection.js
+echo "=== Testing npx ==="
+npx filemaker-odata-mcp --help
 echo ""
 echo "=== Checking Claude Config ==="
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 echo ""
-echo "=== Checking Build ==="
-ls -la dist/
+echo "=== Testing FileMaker Access ==="
+curl -k -u your-username:your-password https://your-filemaker-server.com/fmi/odata/v4/YourDatabase
 ```
 
 Send the output for detailed help.

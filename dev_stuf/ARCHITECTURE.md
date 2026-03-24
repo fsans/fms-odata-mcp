@@ -6,36 +6,32 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         MCP Client (Cline)                       │
+│            MCP Client (Claude Desktop / Windsurf / Cline)        │
 └───────────────────────────────┬─────────────────────────────────┘
-                                │ MCP Protocol (stdio)
+                                │ MCP Protocol (stdio | http | https)
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
-│                    FileMaker OData MCP Server                    │
+│              filemaker-odata-mcp v0.2.6                          │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │              Server Core (SDK Integration)                 │ │
+│  │        Transport Layer (stdio / HTTP / HTTPS)              │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │                   Tools Handler                            │ │
-│  │  - list_databases    - query_records                       │ │
-│  │  - get_metadata      - create_record                       │ │
-│  │  - get_record        - update_record                       │ │
-│  │  - delete_record     - execute_batch                       │ │
-│  └────────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │                  Resources Handler                         │ │
-│  │  - Service Documents  - Metadata                           │ │
-│  │  - Table Access       - Resource Templates                 │ │
+│  │                   Tools Handler (19 tools)                 │ │
+│  │  OData: list_tables, get_metadata, query_records           │ │
+│  │         get_record, get_records, count_records             │ │
+│  │         create_record, update_record, delete_record        │ │
+│  │  Connection: connect, set_connection, list_connections     │ │
+│  │  Config: config_add/remove/get/list/set_default            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │                    OData Client Layer                      │ │
-│  │  - URL Builder        - Response Parser                    │ │
-│  │  - Request Handler    - Error Handler                      │ │
+│  │  - URL Builder        - Response Parser (ODataParser)      │ │
+│  │  - Request Handler    - Error Formatter                    │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │                 Connection Manager                         │ │
-│  │  - Authentication     - Session Management                 │ │
-│  │  - Connection Pool    - Retry Logic                        │ │
+│  │  - Inline connections  - Saved connections (config file)   │ │
+│  │  - Default connection  - SSL/timeout settings              │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ HTTPS/OData 4.01
@@ -53,21 +49,21 @@
 
 **Responsibilities:**
 - Initialize MCP server with capabilities
-- Handle stdio transport
+- Handle transport (stdio, HTTP, HTTPS)
 - Manage server lifecycle
 - Route requests to appropriate handlers
 
-**Key Classes:**
-- `FileMakerODataServer` - Main server class
-- Extends MCP SDK `Server` class
+**Key Modules:**
+- `src/index.ts` - Entry point, transport selection
+- `src/transport.ts` - Transport factory
+- `src/http-server.ts` - HTTP/HTTPS server mode
 
 **Configuration:**
 ```typescript
 {
-  name: 'fms-odata-mcp',
-  version: '1.0.0',
+  name: 'filemaker-odata-mcp',
+  version: '0.2.6',
   capabilities: {
-    resources: {},
     tools: {}
   }
 }
