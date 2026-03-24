@@ -308,32 +308,27 @@ FileMaker Server 2025:
 
 ### Potential Features (Not Committed)
 
-1. **GraphQL Adapter**
-   - Provide GraphQL interface alongside OData
-   - Better for complex nested queries
-   - Modern API pattern
-
-2. **REST API Wrapper**
+1. **REST API Wrapper**
    - Simplified REST endpoints
    - Custom query language
    - Easier for non-OData users
 
-3. **Data Transformation Tools**
+2. **Data Transformation Tools**
    - Built-in data mapping
    - Field transformation functions
    - Custom computed fields
 
-4. **Real-time Updates**
+3. **Real-time Updates**
    - WebSocket support for live data
    - Change notifications
    - Subscription mechanism
 
-5. **Multi-Database Support**
+4. **Multi-Database Support**
    - Connect to multiple FileMaker databases
    - Cross-database queries
    - Data federation
 
-6. **Advanced Security**
+5. **Advanced Security**
    - OAuth 2.0 support
    - Token-based authentication
    - Role-based access control
