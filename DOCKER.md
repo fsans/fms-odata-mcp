@@ -2,19 +2,33 @@
 
 This guide covers deploying the FileMaker OData MCP server using Docker.
 
-## Quick Start
+## Quick Start (Recommended)
+
+Use the included `start.sh` script — it handles BOM stripping from `.env`, TypeScript build, image build, and container lifecycle:
+
+```bash
+cp .env.example .env
+# Edit .env: set FM_* credentials, MCP_TRANSPORT=http, MCP_HOST=0.0.0.0, MCP_PORT=3333
+./start.sh
+```
+
+## Manual Quick Start
 
 ```bash
 # Run with environment variables
 docker run -d \
   --name filemaker-odata-mcp \
   -p 3333:3333 \
-  -e FM_SERVER=https://your-filemaker-server.com/fmi/odata/v4 \
+  -e FM_SERVER=https://your-filemaker-server.com \
   -e FM_DATABASE=YourDatabase \
   -e FM_USER=your-username \
   -e FM_PASSWORD=your-password \
+  -e MCP_TRANSPORT=http \
+  -e MCP_HOST=0.0.0.0 \
   ghcr.io/fsans/filemaker-odata-mcp:latest
 ```
+
+> **Important:** Always set `MCP_HOST=0.0.0.0` in Docker. The default `localhost` binds only to the container's loopback and makes the port unreachable via Docker port mapping.
 
 ## Configuration
 
@@ -196,15 +210,25 @@ docker-compose logs -f
 # Check what's using the port
 lsof -i :3333
 
-# Use a different port
-docker run -p 3334:3333 filemaker-odata-mcp:latest
+# Use a different port — update MCP_PORT in .env and the -p mapping
+docker run -p 3334:3333 -e MCP_PORT=3333 filemaker-odata-mcp:latest
 ```
 
-2. **Connection refused**:
+2. **Connection refused / health check failing**:
+- Ensure `MCP_HOST=0.0.0.0` is set (not `localhost`)
 - Check FileMaker Server is accessible from Docker
 - Verify SSL settings (`FM_VERIFY_SSL=false` for self-signed certs)
 
-3. **Permission issues**:
+3. **403 Forbidden from Dify**:
+- Dify uses a Squid SSRF proxy that blocks non-standard ports
+- Add port 3333 to the `Safe_ports` ACL in `squid.conf` and restart the `aistack-dify-ssrf-proxy` container
+
+4. **`.env` file with BOM causes `invalid env file` error**:
+- Some editors (especially on Windows) add a BOM at the start of the file
+- Fix: `sed -i '' $'s/^\xc3\xa7//' .env`
+- The `start.sh` script handles this automatically
+
+5. **Permission issues**:
 
 ```bash
 # Fix volume permissions

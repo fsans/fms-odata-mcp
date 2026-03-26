@@ -47,6 +47,16 @@ export class HttpTransport implements Transport {
    */
   async handleRequest(req: IncomingMessage, res: ServerResponse, request: JSONRPCRequest): Promise<void> {
     try {
+      // Notifications have no id — fire and return 204 immediately
+      if (!('id' in request) || request.id === null || request.id === undefined) {
+        if (this.onmessage) {
+          this.onmessage(request);
+        }
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
       // Reset response for this request
       this.response = undefined;
       this.responsePromise = new Promise<JSONRPCResponse>((resolve) => {

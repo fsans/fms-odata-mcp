@@ -170,7 +170,21 @@ const response = await fetch('http://localhost:3333/mcp', {
 
 ### 3. Docker Deployment
 
-#### Option A: Using Docker Run
+#### Option A: Using `start.sh` (Recommended)
+
+The included `start.sh` script handles building, credential injection from `.env`, and container lifecycle:
+
+```bash
+git clone https://github.com/fsans/FMS-ODATA-MCP.git
+cd FMS-ODATA-MCP
+cp .env.example .env
+# Edit .env with your FileMaker credentials and set MCP_TRANSPORT=http, MCP_HOST=0.0.0.0
+./start.sh
+```
+
+The script will build TypeScript, build the Docker image, remove any existing container, and start a fresh one. Logs are tailed automatically.
+
+#### Option B: Using Docker Run
 
 ```bash
 # Clone and build
@@ -183,16 +197,20 @@ docker build -t filemaker-odata-mcp:latest .
 docker run -d \
   --name filemaker-odata-mcp \
   -p 3333:3333 \
-  -e FM_SERVER=https://your-filemaker-server.com/fmi/odata/v4 \
+  -e FM_SERVER=https://your-filemaker-server.com \
   -e FM_DATABASE=YourDatabase \
   -e FM_USER=your-username \
   -e FM_PASSWORD=your-password \
   -e FM_VERIFY_SSL=false \
+  -e MCP_TRANSPORT=http \
+  -e MCP_HOST=0.0.0.0 \
   -v ~/.fms-odata-mcp:/home/mcp/.fms-odata-mcp \
   filemaker-odata-mcp:latest
 ```
 
-#### Option B: Using Docker Compose (Recommended)
+> **Important:** Set `MCP_HOST=0.0.0.0` when running in a container. Using `localhost` binds only to the container's loopback interface and makes the port unreachable from outside.
+
+#### Option C: Using Docker Compose
 
 1. **Clone and build:**
 
@@ -205,7 +223,6 @@ npm run build
 2. **Configure environment:**
 
 ```bash
-# Copy and edit the compose file
 cp docker-compose.yml my-docker-compose.yml
 # Edit my-docker-compose.yml with your FileMaker credentials
 ```
@@ -216,7 +233,7 @@ cp docker-compose.yml my-docker-compose.yml
 docker-compose -f my-docker-compose.yml up -d
 ```
 
-#### Option C: Docker Compose with HTTPS
+#### Option D: Docker Compose with HTTPS
 
 ```bash
 # Start with Nginx reverse proxy for HTTPS
@@ -246,6 +263,18 @@ Check the health endpoint:
 ```bash
 curl http://localhost:3333/health
 ```
+
+### 4. Dify Integration
+
+To use this server as an MCP tool in [Dify](https://dify.ai):
+
+1. Start the server in HTTP mode (see Docker Deployment above)
+2. In Dify, add a new MCP tool with:
+   - **Transport:** `streamable_http`
+   - **URL:** `http://host.docker.internal:3333/mcp` (if Dify runs in Docker on the same host)
+3. No authentication headers are required
+
+> **Note:** If Dify returns a 403 error, check your SSRF proxy configuration. Dify uses a Squid proxy to prevent SSRF attacks — port 3333 must be added to the `Safe_ports` ACL in `squid.conf`.
 
 ### First Steps
 
