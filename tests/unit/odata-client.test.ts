@@ -224,16 +224,27 @@ describe('ODataClient', () => {
   });
 
   describe('getRecord', () => {
-    test('should get single record by ID', async () => {
+    test('should get single record by numeric ID (unquoted key — FileMaker compat)', async () => {
       const mockRecord = { id: '123', name: 'John' };
       mockAxiosInstance.get.mockResolvedValue({ data: mockRecord });
 
       const result = await client.getRecord('contacts', '123');
 
+      // FileMaker entity keys are numeric; quoted form fails with error 8309.
       expect(mockAxiosInstance.get).toHaveBeenCalledWith(
-        "https://test-server.com/fmi/odata/v4/TestDB/contacts('123')"
+        'https://test-server.com/fmi/odata/v4/TestDB/contacts(123)'
       );
       expect(result).toEqual(mockRecord);
+    });
+
+    test('should get single record by string ID (quoted key, apostrophes escaped)', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: {} });
+
+      await client.getRecord('contacts', "abc'xyz");
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        "https://test-server.com/fmi/odata/v4/TestDB/contacts('abc''xyz')"
+      );
     });
 
     test('should get record with select option', async () => {
@@ -244,8 +255,8 @@ describe('ODataClient', () => {
       });
 
       const url = mockAxiosInstance.get.mock.calls[0][0];
-      expect(url).toContain('select');
-      expect(url).toContain('id');
+      // $select must be literal (not %24select) and commas literal (not %2C).
+      expect(url).toContain('$select=id,name');
     });
   });
 
@@ -267,28 +278,39 @@ describe('ODataClient', () => {
   });
 
   describe('updateRecord', () => {
-    test('should update existing record', async () => {
+    test('should update existing record (numeric key unquoted)', async () => {
       const updates = { name: 'John Updated' };
-      
+
       mockAxiosInstance.patch.mockResolvedValue({ data: {} });
 
       await client.updateRecord('contacts', '123', updates);
 
       expect(mockAxiosInstance.patch).toHaveBeenCalledWith(
-        "https://test-server.com/fmi/odata/v4/TestDB/contacts('123')",
+        'https://test-server.com/fmi/odata/v4/TestDB/contacts(123)',
         updates
+      );
+    });
+
+    test('should update record with string key (quoted, escaped)', async () => {
+      mockAxiosInstance.patch.mockResolvedValue({ data: {} });
+
+      await client.updateRecord('contacts', "user'a", { name: 'x' });
+
+      expect(mockAxiosInstance.patch).toHaveBeenCalledWith(
+        "https://test-server.com/fmi/odata/v4/TestDB/contacts('user''a')",
+        { name: 'x' }
       );
     });
   });
 
   describe('deleteRecord', () => {
-    test('should delete record', async () => {
+    test('should delete record (numeric key unquoted)', async () => {
       mockAxiosInstance.delete.mockResolvedValue({ data: {} });
 
       await client.deleteRecord('contacts', '123');
 
       expect(mockAxiosInstance.delete).toHaveBeenCalledWith(
-        "https://test-server.com/fmi/odata/v4/TestDB/contacts('123')"
+        'https://test-server.com/fmi/odata/v4/TestDB/contacts(123)'
       );
     });
   });
@@ -299,23 +321,62 @@ describe('ODataClient', () => {
 
       const count = await client.countRecords('contacts');
 
+      // No `{ params }` arg — URL alone, since axios's URLSearchParams encodes
+      // `$` as `%24` which FileMaker doesn't recognize.
       expect(mockAxiosInstance.get).toHaveBeenCalledWith(
-        'https://test-server.com/fmi/odata/v4/TestDB/contacts/$count',
-        { params: undefined }
+        'https://test-server.com/fmi/odata/v4/TestDB/contacts/$count'
       );
       expect(count).toBe(42);
     });
 
-    test('should count records with filter', async () => {
+    test('should count records with filter (literal $, space as %20)', async () => {
       mockAxiosInstance.get.mockResolvedValue({ data: 10 });
 
       const count = await client.countRecords('contacts', "status eq 'active'");
 
+      // $filter literal (not %24filter), space as %20 (not +), commas literal.
       expect(mockAxiosInstance.get).toHaveBeenCalledWith(
-        'https://test-server.com/fmi/odata/v4/TestDB/contacts/$count',
-        { params: { $filter: "status eq 'active'" } }
+        "https://test-server.com/fmi/odata/v4/TestDB/contacts/$count?$filter=status%20eq%20'active'"
       );
       expect(count).toBe(10);
+    });
+  });
+
+  describe('URL encoding (FileMaker OData compatibility)', () => {
+    test('buildUrl: $filter with spaces uses %20 (not +)', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "name eq 'Anne Marie'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      expect(url).toContain("$filter=name%20eq%20'Anne%20Marie'");
+      expect(url).not.toMatch(/\+/);
+      expect(url).not.toContain('%24');
+    });
+
+    test('buildUrl: $select keeps commas literal', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { select: 'id,name,email' });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      expect(url).toContain('$select=id,name,email');
+      expect(url).not.toContain('%2C');
+    });
+
+    test('buildUrl: combined filter+select+orderby+top+skip+count', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', {
+        filter: "active eq true",
+        select: 'id,name',
+        orderby: 'name asc',
+        top: 5,
+        skip: 10,
+        count: true,
+      });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      expect(url).toContain('$filter=active%20eq%20true');
+      expect(url).toContain('$select=id,name');
+      expect(url).toContain('$orderby=name%20asc');
+      expect(url).toContain('$top=5');
+      expect(url).toContain('$skip=10');
+      expect(url).toContain('$count=true');
     });
   });
 
