@@ -281,9 +281,50 @@ describe('ODataParser', () => {
       };
 
       const summary = ODataParser.createQuerySummary(response);
-      
+
       expect(summary).toContain('5 record(s)');
       expect(summary).not.toContain('total');
+    });
+
+    test('should treat a bare entity response as 1 record (no value wrapper)', () => {
+      // Single-entity OData responses have no `value` array.
+      const response: any = {
+        '@odata.context': 'test#$entity',
+        id: 42,
+        name: 'Lone Record',
+      };
+
+      const summary = ODataParser.createQuerySummary(response);
+
+      expect(summary).toContain('1 record(s)');
+    });
+
+    test('should return 0 records (not crash) when response is null/undefined', () => {
+      expect(() =>
+        ODataParser.createQuerySummary(null as any)
+      ).not.toThrow();
+      expect(ODataParser.createQuerySummary(null as any)).toContain('0 record(s)');
+      expect(ODataParser.createQuerySummary(undefined as any)).toContain('0 record(s)');
+    });
+  });
+
+  describe('formatQueryResponse — defensive shape handling', () => {
+    test('wraps a bare entity response as a one-record list', () => {
+      const response: any = { id: 7938, Nummer: 'BX01692' };
+      const formatted = JSON.parse(ODataParser.formatQueryResponse(response));
+      expect(formatted.records).toEqual([{ id: 7938, Nummer: 'BX01692' }]);
+    });
+
+    test('handles missing value gracefully (empty records list)', () => {
+      const formatted = JSON.parse(ODataParser.formatQueryResponse(null as any));
+      expect(formatted.records).toEqual([]);
+    });
+
+    test('preserves @odata.count when present', () => {
+      const response: any = { '@odata.count': 90, value: [{ id: 1 }] };
+      const formatted = JSON.parse(ODataParser.formatQueryResponse(response));
+      expect(formatted.count).toBe(90);
+      expect(formatted.records).toEqual([{ id: 1 }]);
     });
   });
 

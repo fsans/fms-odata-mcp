@@ -17,18 +17,32 @@ export class ODataParser {
 
   /**
    * Format query response with count information
+   *
+   * Tolerates responses where `value` is missing. OData collection responses
+   * normally have shape `{ value: [...], "@odata.count"?: n }`, but single-entity
+   * responses are the bare entity object (no `value` wrapper). Reading
+   * `response.value` unconditionally crashed the formatter with
+   * "Cannot read properties of undefined (reading 'length')" via
+   * createQuerySummary below.
    */
   static formatQueryResponse<T>(
     response: ODataResponse<T>,
     includeContext: boolean = false
   ): string {
+    const r = response as any;
+    const records: any[] = Array.isArray(r?.value)
+      ? r.value
+      : (r && typeof r === "object" && !("value" in r))
+      ? [r]
+      : [];
+
     const result: any = {
-      count: response["@odata.count"],
-      records: response.value,
+      count: r?.["@odata.count"],
+      records,
     };
 
     if (includeContext) {
-      result.context = response["@odata.context"];
+      result.context = r?.["@odata.context"];
     }
 
     return this.formatResponse(result);
@@ -125,17 +139,25 @@ export class ODataParser {
 
   /**
    * Create a summary of query results
+   *
+   * Tolerates collection (`{ value: [...] }`) and single-entity response shapes.
+   * See formatQueryResponse for context.
    */
   static createQuerySummary(response: ODataResponse): string {
-    const count = response["@odata.count"];
-    const recordsReturned = response.value.length;
-    
+    const r = response as any;
+    const count = r?.["@odata.count"];
+    const recordsReturned: number = Array.isArray(r?.value)
+      ? r.value.length
+      : (r && typeof r === "object" && !("value" in r))
+      ? 1
+      : 0;
+
     let summary = `Returned ${recordsReturned} record(s)`;
-    
+
     if (count !== undefined && count !== recordsReturned) {
       summary += ` (${count} total matching records)`;
     }
-    
+
     return summary;
   }
 
