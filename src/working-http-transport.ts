@@ -2,53 +2,60 @@ import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { JSONRPCMessage, JSONRPCRequest, JSONRPCResponse } from "@modelcontextprotocol/sdk/types.js";
 import { IncomingMessage, ServerResponse } from "http";
 
+type Resolver = (response: JSONRPCResponse) => void;
+
 /**
- * HTTP Transport that can handle individual requests
- * This transport captures responses for HTTP responses
+ * HTTP Transport that can handle individual JSON-RPC requests.
+ *
+ * Responses are correlated to their originating request by JSON-RPC `id` so
+ * concurrent requests on the same transport do not race or clobber each
+ * other's response promise.
  */
 export class HttpTransport implements Transport {
-  private response?: JSONRPCResponse;
-  private responsePromise?: Promise<JSONRPCResponse>;
-  private responseResolve?: (value: JSONRPCResponse) => void;
+  private pending = new Map<string | number, Resolver>();
 
   onmessage?: (message: JSONRPCMessage) => void;
   onclose?: () => void;
   onerror?: (error: Error) => void;
-
-  constructor() {
-    // Create a promise that will resolve with the response
-    this.responsePromise = new Promise<JSONRPCResponse>((resolve) => {
-      this.responseResolve = resolve;
-    });
-  }
 
   async start(): Promise<void> {
     // Nothing to start for HTTP transport
   }
 
   async close(): Promise<void> {
-    // Nothing to close for HTTP transport
+    this.pending.clear();
   }
 
   async send(message: JSONRPCMessage): Promise<void> {
-    // Capture the response when the server sends it
-    if ('result' in message || 'error' in message) {
-      this.response = message as JSONRPCResponse;
-      if (this.responseResolve) {
-        this.responseResolve(this.response);
+    // Server-originated responses carry an `id` that matches the request.
+    if (("result" in message || "error" in message) && "id" in message) {
+      const id = (message as JSONRPCResponse).id;
+      const resolver = id != null ? this.pending.get(id) : undefined;
+      if (resolver) {
+        this.pending.delete(id);
+        resolver(message as JSONRPCResponse);
+        return;
       }
-    } else if (this.onmessage) {
+      // No matching pending request — drop with onerror for visibility.
+      if (this.onerror) {
+        this.onerror(new Error(`Received response with unknown id: ${String(id)}`));
+      }
+      return;
+    }
+
+    // Server-initiated notifications/requests forwarded via onmessage.
+    if (this.onmessage) {
       this.onmessage(message);
     }
   }
 
   /**
-   * Handle an HTTP request and return the response
+   * Handle an HTTP request and return the response.
    */
-  async handleRequest(req: IncomingMessage, res: ServerResponse, request: JSONRPCRequest): Promise<void> {
+  async handleRequest(_req: IncomingMessage, res: ServerResponse, request: JSONRPCRequest): Promise<void> {
     try {
-      // Notifications have no id — fire and return 204 immediately
-      if (!('id' in request) || request.id === null || request.id === undefined) {
+      // Notifications have no id — fire and return 204 immediately.
+      if (!("id" in request) || request.id === null || request.id === undefined) {
         if (this.onmessage) {
           this.onmessage(request);
         }
@@ -57,34 +64,39 @@ export class HttpTransport implements Transport {
         return;
       }
 
-      // Reset response for this request
-      this.response = undefined;
-      this.responsePromise = new Promise<JSONRPCResponse>((resolve) => {
-        this.responseResolve = resolve;
+      const id = request.id;
+
+      // Register a per-request resolver keyed by id BEFORE dispatching, so a
+      // synchronous `send` from the server cannot race the registration.
+      const responsePromise = new Promise<JSONRPCResponse>((resolve) => {
+        this.pending.set(id, resolve);
       });
 
-      // Send the request to the server (which will call this.send)
       if (this.onmessage) {
         this.onmessage(request);
       }
 
-      // Wait for the response
-      const response = await this.responsePromise;
-      
-      // Send the response back via HTTP
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      const response = await responsePromise;
+
+      res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(response));
     } catch (error) {
+      // Clean up pending entry on failure (best effort).
+      if ("id" in request && request.id != null) {
+        this.pending.delete(request.id);
+      }
       console.error("Error handling HTTP request:", error);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: "2.0",
-        id: request.id || null,
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : "Internal error",
-        },
-      }));
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: request.id ?? null,
+          error: {
+            code: -32603,
+            message: error instanceof Error ? error.message : "Internal error",
+          },
+        })
+      );
     }
   }
 }
