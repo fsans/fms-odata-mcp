@@ -11,32 +11,32 @@ export const allTools = [
   ...configurationTools,
 ];
 
+// Build exact-name lookup sets from the tool definitions themselves.
+// Using sets (rather than fragile name-prefix heuristics) ensures a tool like
+// `fm_odata_list_connections` is routed to the connection handler and not
+// accidentally matched by `fm_odata_list_*` prefix logic.
+const odataToolNames = new Set(odataTools.map((t) => t.name));
+const connectionToolNames = new Set(connectionTools.map((t) => t.name));
+const configurationToolNames = new Set(configurationTools.map((t) => t.name));
+
 /**
  * Route tool calls to appropriate handler
  */
 export async function handleToolCall(name: string, args: any): Promise<any> {
-  // OData tools
-  if (name.startsWith("fm_odata_get_") || 
-      name.startsWith("fm_odata_query_") ||
-      name.startsWith("fm_odata_list_") ||
-      name.startsWith("fm_odata_count_") ||
-      name.startsWith("fm_odata_create_") ||
-      name.startsWith("fm_odata_update_") ||
-      name.startsWith("fm_odata_delete_")) {
-    return await handleODataTool(name, args);
-  }
-
-  // Connection tools
-  if (name === "fm_odata_connect" ||
-      name === "fm_odata_set_connection" ||
-      name === "fm_odata_list_connections" ||
-      name === "fm_odata_get_current_connection") {
+  // Connection tools (checked first because some names overlap OData prefixes,
+  // e.g. fm_odata_list_connections vs fm_odata_list_tables).
+  if (connectionToolNames.has(name)) {
     return await handleConnectionTool(name, args);
   }
 
   // Configuration tools
-  if (name.startsWith("fm_odata_config_")) {
+  if (configurationToolNames.has(name)) {
     return await handleConfigurationTool(name, args);
+  }
+
+  // OData tools
+  if (odataToolNames.has(name)) {
+    return await handleODataTool(name, args);
   }
 
   // Unknown tool
