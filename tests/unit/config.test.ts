@@ -61,7 +61,8 @@ describe('Config Module', () => {
       const config = getConfig();
 
       expect(config.server.transport).toBe('stdio');
-      expect(config.server.port).toBe(3000);
+      // Default HTTP port (used when no MCP_PORT env var set)
+      expect(config.server.port).toBe(3333);
       expect(config.server.host).toBe('localhost');
       expect(config.filemaker.server).toBe('');
       expect(config.filemaker.database).toBe('');

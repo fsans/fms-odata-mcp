@@ -3,6 +3,13 @@ import * as path from "path";
 import * as os from "os";
 import * as dotenv from "dotenv";
 
+/**
+ * Default transport ports. Keep in one place so `config.ts` and
+ * `transport.ts` cannot drift apart.
+ */
+export const DEFAULT_HTTP_PORT = 3333;
+export const DEFAULT_HTTPS_PORT = 3443;
+
 export interface ServerConfig {
   transport: "stdio" | "http" | "https";
   port: number;
@@ -113,12 +120,20 @@ export function getConfig(): AppConfig {
   loadEnvFile();
 
   // Build final config with precedence
+  const transportType =
+    (process.env.MCP_TRANSPORT as "stdio" | "http" | "https") ||
+    (fileConfig.server?.transport as "stdio" | "http" | "https") ||
+    "stdio";
+  const defaultPort =
+    transportType === "https" ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT;
+
   const config: AppConfig = {
     server: {
-      transport: (process.env.MCP_TRANSPORT as "stdio" | "http" | "https") ||
-        (fileConfig.server?.transport as "stdio" | "http" | "https") ||
-        "stdio",
-      port: parseInt(process.env.MCP_PORT || String(fileConfig.server?.port || 3000), 10),
+      transport: transportType,
+      port: parseInt(
+        process.env.MCP_PORT || String(fileConfig.server?.port || defaultPort),
+        10
+      ),
       host: process.env.MCP_HOST || fileConfig.server?.host || "localhost",
     },
     filemaker: {
