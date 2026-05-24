@@ -258,6 +258,36 @@ describe('ODataParser', () => {
       
       expect(fields).toHaveLength(0);
     });
+
+    test('escapes regex metacharacters in table name (regression: parens, dots, plus)', () => {
+      const metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <EntityType Name="My.Table(v2)">
+    <Property Name="id" Type="Edm.String"/>
+  </EntityType>
+  <EntityType Name="OtherTable">
+    <Property Name="other" Type="Edm.String"/>
+  </EntityType>
+</edmx:Edmx>`;
+
+      const fields = ODataParser.parseMetadataForFields(metadata, 'My.Table(v2)');
+      expect(fields).toHaveLength(1);
+      expect(fields[0].name).toBe('id');
+    });
+
+    test('regex metachars do not match unrelated entities', () => {
+      const metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <EntityType Name="OtherTable">
+    <Property Name="other" Type="Edm.String"/>
+  </EntityType>
+</edmx:Edmx>`;
+
+      // The pattern "O.herTable" with regex would match "OtherTable"; the
+      // fix must treat it as a literal name and find nothing.
+      const fields = ODataParser.parseMetadataForFields(metadata, 'O.herTable');
+      expect(fields).toHaveLength(0);
+    });
   });
 
   describe('createQuerySummary', () => {
