@@ -22,31 +22,46 @@ export async function setupSimpleHttpTransport(
   config: HttpTransportConfig = {}
 ): Promise<void> {
   const app = express();
-  
-  // Middleware
+
+  // CORS support for web clients — MUST be registered BEFORE routes so that
+  // preflight OPTIONS requests and CORS headers actually apply.
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    if (req.method === "OPTIONS") {
+      res.sendStatus(200);
+      return;
+    }
+
+    next();
+  });
+
+  // Body parser
   app.use(express.json());
-  
+
   // Create HTTP transport instance
   const transport = new HttpTransport();
-  
+
   // Connect server to transport
   await server.connect(transport);
-  
+
   // Handle MCP requests
   app.post("/mcp", async (req: Request, res: Response) => {
     await transport.handleRequest(req, res, req.body);
   });
-  
+
   // Health check endpoint
   app.get("/health", (req: Request, res: Response) => {
-    res.json({ 
-      status: "ok", 
-      transport: "http", 
+    res.json({
+      status: "ok",
+      transport: "http",
       server: "fms-odata-mcp",
-      version: PACKAGE_VERSION
+      version: PACKAGE_VERSION,
     });
   });
-  
+
   // Info endpoint
   app.get("/mcp", (req: Request, res: Response) => {
     res.json({
@@ -58,21 +73,7 @@ export async function setupSimpleHttpTransport(
       streaming: false,
     });
   });
-  
-  // CORS support for web clients
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    
-    if (req.method === "OPTIONS") {
-      res.sendStatus(200);
-      return;
-    }
-    
-    next();
-  });
-  
+
   const port = config.port || 3333;
   const host = config.host || "localhost";
   
@@ -92,45 +93,45 @@ export async function setupSimpleHttpsTransport(
   config: HttpTransportConfig = {}
 ): Promise<void> {
   const app = express();
-  
-  // Middleware
-  app.use(express.json());
-  
-  // Create HTTP transport instance
-  const transport = new HttpTransport();
-  
-  // Connect server to transport
-  await server.connect(transport);
-  
-  // Handle MCP requests
-  app.post("/mcp", async (req: Request, res: Response) => {
-    await transport.handleRequest(req, res, req.body);
-  });
-  
-  // Health check endpoint
-  app.get("/health", (req: Request, res: Response) => {
-    res.json({ 
-      status: "ok", 
-      transport: "https", 
-      server: "fms-odata-mcp",
-      version: PACKAGE_VERSION
-    });
-  });
-  
-  // CORS support for web clients
+
+  // CORS support for web clients — must be registered BEFORE routes.
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    
+
     if (req.method === "OPTIONS") {
       res.sendStatus(200);
       return;
     }
-    
+
     next();
   });
-  
+
+  // Body parser
+  app.use(express.json());
+
+  // Create HTTP transport instance
+  const transport = new HttpTransport();
+
+  // Connect server to transport
+  await server.connect(transport);
+
+  // Handle MCP requests
+  app.post("/mcp", async (req: Request, res: Response) => {
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  // Health check endpoint
+  app.get("/health", (req: Request, res: Response) => {
+    res.json({
+      status: "ok",
+      transport: "https",
+      server: "fms-odata-mcp",
+      version: PACKAGE_VERSION,
+    });
+  });
+
   // Load certificates
   if (!config.certPath || !config.keyPath) {
     throw new Error(
