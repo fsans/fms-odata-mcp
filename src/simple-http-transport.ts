@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { HttpTransport } from "./working-http-transport.js";
 import { PACKAGE_VERSION } from "./version.js";
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from "./config.js";
-import express, { Express, Request, Response } from "express";
+import express, { Request, Response } from "express";
 import https from "https";
 import http from "http";
 import fs from "fs";
