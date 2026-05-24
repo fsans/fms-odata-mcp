@@ -141,9 +141,9 @@ export function getConfig(): AppConfig {
       database: process.env.FM_DATABASE || fileConfig.filemaker?.database || "",
       user: process.env.FM_USER || fileConfig.filemaker?.user || "",
       password: process.env.FM_PASSWORD || fileConfig.filemaker?.password,
-      verifySsl: process.env.FM_VERIFY_SSL 
+      verifySsl: process.env.FM_VERIFY_SSL
         ? process.env.FM_VERIFY_SSL.toLowerCase() === "true"
-        : fileConfig.filemaker?.verifySsl !== false, // Default to true
+        : resolveVerifySsl(fileConfig.filemaker?.verifySsl),
       timeout: parseInt(process.env.FM_TIMEOUT || String(fileConfig.filemaker?.timeout || 30000), 10),
     },
     security: {
@@ -242,7 +242,7 @@ export function getConnection(name: string): Connection | null {
  * Add a connection to config file
  */
 export function addConnection(name: string, connection: Connection): void {
-  const config = loadConfigFile() as AppConfig;
+  const config = mergeWithDefaults(loadConfigFile());
 
   if (!config.connections) {
     config.connections = {};
@@ -267,15 +267,59 @@ export function addConnection(name: string, connection: Connection): void {
     throw new Error("Password is required");
   }
 
-  config.connections[name] = { ...connection, name };
+  // Store trimmed values (matches the validation above).
+  config.connections[name] = {
+    name,
+    server: connection.server.trim(),
+    database: connection.database.trim(),
+    user: connection.user.trim(),
+    password: connection.password,
+    verifySsl: connection.verifySsl,
+  };
   saveConfigFile(config);
+}
+
+/**
+ * Merge a partial config (e.g. loaded from disk) with the defaults so saved
+ * files always have a complete schema (`server`, `filemaker`, etc.).
+ */
+function mergeWithDefaults(partial: Partial<AppConfig>): AppConfig {
+  return {
+    server: {
+      transport: partial.server?.transport || "stdio",
+      port: partial.server?.port ?? DEFAULT_HTTP_PORT,
+      host: partial.server?.host || "localhost",
+    },
+    filemaker: {
+      server: partial.filemaker?.server || "",
+      database: partial.filemaker?.database || "",
+      user: partial.filemaker?.user || "",
+      password: partial.filemaker?.password,
+      verifySsl: partial.filemaker?.verifySsl,
+      timeout: partial.filemaker?.timeout,
+    },
+    security: partial.security,
+    connections: partial.connections,
+    defaultConnection: partial.defaultConnection,
+  };
+}
+
+/**
+ * Resolve the effective verifySsl flag from possibly-undefined sources.
+ * Defaults to `true` unless explicitly set to `false`.
+ */
+export function resolveVerifySsl(...sources: Array<boolean | undefined>): boolean {
+  for (const v of sources) {
+    if (v !== undefined) return v !== false;
+  }
+  return true;
 }
 
 /**
  * Remove a connection from config file
  */
 export function removeConnection(name: string): void {
-  const config = loadConfigFile() as AppConfig;
+  const config = mergeWithDefaults(loadConfigFile());
 
   // Check if connection exists
   if (!config.connections || !config.connections[name]) {
@@ -304,12 +348,12 @@ export function listConnections(): Connection[] {
  * Set default connection in config
  */
 export function setDefaultConnection(name: string): void {
-  const config = loadConfigFile() as AppConfig;
-  
+  const config = mergeWithDefaults(loadConfigFile());
+
   if (!config.connections || !config.connections[name]) {
     throw new Error(`Connection "${name}" not found`);
   }
-  
+
   config.defaultConnection = name;
   saveConfigFile(config);
 }
