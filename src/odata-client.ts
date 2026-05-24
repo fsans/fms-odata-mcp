@@ -329,7 +329,8 @@ export class ODataClient {
   }
 
   /**
-   * Test connection
+   * Test connection (returns boolean for backwards compatibility).
+   * Prefer `testConnectionDetailed` for callers that want the error message.
    */
   async testConnection(): Promise<boolean> {
     try {
@@ -338,6 +339,22 @@ export class ODataClient {
     } catch (error) {
       logger.error("Connection test failed:", error);
       return false;
+    }
+  }
+
+  /**
+   * Test connection and return detailed status, including the underlying
+   * error message when the connection fails. This avoids hiding useful
+   * diagnostics like 401 Unauthorized, SSL verification failures, etc.
+   */
+  async testConnectionDetailed(): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.getServiceDocument();
+      return { ok: true };
+    } catch (error: any) {
+      const message = error?.message ? String(error.message) : String(error);
+      logger.error("Connection test failed:", message);
+      return { ok: false, error: message };
     }
   }
 }
