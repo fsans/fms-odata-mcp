@@ -28,7 +28,7 @@ describe('ODataClient', () => {
       delete: jest.fn(),
       interceptors: {
         request: {
-          use: jest.fn((successHandler) => {
+          use: jest.fn((successHandler: (cfg: any) => any) => {
             // Call the success handler to test it
             const config = { headers: {} };
             successHandler(config);
@@ -65,7 +65,7 @@ describe('ODataClient', () => {
     });
 
     test('should configure SSL verification', () => {
-      const createCall = (mockedAxios.create as jest.Mock).mock.calls[0][0];
+      const createCall = (mockedAxios.create as jest.Mock).mock.calls[0][0] as any;
       expect(createCall.httpsAgent).toBeDefined();
     });
 
@@ -77,7 +77,7 @@ describe('ODataClient', () => {
       
       new ODataClient(configWithoutVerifySsl);
       
-      const createCall = (mockedAxios.create as jest.Mock).mock.calls[1][0];
+      const createCall = (mockedAxios.create as jest.Mock).mock.calls[1][0] as any;
       // Should create agent with rejectUnauthorized: true (default)
       expect(createCall.httpsAgent).toBeDefined();
     });
