@@ -1,7 +1,3 @@
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
 import { connectionManager } from "../connection.js";
 import { ODataParser } from "../odata-parser.js";
 import { logger } from "../logger.js";
