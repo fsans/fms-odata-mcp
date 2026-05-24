@@ -44,11 +44,16 @@ export class FileMakerODataServer {
       logger.error("[MCP Error]", error);
     };
 
-    process.on("SIGINT", async () => {
-      logger.info("Shutting down server...");
-      await this.server.close();
-      process.exit(0);
-    });
+    const shutdown = async (signal: string) => {
+      logger.info(`Received ${signal}, shutting down server...`);
+      try {
+        await this.server.close();
+      } finally {
+        process.exit(0);
+      }
+    };
+    process.on("SIGINT", () => void shutdown("SIGINT"));
+    process.on("SIGTERM", () => void shutdown("SIGTERM"));
   }
 
   private setupToolHandlers(): void {
