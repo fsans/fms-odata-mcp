@@ -55,18 +55,31 @@ export class ConnectionManager {
   }
 
   /**
-   * Create a client with inline credentials (temporary, not saved)
+   * Create a client with inline credentials (temporary, not saved).
    */
   createInlineClient(connection: Connection, verifySsl?: boolean, timeout?: number): ODataClient {
+    return this.createInlineClientNamed(connection, verifySsl, timeout).client;
+  }
+
+  /**
+   * Like createInlineClient but also returns the synthetic cache name so the
+   * caller can remove the entry if the connection turns out to be broken.
+   */
+  createInlineClientNamed(
+    connection: Connection,
+    verifySsl?: boolean,
+    timeout?: number
+  ): { client: ODataClient; name: string } {
     const client = this.createClient(connection, verifySsl, timeout);
-    
-    // Store with a unique temporary name
-    const tempName = `inline_${Date.now()}`;
+
+    // Store with a unique temporary name. Include a counter to avoid collisions
+    // when two inline connects happen within the same millisecond.
+    const tempName = `inline_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     this.clients.set(tempName, client);
     this.currentConnectionName = tempName;
 
-    logger.debug(`Created inline OData client`);
-    return client;
+    logger.debug(`Created inline OData client: ${tempName}`);
+    return { client, name: tempName };
   }
 
   /**

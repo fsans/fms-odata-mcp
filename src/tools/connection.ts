@@ -128,16 +128,16 @@ async function handleConnect(args: any) {
     verifySsl: args.verifySsl !== undefined ? args.verifySsl : config.filemaker.verifySsl,
   };
 
-  const client = connectionManager.createInlineClient(
-    connection, 
-    connection.verifySsl, 
+  const { client, name: clientName } = connectionManager.createInlineClientNamed(
+    connection,
+    connection.verifySsl,
     config.filemaker.timeout
   );
-  
-  // Test the connection
-  const isConnected = await client.testConnection();
-  
-  if (isConnected) {
+
+  // Test the connection (detailed: surfaces the real error message)
+  const result = await client.testConnectionDetailed();
+
+  if (result.ok) {
     return {
       content: [
         {
@@ -147,11 +147,13 @@ async function handleConnect(args: any) {
       ],
     };
   } else {
+    // Don't leave a broken client cached / marked as current.
+    connectionManager.removeClient(clientName);
     return {
       content: [
         {
           type: "text",
-          text: `Failed to connect to ${args.server}/${args.database}. Please check your credentials and server URL.`,
+          text: `Failed to connect to ${args.server}/${args.database}: ${result.error}`,
         },
       ],
       isError: true,
