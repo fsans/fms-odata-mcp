@@ -10,7 +10,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { setupTransport, getTransportConfig } from "./transport.js";
-import { getConfig } from "./config.js";
+import { getConfig, validateConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { allTools, handleToolCall } from "./tools/index.js";
 import { PACKAGE_VERSION } from "./version.js";
@@ -97,7 +97,28 @@ export class FileMakerODataServer {
       const config = getConfig();
       const transportConfig = getTransportConfig();
 
-      logger.info("Starting FMS-ODATA-MCP Server...");
+      // Validate transport/HTTPS configuration (cert/key existence, port range).
+      // FileMaker credentials are NOT validated here because they may be
+      // supplied later via the fm_odata_connect tool at runtime.
+      const validation = validateConfig({
+        ...config,
+        // Bypass FileMaker required-field check at startup so the server can
+        // start without env-baked credentials.
+        filemaker: {
+          ...config.filemaker,
+          server: config.filemaker.server || "placeholder",
+          database: config.filemaker.database || "placeholder",
+          user: config.filemaker.user || "placeholder",
+        },
+      });
+      if (!validation.valid) {
+        for (const err of validation.errors) {
+          logger.error(`Config error: ${err}`);
+        }
+        throw new Error(`Invalid configuration: ${validation.errors.join("; ")}`);
+      }
+
+      logger.info(`Starting FMS-ODATA-MCP Server v${PACKAGE_VERSION}...`);
       logger.info(`Transport: ${transportConfig.type}`);
 
       await setupTransport(this.server, transportConfig);
