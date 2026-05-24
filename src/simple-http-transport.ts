@@ -15,6 +15,34 @@ export interface HttpTransportConfig {
 }
 
 /**
+ * Detect if we're likely running inside a Docker container.
+ */
+function isLikelyInDocker(): boolean {
+  try {
+    if (fs.existsSync("/.dockerenv")) return true;
+    // cgroup hint as a fallback
+    const cg = fs.readFileSync("/proc/1/cgroup", "utf-8");
+    return /docker|containerd|kubepods/i.test(cg);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Print a loud warning when binding to a loopback host inside a container —
+ * this is the #1 source of "port mapped but unreachable" reports.
+ */
+function warnIfDockerLocalhost(host: string): void {
+  const loopback = host === "localhost" || host === "127.0.0.1" || host === "::1";
+  if (loopback && isLikelyInDocker()) {
+    console.error(
+      `[WARN] Binding to '${host}' inside a container — the port will NOT be reachable from outside. ` +
+        `Set MCP_HOST=0.0.0.0 to bind on all interfaces.`
+    );
+  }
+}
+
+/**
  * Simple HTTP transport that processes MCP requests directly
  * This implementation handles JSON-RPC 2.0 requests without streaming
  */
@@ -77,7 +105,8 @@ export async function setupSimpleHttpTransport(
 
   const port = config.port || DEFAULT_HTTP_PORT;
   const host = config.host || "localhost";
-  
+  warnIfDockerLocalhost(host);
+
   http.createServer(app).listen(port, host, () => {
     console.error(`FMS-ODATA-MCP Server running on http://${host}:${port}`);
     console.error(`MCP endpoint: http://${host}:${port}/mcp`);
@@ -154,6 +183,7 @@ export async function setupSimpleHttpsTransport(
   
   const port = config.port || DEFAULT_HTTPS_PORT;
   const host = config.host || "localhost";
+  warnIfDockerLocalhost(host);
   
   https.createServer({ cert, key }, app).listen(port, host, () => {
     console.error(`FMS-ODATA-MCP Server running on https://${host}:${port}`);
