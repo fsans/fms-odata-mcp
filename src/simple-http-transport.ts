@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { HttpTransport } from "./working-http-transport.js";
+import { PACKAGE_VERSION } from "./version.js";
 import express, { Express, Request, Response } from "express";
 import https from "https";
 import http from "http";
@@ -42,7 +43,7 @@ export async function setupSimpleHttpTransport(
       status: "ok", 
       transport: "http", 
       server: "fms-odata-mcp",
-      version: "0.1.5"
+      version: PACKAGE_VERSION
     });
   });
   
@@ -50,7 +51,7 @@ export async function setupSimpleHttpTransport(
   app.get("/mcp", (req: Request, res: Response) => {
     res.json({
       name: "FileMaker OData MCP Server",
-      version: "0.1.5",
+      version: PACKAGE_VERSION,
       transport: "http",
       endpoint: "/mcp",
       methods: ["POST"],
@@ -112,7 +113,7 @@ export async function setupSimpleHttpsTransport(
       status: "ok", 
       transport: "https", 
       server: "fms-odata-mcp",
-      version: "0.1.5"
+      version: PACKAGE_VERSION
     });
   });
   

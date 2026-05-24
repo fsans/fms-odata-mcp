@@ -13,6 +13,7 @@ import { setupTransport, getTransportConfig } from "./transport.js";
 import { getConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { allTools, handleToolCall } from "./tools/index.js";
+import { PACKAGE_VERSION } from "./version.js";
 
 /**
  * Main server class
@@ -24,7 +25,7 @@ export class FileMakerODataServer {
     this.server = new Server(
       {
         name: "fms-odata-mcp",
-        version: "0.1.0",
+        version: PACKAGE_VERSION,
       },
       {
         capabilities: {
