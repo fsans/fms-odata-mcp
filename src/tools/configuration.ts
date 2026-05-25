@@ -102,9 +102,19 @@ export const configurationTools = [
 /**
  * Configuration Tool Handlers
  */
+/**
+ * Redact sensitive fields before debug-logging tool arguments.
+ */
+function redactArgs(args: any): any {
+  if (!args || typeof args !== "object") return args;
+  const out: Record<string, any> = { ...args };
+  if ("password" in out) out.password = "***";
+  return out;
+}
+
 export async function handleConfigurationTool(name: string, args: any): Promise<any> {
   try {
-    logger.debug(`Handling configuration tool: ${name}`, args);
+    logger.debug(`Handling configuration tool: ${name}`, redactArgs(args));
 
     switch (name) {
       case "fm_odata_config_add_connection":

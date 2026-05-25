@@ -1,6 +1,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { setupSimpleHttpTransport, setupSimpleHttpsTransport } from "./simple-http-transport.js";
+import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from "./config.js";
 
 export type TransportType = "stdio" | "http" | "https";
 
@@ -20,7 +21,11 @@ export function getTransportConfig(): TransportConfig {
 
   const config: TransportConfig = {
     type: transportType,
-    port: process.env.MCP_PORT ? parseInt(process.env.MCP_PORT, 10) : (transportType === "https" ? 3443 : 3333),
+    port: process.env.MCP_PORT
+      ? parseInt(process.env.MCP_PORT, 10)
+      : transportType === "https"
+        ? DEFAULT_HTTPS_PORT
+        : DEFAULT_HTTP_PORT,
     host: process.env.MCP_HOST || "localhost",
     certPath: process.env.MCP_CERT_PATH,
     keyPath: process.env.MCP_KEY_PATH,

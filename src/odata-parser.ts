@@ -102,10 +102,14 @@ export class ODataParser {
     tableName: string
   ): FieldInfo[] {
     const fields: FieldInfo[] = [];
-    
+
+    // Escape regex metacharacters in the table name to avoid injection and
+    // accidental matches (FileMaker permits '.', '+', '(', etc. in names).
+    const safeTableName = tableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     // Find the EntityType definition for this table
     const entityTypeRegex = new RegExp(
-      `<EntityType\\s+Name="${tableName}"[^>]*>([\\s\\S]*?)</EntityType>`,
+      `<EntityType\\s+Name="${safeTableName}"[^>]*>([\\s\\S]*?)</EntityType>`,
       "i"
     );
     const entityTypeMatch = metadataXml.match(entityTypeRegex);
