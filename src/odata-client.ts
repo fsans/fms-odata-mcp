@@ -122,29 +122,57 @@ export class ODataClient {
   }
 
   /**
+   * Build an entity-key segment for an OData URL.
+   *
+   * OData distinguishes string keys `Entity('abc')` from numeric keys `Entity(42)`.
+   * FileMaker Server exposes entity keys as numeric (Edm.Int64); sending a quoted
+   * string fails with error 8309 "An expression contains incompatible data types".
+   * We emit the unquoted form for purely numeric record IDs, and properly escape
+   * apostrophes for string-key paths.
+   */
+  private entityKey(recordId: string | number): string {
+    const rid = String(recordId);
+    return /^-?\d+$/.test(rid) ? `(${rid})` : `('${rid.replace(/'/g, "''")}')`;
+  }
+
+  /**
+   * Encode a value for an OData query-string parameter.
+   *
+   * `URLSearchParams.toString()` follows the form-urlencoded serializer, which
+   * encodes spaces as `+` and the literal `$` prefix on system options as `%24`.
+   * FileMaker's OData parser rejects both forms (`+` -> -1002 syntax error,
+   * `%24` -> system option silently ignored). We use `encodeURIComponent`
+   * (spaces -> %20, single quotes -> %27) and keep commas literal because
+   * commas are valid in `$select` / `$orderby` and FileMaker rejects `%2C`.
+   */
+  private odataEncode(v: string): string {
+    return encodeURIComponent(v).replace(/%2C/gi, ",");
+  }
+
+  /**
    * Build OData URL with query options
    */
   private buildUrl(table: string, options?: ODataQueryOptions, recordId?: string): string {
     let url = `${this.baseUrl}/${table}`;
-    
-    if (recordId) {
-      url += `('${recordId}')`;
+
+    if (recordId !== undefined && recordId !== null && recordId !== "") {
+      url += this.entityKey(recordId);
     }
 
     if (options) {
-      const params = new URLSearchParams();
-      
-      if (options.filter) params.append("$filter", options.filter);
-      if (options.select) params.append("$select", options.select);
-      if (options.orderby) params.append("$orderby", options.orderby);
-      if (options.top !== undefined) params.append("$top", options.top.toString());
-      if (options.skip !== undefined) params.append("$skip", options.skip.toString());
-      if (options.expand) params.append("$expand", options.expand);
-      if (options.count) params.append("$count", "true");
+      const parts: string[] = [];
+      const add = (k: string, v: string) => parts.push(`${k}=${this.odataEncode(v)}`);
 
-      const queryString = params.toString();
-      if (queryString) {
-        url += `?${queryString}`;
+      if (options.filter) add("$filter", options.filter);
+      if (options.select) add("$select", options.select);
+      if (options.orderby) add("$orderby", options.orderby);
+      if (options.top !== undefined) parts.push(`$top=${options.top}`);
+      if (options.skip !== undefined) parts.push(`$skip=${options.skip}`);
+      if (options.expand) add("$expand", options.expand);
+      if (options.count) parts.push(`$count=true`);
+
+      if (parts.length) {
+        url += `?${parts.join("&")}`;
       }
     }
 
@@ -221,7 +249,7 @@ export class ODataClient {
     recordId: string,
     data: Partial<T>
   ): Promise<void> {
-    const url = `${this.baseUrl}/${table}('${recordId}')`;
+    const url = `${this.baseUrl}/${table}${this.entityKey(recordId)}`;
     logger.debug(`Updating record: ${url}`);
     await this.axiosInstance.patch(url, data);
   }
@@ -230,19 +258,25 @@ export class ODataClient {
    * Delete a record
    */
   async deleteRecord(table: string, recordId: string): Promise<void> {
-    const url = `${this.baseUrl}/${table}('${recordId}')`;
+    const url = `${this.baseUrl}/${table}${this.entityKey(recordId)}`;
     logger.debug(`Deleting record: ${url}`);
     await this.axiosInstance.delete(url);
   }
 
   /**
    * Count records
+   *
+   * Builds the query string manually so `$filter` stays literal (not `%24filter`)
+   * and spaces are `%20`-encoded (not `+`). axios `{ params }` delegates to
+   * URLSearchParams which trips FileMaker's strict OData parser. See odataEncode.
    */
   async countRecords(table: string, filter?: string): Promise<number> {
-    const url = `${this.baseUrl}/${table}/$count`;
-    const params = filter ? { $filter: filter } : undefined;
-    logger.debug(`Counting records in ${table}`);
-    const response = await this.axiosInstance.get<number>(url, { params });
+    let url = `${this.baseUrl}/${table}/$count`;
+    if (filter) {
+      url += `?$filter=${this.odataEncode(filter)}`;
+    }
+    logger.debug(`Counting records: ${url}`);
+    const response = await this.axiosInstance.get<number>(url);
     return response.data;
   }
 
