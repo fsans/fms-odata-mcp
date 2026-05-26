@@ -26,7 +26,9 @@ Do not implement tools that rely on them against FileMaker Server without a clea
 
 ## Branch: feat/fm2025-odata-features
 
-Features implemented in this branch (FileMaker Server 2025 / 21.1+):
+Features implemented in this branch:
+- `fm_odata_cast` and `fm_odata_build_filter`: FileMaker Server v21.1+ (FileMaker 2024)
+- `fm_odata_aggregate`: FileMaker Server v22.0.1+ (FileMaker 2025)
 - `fm_odata_aggregate` — server-side aggregation via OData `$apply`
 - `fm_odata_cast` — type coercion via property path segments (`Field/Edm.Type`)
 - `fm_odata_build_filter` — parameterized `$filter` via OData `@alias` substitution

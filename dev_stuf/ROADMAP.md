@@ -56,7 +56,7 @@ locally, ready to pass into `fm_odata_query_records` or other existing tools.
 #### 1. Aggregation Support ($apply)
 
 **Status**: ✅ Done (branch: `feat/fm2025-odata-features`)
-**FileMaker Version**: 2025+
+**FileMaker Version**: v22.0.1+ (FileMaker 2025)
 **Tool**: `fm_odata_aggregate`
 
 **Description**: Server-side aggregation via OData `$apply`. Groups records by one or
@@ -86,7 +86,7 @@ fm_odata_aggregate: table=Sales, method=sum, alias=TotalSales, field=Amount,
 #### 2. Type Casting Support
 
 **Status**: ✅ Done (branch: `feat/fm2025-odata-features`)
-**FileMaker Version**: 21.1+
+**FileMaker Version**: v21.1+ (FileMaker 2024)
 **Tool**: `fm_odata_cast` (connection-free)
 
 **Description**: Server-side type coercion via OData property path segments
@@ -115,7 +115,7 @@ fm_odata_cast: fields=[{field:"StartDate", type:"Int64"}], context="select"
 #### 3. Query Parameterization
 
 **Status**: ✅ Done (branch: `feat/fm2025-odata-features`)
-**FileMaker Version**: 21.1+
+**FileMaker Version**: v21.1+ (FileMaker 2024)
 **Tool**: `fm_odata_build_filter` (connection-free)
 
 **Description**: Parameterized `$filter` expressions using OData `@alias` syntax.
@@ -187,17 +187,17 @@ FileMaker Server 19+:
   ✅ CRUD operations
   ✅ Standard query options ($filter, $select, $orderby, etc.)
 
-FileMaker Server 21.1+:
+FileMaker Server v21.1+ (FileMaker 2024):
   ✅ All v19+ features
   ✅ Type casting (Field/Edm.Type) → fm_odata_cast
   ✅ Parameterization (@alias syntax) → fm_odata_build_filter
 
-FileMaker Server 2023:
-  ✅ All 21.1+ features
+FileMaker Server 2023 (v20.x):
+  ✅ All v21.1+ features
   ✅ Enhanced metadata
   ✅ Improved error messages
 
-FileMaker Server 2025:
+FileMaker Server 2025 (v22.0.1+):
   ✅ All 2023 features
   ✅ Aggregation ($apply) → fm_odata_aggregate
   ❌ Lambda operators any/all — unsupported by FileMaker OData (all versions)
@@ -337,9 +337,9 @@ FileMaker Server 2025:
 - Patch release on top of v0.3.0
 
 ### v0.4.0 (In Progress) - FileMaker 2025 Support
-- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM 2025+)
-- `fm_odata_cast` — type coercion via `Field/Edm.Type` paths (FM 21.1+)
-- `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM 21.1+)
+- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM v22.0.1+ / FM 2025)
+- `fm_odata_cast` — type coercion via `Field/Edm.Type` paths (FM v21.1+ / FM 2024)
+- `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM v21.1+ / FM 2024)
 - Lambda operators `any`/`all` — **not implemented** (unsupported by FileMaker OData)
 - Tool count: 19 → 22
 

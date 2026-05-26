@@ -145,11 +145,11 @@ export const odataTools = [
     },
   },
 
-  // Type Cast Tool (FileMaker Server 21.1+)
+  // Type Cast Tool (FileMaker Server v21.1+ / FileMaker 2024+)
   {
     name: "fm_odata_cast",
     description:
-      "Build OData type-cast property path expressions (requires FileMaker Server 21.1+). " +
+      "Build OData type-cast property path expressions (requires FileMaker Server v21.1 / FileMaker 2024 or later). " +
       "Returns the cast expression(s) ready to use in $select or $filter of fm_odata_query_records. " +
       "Casting tells the server to return a field value in a specific EDM primitive type, " +
       "avoiding the need for client-side conversion. " +
@@ -201,11 +201,11 @@ export const odataTools = [
     },
   },
 
-  // Parameterized Filter Builder (FileMaker Server 21.1+)
+  // Parameterized Filter Builder (FileMaker Server v21.1+ / FileMaker 2024+)
   {
     name: "fm_odata_build_filter",
     description:
-      "Build a parameterized OData $filter expression (requires FileMaker Server 21.1+). " +
+      "Build a parameterized OData $filter expression (requires FileMaker Server v21.1 / FileMaker 2024 or later). " +
       "Write a filter template with @alias placeholders and supply values separately. " +
       "In 'resolved' mode (default) the aliases are substituted client-side and the result " +
       "can be used directly as the 'filter' argument of fm_odata_query_records. " +
@@ -250,11 +250,11 @@ export const odataTools = [
     },
   },
 
-  // Aggregation Tool (FileMaker Server 2025+)
+  // Aggregation Tool (FileMaker Server v22.0.1+ / FileMaker 2025+)
   {
     name: "fm_odata_aggregate",
     description:
-      "Aggregate records server-side using OData $apply (requires FileMaker Server 2025+). " +
+      "Aggregate records server-side using OData $apply (requires FileMaker Server v22.0.1 / FileMaker 2025 or later). " +
       "Groups records by one or more fields and computes sum, average, min, max, or count. " +
       "Returns only the summary rows — no need to fetch all records and compute client-side. " +
       "Example: sum of invoice amounts grouped by customer, or count of open cases per user.",

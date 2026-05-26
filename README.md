@@ -307,13 +307,13 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | **Discovery**   | `fm_odata_list_tables`, `fm_odata_get_metadata`, `fm_odata_get_service_document` |
 | **Queries**     | `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`, `fm_odata_count_records` |
 | **CRUD**        | `fm_odata_create_record`, `fm_odata_update_record`, `fm_odata_delete_record` |
-| **FM 2025+**    | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
+| **FM 2024/2025+** | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
 | **Connection**  | `fm_odata_connect`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
 | **Config**      | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections` |
 
-> The **FM 2025+** tools are connection-free expression builders. `fm_odata_cast` and
-> `fm_odata_build_filter` require FileMaker Server 21.1+; `fm_odata_aggregate` requires
-> FileMaker Server 2025+.
+> The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and
+> `fm_odata_build_filter` require FileMaker Server v21.1+ (FileMaker 2024); `fm_odata_aggregate`
+> requires FileMaker Server v22.0.1+ (FileMaker 2025).
 
 ## Requirements
 
@@ -356,7 +356,7 @@ $top      - Limit results
 $skip     - Skip records (pagination)
 $expand   - Include related records
 $count    - Include total count
-$apply    - Server-side aggregation (FileMaker Server 2025+)
+$apply    - Server-side aggregation (FileMaker Server v22.0.1+ / FileMaker 2025)
 ```
 
 **Example prompts:**
@@ -376,7 +376,7 @@ Get the first 10 contacts, skip the first 20
 Three additional tools provide expression-builder helpers for newer FileMaker Server capabilities.
 They require no active connection and return strings ready to use in the standard query tools.
 
-**`fm_odata_aggregate`** — server-side aggregation (FileMaker Server 2025+):
+**`fm_odata_aggregate`** — server-side aggregation (FileMaker Server v22.0.1+ / FileMaker 2025):
 
 ```text
 Sum invoice amounts grouped by customer:
@@ -386,7 +386,7 @@ Count open cases per user:
   table=Cases, method=count, alias=OpenCount, filter="Status eq 'Open'", groupBy=["AssignedTo"]
 ```
 
-**`fm_odata_cast`** — server-side type coercion (FileMaker Server 21.1+):
+**`fm_odata_cast`** — server-side type coercion (FileMaker Server v21.1+ / FileMaker 2024):
 
 ```text
 Return StartDate as a number for arithmetic:
@@ -398,7 +398,7 @@ Cast Amount to String for text comparison in a filter:
   → embed result in a $filter expression: Amount/Edm.String eq '100'
 ```
 
-**`fm_odata_build_filter`** — parameterized filter builder (FileMaker Server 21.1+):
+**`fm_odata_build_filter`** — parameterized filter builder (FileMaker Server v21.1+ / FileMaker 2024):
 
 ```text
 Reusable filter with named placeholders:

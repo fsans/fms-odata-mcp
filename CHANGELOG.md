@@ -17,14 +17,14 @@ Total tool count increases from 19 to 22.
 ### Added
 
 - **`fm_odata_aggregate`** — server-side aggregation via OData `$apply`
-  (requires FileMaker Server 2025+).
+  (requires FileMaker Server v22.0.1+ / FileMaker 2025 or later).
   Accepts `table`, `method` (sum/average/min/max/countdistinct/count), `alias`,
   optional `field`, `groupBy` array, and `filter` pre-condition.
   Internally builds `groupby((…),aggregate(…))` / `filter(…)/…` expressions via
   `ODataParser.buildApplyExpression()` and executes a GET with `?$apply=…`.
 
 - **`fm_odata_cast`** — server-side type coercion via OData property path segments
-  (requires FileMaker Server 21.1+).
+  (requires FileMaker Server v21.1+ / FileMaker 2024 or later).
   Accepts an array of `{field, type}` pairs and an optional `context`
   (`select` or `filter`). Returns `Field/Edm.Type` expressions ready for use in
   `$select` or embedded in `$filter`. No active connection required.
@@ -32,7 +32,7 @@ Total tool count increases from 19 to 22.
   `Date`, `TimeOfDay`, `DateTimeOffset`.
 
 - **`fm_odata_build_filter`** — parameterized `$filter` builder via OData `@alias`
-  syntax (requires FileMaker Server 21.1+).
+  syntax (requires FileMaker Server v21.1+ / FileMaker 2024 or later).
   Accepts a `template` string with `@alias` placeholders, a `params` map, and an
   optional `mode`:
   - `resolved` (default): substitutes alias values into the template and returns a
