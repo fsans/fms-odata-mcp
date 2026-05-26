@@ -42,6 +42,40 @@ describe("handleToolCall routing", () => {
     expect(text).toMatch(/(saved connections|No saved connections)/i);
   });
 
+  test("fm_odata_cast works without an active connection (connection-free tool)", async () => {
+    // No connection set — must NOT return 'No active connection'
+    const result: any = await handleToolCall("fm_odata_cast", {
+      fields: [{ field: "StartDate", type: "Int64" }],
+    });
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content?.[0]?.text ?? "{}");
+    expect(parsed.castExpression).toBe("StartDate/Edm.Int64");
+  });
+
+  test("fm_odata_cast with multiple fields joins them with commas for select context", async () => {
+    const result: any = await handleToolCall("fm_odata_cast", {
+      fields: [
+        { field: "StartDate", type: "Int64" },
+        { field: "Amount", type: "Decimal" },
+      ],
+      context: "select",
+    });
+    const parsed = JSON.parse(result.content?.[0]?.text ?? "{}");
+    expect(parsed.castExpression).toBe("StartDate/Edm.Int64,Amount/Edm.Decimal");
+  });
+
+  test("fm_odata_cast with filter context returns newline-separated expressions", async () => {
+    const result: any = await handleToolCall("fm_odata_cast", {
+      fields: [
+        { field: "Amount", type: "String" },
+        { field: "Status", type: "Int32" },
+      ],
+      context: "filter",
+    });
+    const parsed = JSON.parse(result.content?.[0]?.text ?? "{}");
+    expect(parsed.castExpression).toBe("Amount/Edm.String\nStatus/Edm.Int32");
+  });
+
   test("unknown tool returns isError", async () => {
     const result: any = await handleToolCall("fm_odata_made_up_tool", {});
     expect(result.isError).toBe(true);

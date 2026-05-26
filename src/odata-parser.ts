@@ -241,6 +241,37 @@ export class ODataParser {
   }
 
   /**
+   * Build an OData type-cast property path segment (FileMaker Server 21.1+).
+   *
+   * FileMaker's OData API supports explicit server-side type coercion by appending
+   * "/Edm.<Type>" to a field name inside $select or $filter expressions.
+   * This avoids the need for client-side conversion and ensures the server returns
+   * the value in the requested primitive type.
+   *
+   * Supported target types (Edm primitives):
+   *   String, Int32, Int64, Decimal, Double, Boolean, Date, TimeOfDay, DateTimeOffset
+   *
+   * Usage in $select:
+   *   buildCastExpression('StartDate', 'Int64')
+   *   // → "StartDate/Edm.Int64"
+   *   // Use as: $select=StartDate/Edm.Int64
+   *
+   * Usage in $filter (cast before comparison):
+   *   buildCastExpression('Amount', 'String') + " eq '100'"
+   *   // → "Amount/Edm.String eq '100'"
+   *   // Use as: $filter=Amount/Edm.String eq '100'
+   *
+   * Multiple casts in $select (join with comma):
+   *   [buildCastExpression('Price','Decimal'), buildCastExpression('Name','String')].join(',')
+   *   // → "Price/Edm.Decimal,Name/Edm.String"
+   */
+  static buildCastExpression(field: string, targetType: string): string {
+    // Normalize: strip any leading "Edm." so callers can pass either "Int32" or "Edm.Int32"
+    const type = targetType.startsWith("Edm.") ? targetType : `Edm.${targetType}`;
+    return `${field}/${type}`;
+  }
+
+  /**
    * Format batch operation results
    */
   static formatBatchResults(results: BatchResult[]): string {
