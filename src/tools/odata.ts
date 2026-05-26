@@ -145,6 +145,62 @@ export const odataTools = [
     },
   },
 
+  // Type Cast Tool (FileMaker Server 21.1+)
+  {
+    name: "fm_odata_cast",
+    description:
+      "Build OData type-cast property path expressions (requires FileMaker Server 21.1+). " +
+      "Returns the cast expression(s) ready to use in $select or $filter of fm_odata_query_records. " +
+      "Casting tells the server to return a field value in a specific EDM primitive type, " +
+      "avoiding the need for client-side conversion. " +
+      "Example: cast 'StartDate' to Int64 for numeric date math, or 'Amount' to String for text comparison.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fields: {
+          type: "array",
+          description: "One or more fields to cast, each with a field name and target EDM type.",
+          items: {
+            type: "object",
+            properties: {
+              field: {
+                type: "string",
+                description: "Field name to cast (e.g. 'StartDate', 'Amount')",
+              },
+              type: {
+                type: "string",
+                enum: [
+                  "String",
+                  "Int32",
+                  "Int64",
+                  "Decimal",
+                  "Double",
+                  "Boolean",
+                  "Date",
+                  "TimeOfDay",
+                  "DateTimeOffset",
+                ],
+                description: "Target EDM primitive type (e.g. 'Int64', 'String', 'Date')",
+              },
+            },
+            required: ["field", "type"],
+          },
+          minItems: 1,
+        },
+        context: {
+          type: "string",
+          enum: ["select", "filter"],
+          description:
+            "Where the cast expression will be used. " +
+            "'select' joins multiple casts with commas for use in $select. " +
+            "'filter' returns individual cast paths to embed in a $filter expression. " +
+            "Defaults to 'select'.",
+        },
+      },
+      required: ["fields"],
+    },
+  },
+
   // Aggregation Tool (FileMaker Server 2025+)
   {
     name: "fm_odata_aggregate",
@@ -261,6 +317,11 @@ export const odataTools = [
  */
 export async function handleODataTool(name: string, args: any): Promise<any> {
   try {
+    // Connection-free tools — handled before the connection guard
+    if (name === "fm_odata_cast") {
+      return handleCast(args);
+    }
+
     const client = connectionManager.getCurrentClient();
     if (!client) {
       return {
@@ -443,6 +504,38 @@ async function handleCountRecords(client: any, args: any) {
       {
         type: "text",
         text: `Total records in ${args.table}: ${count}`,
+      },
+    ],
+  };
+}
+
+function handleCast(args: any) {
+  const { fields, context = "select" } = args;
+
+  const castExpressions: string[] = (fields as Array<{ field: string; type: string }>).map(
+    ({ field, type }) => ODataParser.buildCastExpression(field, type)
+  );
+
+  let result: string;
+  let usage: string;
+
+  if (context === "filter") {
+    // For filter context, return each expression on its own line with an example
+    result = castExpressions.join("\n");
+    usage =
+      "Use each cast path inside a $filter expression, e.g.:\n" +
+      castExpressions.map((e) => `  $filter=${e} eq <value>`).join("\n");
+  } else {
+    // For select context, join with commas
+    result = castExpressions.join(",");
+    usage = `Use as: $select=${result}`;
+  }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({ castExpression: result, usage }, null, 2),
       },
     ],
   };

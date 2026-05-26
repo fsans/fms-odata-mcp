@@ -394,6 +394,36 @@ describe('ODataParser', () => {
     });
   });
 
+  describe('buildCastExpression', () => {
+    test('should append /Edm.<type> when called with bare type name', () => {
+      expect(ODataParser.buildCastExpression('StartDate', 'Int64')).toBe('StartDate/Edm.Int64');
+    });
+
+    test('should not double-prefix when type already starts with Edm.', () => {
+      expect(ODataParser.buildCastExpression('Amount', 'Edm.Decimal')).toBe('Amount/Edm.Decimal');
+    });
+
+    test('should work for String type', () => {
+      expect(ODataParser.buildCastExpression('Amount', 'String')).toBe('Amount/Edm.String');
+    });
+
+    test('should work for DateTimeOffset type', () => {
+      expect(ODataParser.buildCastExpression('CreatedAt', 'DateTimeOffset')).toBe('CreatedAt/Edm.DateTimeOffset');
+    });
+
+    test('should produce a usable $filter fragment when compared', () => {
+      const castPath = ODataParser.buildCastExpression('Amount', 'String');
+      const filterExpr = `${castPath} eq '100'`;
+      expect(filterExpr).toBe("Amount/Edm.String eq '100'");
+    });
+
+    test('should produce joinable $select fragments', () => {
+      const a = ODataParser.buildCastExpression('StartDate', 'Int64');
+      const b = ODataParser.buildCastExpression('Name', 'String');
+      expect([a, b].join(',')).toBe('StartDate/Edm.Int64,Name/Edm.String');
+    });
+  });
+
   describe('buildApplyExpression', () => {
     test('should produce aggregate($count as Total) when called with no args', () => {
       expect(ODataParser.buildApplyExpression()).toBe('aggregate($count as Total)');
