@@ -145,6 +145,161 @@ export const odataTools = [
     },
   },
 
+  // Type Cast Tool (FileMaker Server v21.1+ / FileMaker 2024+)
+  {
+    name: "fm_odata_cast",
+    description:
+      "Build OData type-cast property path expressions (requires FileMaker Server v21.1 / FileMaker 2024 or later). " +
+      "Returns the cast expression(s) ready to use in $select or $filter of fm_odata_query_records. " +
+      "Casting tells the server to return a field value in a specific EDM primitive type, " +
+      "avoiding the need for client-side conversion. " +
+      "Example: cast 'StartDate' to Int64 for numeric date math, or 'Amount' to String for text comparison.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fields: {
+          type: "array",
+          description: "One or more fields to cast, each with a field name and target EDM type.",
+          items: {
+            type: "object",
+            properties: {
+              field: {
+                type: "string",
+                description: "Field name to cast (e.g. 'StartDate', 'Amount')",
+              },
+              type: {
+                type: "string",
+                enum: [
+                  "String",
+                  "Int32",
+                  "Int64",
+                  "Decimal",
+                  "Double",
+                  "Boolean",
+                  "Date",
+                  "TimeOfDay",
+                  "DateTimeOffset",
+                ],
+                description: "Target EDM primitive type (e.g. 'Int64', 'String', 'Date')",
+              },
+            },
+            required: ["field", "type"],
+          },
+          minItems: 1,
+        },
+        context: {
+          type: "string",
+          enum: ["select", "filter"],
+          description:
+            "Where the cast expression will be used. " +
+            "'select' joins multiple casts with commas for use in $select. " +
+            "'filter' returns individual cast paths to embed in a $filter expression. " +
+            "Defaults to 'select'.",
+        },
+      },
+      required: ["fields"],
+    },
+  },
+
+  // Parameterized Filter Builder (FileMaker Server v21.1+ / FileMaker 2024+)
+  {
+    name: "fm_odata_build_filter",
+    description:
+      "Build a parameterized OData $filter expression (requires FileMaker Server v21.1 / FileMaker 2024 or later). " +
+      "Write a filter template with @alias placeholders and supply values separately. " +
+      "In 'resolved' mode (default) the aliases are substituted client-side and the result " +
+      "can be used directly as the 'filter' argument of fm_odata_query_records. " +
+      "In 'raw' mode the OData parameter alias query string is returned instead, " +
+      "useful for constructing URLs manually. " +
+      "String values are automatically single-quoted; numbers/booleans are passed through as-is. " +
+      "Example: template 'Title eq @title and Status eq @status', " +
+      "params { '@title': 'Wizard of Oz', '@status': 'Active' }.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        template: {
+          type: "string",
+          description:
+            "OData $filter template using @alias placeholders for values. " +
+            "Example: \"Title eq @title and Age gt @minAge\"",
+        },
+        params: {
+          type: "object",
+          description:
+            "Map of alias names (starting with @) to their values. " +
+            "String values are auto-quoted; numbers and booleans are used as-is. " +
+            "Example: { \"@title\": \"Wizard of Oz\", \"@minAge\": 18 }",
+          additionalProperties: {
+            oneOf: [
+              { type: "string" },
+              { type: "number" },
+              { type: "boolean" },
+              { type: "null" },
+            ],
+          },
+        },
+        mode: {
+          type: "string",
+          enum: ["resolved", "raw"],
+          description:
+            "'resolved' (default): substitutes alias values into the template and returns a plain filter string. " +
+            "'raw': returns the OData parameterized query string form with aliases kept separate.",
+        },
+      },
+      required: ["template", "params"],
+    },
+  },
+
+  // Aggregation Tool (FileMaker Server v22.0.1+ / FileMaker 2025+)
+  {
+    name: "fm_odata_aggregate",
+    description:
+      "Aggregate records server-side using OData $apply (requires FileMaker Server v22.0.1 / FileMaker 2025 or later). " +
+      "Groups records by one or more fields and computes sum, average, min, max, or count. " +
+      "Returns only the summary rows — no need to fetch all records and compute client-side. " +
+      "Example: sum of invoice amounts grouped by customer, or count of open cases per user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        method: {
+          type: "string",
+          enum: ["sum", "average", "min", "max", "countdistinct", "count"],
+          description:
+            "Aggregation function. Use 'count' to count all matching records (no field needed). " +
+            "Use 'countdistinct' to count unique values of a field.",
+        },
+        alias: {
+          type: "string",
+          description: "Name for the result column (e.g. 'TotalSales', 'AvgAge', 'Total')",
+        },
+        field: {
+          type: "string",
+          description:
+            "Field to aggregate. Required for sum/average/min/max/countdistinct. " +
+            "Omit when method is 'count'.",
+        },
+        groupBy: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Fields to group by (e.g. ['Region', 'Status']). " +
+            "Omit to aggregate across the whole table.",
+        },
+        filter: {
+          type: "string",
+          description:
+            "OData $filter expression applied before aggregation (e.g. \"Status eq 'Active'\"). " +
+            "Equivalent to a WHERE clause.",
+        },
+      },
+      required: ["table", "method", "alias"],
+    },
+  },
+
   // CRUD Tools
   {
     name: "fm_odata_create_record",
@@ -211,6 +366,14 @@ export const odataTools = [
  */
 export async function handleODataTool(name: string, args: any): Promise<any> {
   try {
+    // Connection-free tools — handled before the connection guard
+    if (name === "fm_odata_cast") {
+      return handleCast(args);
+    }
+    if (name === "fm_odata_build_filter") {
+      return handleBuildFilter(args);
+    }
+
     const client = connectionManager.getCurrentClient();
     if (!client) {
       return {
@@ -249,6 +412,9 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
 
       case "fm_odata_count_records":
         return await handleCountRecords(client, args);
+
+      case "fm_odata_aggregate":
+        return await handleAggregate(client, args);
 
       // CRUD Tools
       case "fm_odata_create_record":
@@ -390,6 +556,104 @@ async function handleCountRecords(client: any, args: any) {
       {
         type: "text",
         text: `Total records in ${args.table}: ${count}`,
+      },
+    ],
+  };
+}
+
+function handleBuildFilter(args: any) {
+  const { template, params, mode = "resolved" } = args;
+
+  // Validate: all param keys must start with @
+  const badKeys = Object.keys(params).filter((k: string) => !k.startsWith("@"));
+  if (badKeys.length > 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: parameter alias names must start with '@'. Invalid: ${badKeys.join(", ")}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const result = ODataParser.buildParameterizedFilter(template, params, mode);
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: typeof result === "string"
+          ? JSON.stringify({ filter: result }, null, 2)
+          : JSON.stringify(result, null, 2),
+      },
+    ],
+  };
+}
+
+function handleCast(args: any) {
+  const { fields, context = "select" } = args;
+
+  const castExpressions: string[] = (fields as Array<{ field: string; type: string }>).map(
+    ({ field, type }) => ODataParser.buildCastExpression(field, type)
+  );
+
+  let result: string;
+  let usage: string;
+
+  if (context === "filter") {
+    // For filter context, return each expression on its own line with an example
+    result = castExpressions.join("\n");
+    usage =
+      "Use each cast path inside a $filter expression, e.g.:\n" +
+      castExpressions.map((e) => `  $filter=${e} eq <value>`).join("\n");
+  } else {
+    // For select context, join with commas
+    result = castExpressions.join(",");
+    usage = `Use as: $select=${result}`;
+  }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({ castExpression: result, usage }, null, 2),
+      },
+    ],
+  };
+}
+
+async function handleAggregate(client: any, args: any) {
+  const { table, method, alias, field, groupBy, filter } = args;
+
+  // Validate: field is required for everything except 'count'
+  if (method !== "count" && !field) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: 'field' is required when method is '${method}'.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const applyExpression = ODataParser.buildApplyExpression(
+    { method, alias, field },
+    groupBy,
+    filter
+  );
+
+  logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
+  const response = await client.aggregateRecords(table, applyExpression);
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: ODataParser.formatResponse(response),
       },
     ],
   };

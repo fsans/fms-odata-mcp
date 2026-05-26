@@ -11,12 +11,12 @@
                                 │ MCP Protocol (stdio | http | https)
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
-│              filemaker-odata-mcp v0.2.6                          │
+│              filemaker-odata-mcp v0.3.1                          │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │        Transport Layer (stdio / HTTP / HTTPS)              │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │                   Tools Handler (19 tools)                 │ │
+│  │                   Tools Handler (22 tools)                 │ │
 │  │  OData: list_tables, get_metadata, query_records           │ │
 │  │         get_record, get_records, count_records             │ │
 │  │         create_record, update_record, delete_record        │ │
@@ -62,7 +62,7 @@
 ```typescript
 {
   name: 'filemaker-odata-mcp',
-  version: '0.2.6',
+  version: '0.3.1',
   capabilities: {
     tools: {}
   }

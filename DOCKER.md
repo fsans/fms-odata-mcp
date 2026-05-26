@@ -136,8 +136,6 @@ npm run build
 docker build -t filemaker-odata-mcp:local .
 
 # Run the local image
-
-```bash
 docker run -d \
   --name filemaker-odata-mcp \
   -p 3333:3333 \
@@ -157,8 +155,6 @@ docker ps
 docker inspect --format='{{.State.Health}}' filemaker-odata-mcp
 
 # Manual health check
-
-```bash
 curl http://localhost:3333/health
 ```
 
