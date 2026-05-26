@@ -441,7 +441,7 @@ export class Cache {
 ```json
 {
   "name": "filemaker-odata-mcp",
-  "version": "0.2.6",
+  "version": "0.3.1",
   "description": "MCP server for FileMaker Server OData API",
   "type": "module",
   "main": "dist/index.js",
