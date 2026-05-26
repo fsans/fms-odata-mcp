@@ -145,6 +145,56 @@ export const odataTools = [
     },
   },
 
+  // Aggregation Tool (FileMaker Server 2025+)
+  {
+    name: "fm_odata_aggregate",
+    description:
+      "Aggregate records server-side using OData $apply (requires FileMaker Server 2025+). " +
+      "Groups records by one or more fields and computes sum, average, min, max, or count. " +
+      "Returns only the summary rows — no need to fetch all records and compute client-side. " +
+      "Example: sum of invoice amounts grouped by customer, or count of open cases per user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        method: {
+          type: "string",
+          enum: ["sum", "average", "min", "max", "countdistinct", "count"],
+          description:
+            "Aggregation function. Use 'count' to count all matching records (no field needed). " +
+            "Use 'countdistinct' to count unique values of a field.",
+        },
+        alias: {
+          type: "string",
+          description: "Name for the result column (e.g. 'TotalSales', 'AvgAge', 'Total')",
+        },
+        field: {
+          type: "string",
+          description:
+            "Field to aggregate. Required for sum/average/min/max/countdistinct. " +
+            "Omit when method is 'count'.",
+        },
+        groupBy: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Fields to group by (e.g. ['Region', 'Status']). " +
+            "Omit to aggregate across the whole table.",
+        },
+        filter: {
+          type: "string",
+          description:
+            "OData $filter expression applied before aggregation (e.g. \"Status eq 'Active'\"). " +
+            "Equivalent to a WHERE clause.",
+        },
+      },
+      required: ["table", "method", "alias"],
+    },
+  },
+
   // CRUD Tools
   {
     name: "fm_odata_create_record",
@@ -249,6 +299,9 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
 
       case "fm_odata_count_records":
         return await handleCountRecords(client, args);
+
+      case "fm_odata_aggregate":
+        return await handleAggregate(client, args);
 
       // CRUD Tools
       case "fm_odata_create_record":
@@ -390,6 +443,41 @@ async function handleCountRecords(client: any, args: any) {
       {
         type: "text",
         text: `Total records in ${args.table}: ${count}`,
+      },
+    ],
+  };
+}
+
+async function handleAggregate(client: any, args: any) {
+  const { table, method, alias, field, groupBy, filter } = args;
+
+  // Validate: field is required for everything except 'count'
+  if (method !== "count" && !field) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: 'field' is required when method is '${method}'.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const applyExpression = ODataParser.buildApplyExpression(
+    { method, alias, field },
+    groupBy,
+    filter
+  );
+
+  logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
+  const response = await client.aggregateRecords(table, applyExpression);
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: ODataParser.formatResponse(response),
       },
     ],
   };

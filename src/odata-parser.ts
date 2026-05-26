@@ -175,6 +175,72 @@ export class ODataParser {
   }
 
   /**
+   * Build an OData $apply expression for server-side aggregation.
+   *
+   * Supported aggregation methods (per OData 4.01 / FileMaker Server 2025):
+   *   sum, average, min, max, countdistinct
+   * Special method "count" emits `$count as <alias>` (no source field).
+   *
+   * Examples:
+   *   // Count all records
+   *   buildApplyExpression()
+   *   // → "aggregate($count as Total)"
+   *
+   *   // Sum a field
+   *   buildApplyExpression({ field: 'Amount', method: 'sum', alias: 'TotalAmount' })
+   *   // → "aggregate(Amount with sum as TotalAmount)"
+   *
+   *   // Group + aggregate
+   *   buildApplyExpression(
+   *     { field: 'Sales', method: 'sum', alias: 'TotalSales' },
+   *     ['Region']
+   *   )
+   *   // → "groupby((Region),aggregate(Sales with sum as TotalSales))"
+   *
+   *   // Group + aggregate + pre-filter
+   *   buildApplyExpression(
+   *     { field: 'Revenue', method: 'sum', alias: 'Total' },
+   *     ['Region'],
+   *     "Status eq 'Active'"
+   *   )
+   *   // → "filter(Status eq 'Active')/groupby((Region),aggregate(Revenue with sum as Total))"
+   */
+  static buildApplyExpression(
+    aggregation?: { field?: string; method: string; alias: string },
+    groupBy?: string[],
+    filter?: string
+  ): string {
+    // Build aggregate clause
+    let aggregateClause = "";
+    if (aggregation) {
+      if (aggregation.method === "count") {
+        aggregateClause = `aggregate($count as ${aggregation.alias})`;
+      } else {
+        const field = aggregation.field ?? aggregation.alias;
+        aggregateClause = `aggregate(${field} with ${aggregation.method} as ${aggregation.alias})`;
+      }
+    } else {
+      aggregateClause = "aggregate($count as Total)";
+    }
+
+    // Wrap in groupby if groupBy fields are provided
+    let expression: string;
+    if (groupBy && groupBy.length > 0) {
+      const groupFields = groupBy.join(",");
+      expression = `groupby((${groupFields}),${aggregateClause})`;
+    } else {
+      expression = aggregateClause;
+    }
+
+    // Prepend filter transformation if provided
+    if (filter) {
+      expression = `filter(${filter})/${expression}`;
+    }
+
+    return expression;
+  }
+
+  /**
    * Format batch operation results
    */
   static formatBatchResults(results: BatchResult[]): string {

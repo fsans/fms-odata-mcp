@@ -19,6 +19,8 @@ export interface ODataQueryOptions {
   skip?: number;
   expand?: string;
   count?: boolean;
+  /** OData $apply expression for server-side aggregation (FileMaker Server 2025+) */
+  apply?: string;
 }
 
 export interface ODataResponse<T = any> {
@@ -163,6 +165,7 @@ export class ODataClient {
       const parts: string[] = [];
       const add = (k: string, v: string) => parts.push(`${k}=${this.odataEncode(v)}`);
 
+      if (options.apply) add("$apply", options.apply);
       if (options.filter) add("$filter", options.filter);
       if (options.select) add("$select", options.select);
       if (options.orderby) add("$orderby", options.orderby);
@@ -277,6 +280,20 @@ export class ODataClient {
     }
     logger.debug(`Counting records: ${url}`);
     const response = await this.axiosInstance.get<number>(url);
+    return response.data;
+  }
+
+  /**
+   * Aggregate records using OData $apply (FileMaker Server 2025+)
+   *
+   * Sends a GET request with `?$apply=<expression>` to the entity set.
+   * The expression is built by the caller (or via ODataParser.buildApplyExpression)
+   * and supports groupby(), aggregate(), and filter() transformations.
+   */
+  async aggregateRecords(table: string, applyExpression: string): Promise<any> {
+    const url = this.buildUrl(table, { apply: applyExpression });
+    logger.debug(`Aggregating records: ${url}`);
+    const response = await this.axiosInstance.get(url);
     return response.data;
   }
 

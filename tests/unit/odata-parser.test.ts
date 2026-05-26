@@ -393,4 +393,64 @@ describe('ODataParser', () => {
       expect(formatted).toContain('"failed": 1');
     });
   });
+
+  describe('buildApplyExpression', () => {
+    test('should produce aggregate($count as Total) when called with no args', () => {
+      expect(ODataParser.buildApplyExpression()).toBe('aggregate($count as Total)');
+    });
+
+    test('should produce $count alias form for method "count"', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'count', alias: 'RecordCount' });
+      expect(expr).toBe('aggregate($count as RecordCount)');
+    });
+
+    test('should produce "field with method as alias" form for sum', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'sum', alias: 'TotalAmount', field: 'Amount' });
+      expect(expr).toBe('aggregate(Amount with sum as TotalAmount)');
+    });
+
+    test('should produce "field with method as alias" form for average', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'average', alias: 'AvgAge', field: 'Age' });
+      expect(expr).toBe('aggregate(Age with average as AvgAge)');
+    });
+
+    test('should fall back to alias as field name when field is omitted for non-count', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'max', alias: 'Revenue' });
+      expect(expr).toBe('aggregate(Revenue with max as Revenue)');
+    });
+
+    test('should wrap in groupby when groupBy fields are provided', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'sum', alias: 'TotalSales', field: 'Sales' },
+        ['Region']
+      );
+      expect(expr).toBe('groupby((Region),aggregate(Sales with sum as TotalSales))');
+    });
+
+    test('should handle multiple groupBy fields', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'sum', alias: 'TotalSales', field: 'Sales' },
+        ['Region', 'Status']
+      );
+      expect(expr).toBe('groupby((Region,Status),aggregate(Sales with sum as TotalSales))');
+    });
+
+    test('should prepend filter transformation when filter is provided', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'sum', alias: 'Total', field: 'Revenue' },
+        ['Region'],
+        "Status eq 'Active'"
+      );
+      expect(expr).toBe("filter(Status eq 'Active')/groupby((Region),aggregate(Revenue with sum as Total))");
+    });
+
+    test('should prepend filter even without groupBy', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'count', alias: 'Total' },
+        undefined,
+        "Status eq 'Active'"
+      );
+      expect(expr).toBe("filter(Status eq 'Active')/aggregate($count as Total)");
+    });
+  });
 });
