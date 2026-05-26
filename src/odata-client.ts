@@ -19,7 +19,7 @@ export interface ODataQueryOptions {
   skip?: number;
   expand?: string;
   count?: boolean;
-  /** OData $apply expression for server-side aggregation (FileMaker Server 2025+) */
+  /** OData $apply expression for server-side aggregation (FileMaker Server v22.0.1+ / FileMaker 2025+) */
   apply?: string;
 }
 
@@ -284,7 +284,7 @@ export class ODataClient {
   }
 
   /**
-   * Aggregate records using OData $apply (FileMaker Server 2025+)
+   * Aggregate records using OData $apply (FileMaker Server v22.0.1+ / FileMaker 2025+)
    *
    * Sends a GET request with `?$apply=<expression>` to the entity set.
    * The expression is built by the caller (or via ODataParser.buildApplyExpression)

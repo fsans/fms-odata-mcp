@@ -199,10 +199,10 @@ Find all contacts where LastName is 'Smith'
 - Count records
 - Create, Update, Delete records
 
-**FileMaker 2025+ (connection-free expression builders):**
-- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM 2025+)
-- `fm_odata_cast` — type coercion via `Field/Edm.Type` (FM 21.1+)
-- `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM 21.1+)
+**FileMaker 2024/2025+ (connection-free expression builders):**
+- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM v22.0.1+ / FM 2025)
+- `fm_odata_cast` — type coercion via `Field/Edm.Type` (FM v21.1+ / FM 2024)
+- `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM v21.1+ / FM 2024)
 
 **Connection Management:**
 - Connect, List connections

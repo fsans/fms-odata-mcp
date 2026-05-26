@@ -241,7 +241,7 @@ export class ODataParser {
   }
 
   /**
-   * Build a parameterized OData $filter expression (FileMaker Server 21.1+).
+   * Build a parameterized OData $filter expression (FileMaker Server v21.1+ / FileMaker 2024+).
    *
    * OData parameter aliases let you write a filter template with @param
    * placeholders and supply values separately, improving readability and
@@ -325,7 +325,7 @@ export class ODataParser {
   }
 
   /**
-   * Build an OData type-cast property path segment (FileMaker Server 21.1+).
+   * Build an OData type-cast property path segment (FileMaker Server v21.1+ / FileMaker 2024+).
    *
    * FileMaker's OData API supports explicit server-side type coercion by appending
    * "/Edm.<Type>" to a field name inside $select or $filter expressions.
