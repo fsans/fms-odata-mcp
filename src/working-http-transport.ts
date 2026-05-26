@@ -31,7 +31,7 @@ export class HttpTransport implements Transport {
     if (("result" in message || "error" in message) && "id" in message) {
       const id = (message as JSONRPCResponse).id;
       const resolver = id != null ? this.pending.get(id) : undefined;
-      if (resolver) {
+      if (resolver && id != null) {
         this.pending.delete(id);
         resolver(message as JSONRPCResponse);
         return;
