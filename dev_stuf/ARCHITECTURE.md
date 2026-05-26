@@ -11,7 +11,7 @@
                                 │ MCP Protocol (stdio | http | https)
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
-│              filemaker-odata-mcp v0.2.6                          │
+│              filemaker-odata-mcp v0.3.1                          │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │        Transport Layer (stdio / HTTP / HTTPS)              │ │
 │  └────────────────────────────────────────────────────────────┘ │
@@ -62,7 +62,7 @@
 ```typescript
 {
   name: 'filemaker-odata-mcp',
-  version: '0.2.6',
+  version: '0.3.1',
   capabilities: {
     tools: {}
   }

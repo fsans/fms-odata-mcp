@@ -44,17 +44,17 @@ ls -la dist/
 
 ### 2. Update Version Number
 
-The current version is `0.2.6`. To bump the version:
+The current version is `0.3.1`. To bump the version:
 
 ```bash
 # For a patch release (bug fixes)
-npm version patch  # e.g., 0.2.6 -> 0.2.7
+npm version patch  # e.g., 0.3.1 -> 0.3.2
 
 # For a minor release (new features)
-npm version minor  # e.g., 0.2.6 -> 0.3.0
+npm version minor  # e.g., 0.3.1 -> 0.4.0
 
 # For a major release
-npm version major  # e.g., 0.2.6 -> 1.0.0
+npm version major  # e.g., 0.3.1 -> 1.0.0
 ```
 
 ### 3. Review package.json
@@ -64,7 +64,7 @@ Ensure these fields are correct:
 ```json
 {
   "name": "filemaker-odata-mcp",
-  "version": "0.2.6",
+  "version": "0.3.1",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration",
   "author": "Francesc Sans <fsans@ntwk.es>",
   "license": "MIT",
@@ -133,12 +133,19 @@ npm run build
 # 3. Run tests
 npm test
 
-# 4. Publish to NPM
-npm publish
+# 4. Pre-build then publish (avoids OTP timeout during prepublishOnly)
+npm run build
+npm publish --ignore-scripts   # skips redundant pre-build; use token auth (no OTP prompt)
 
 # 5. Push tag to GitHub
-git push origin main --tags
+git push origin master --tags
 ```
+
+> **Note on 2FA / OTP:** npm's `prepublishOnly` build takes ~30 seconds, causing OTP codes
+> to expire before the actual publish request is sent. To avoid this, pre-build manually
+> (`npm run build`) and then publish with `--ignore-scripts`. Better yet, create a Granular
+> Access Token on npmjs.com with **"Bypass two-factor authentication"** enabled and set it
+> via `npm config set //registry.npmjs.org/:_authToken <token>` — no OTP needed at all.
 
 ### Option 2: Publish Beta/RC Version
 
@@ -290,7 +297,7 @@ npm version <type>    # Bump version (patch/minor/major)
 ## Security Best Practices
 
 1. **Enable 2FA** on your NPM account
-2. **Use npm automation tokens** for CI/CD
+2. **Use npm automation tokens** for CI/CD (Granular Access Token with "Bypass two-factor authentication" checked)
 3. **Review package contents** before publishing
 4. **Keep dependencies updated** regularly
 5. **Use `npm audit`** to check for vulnerabilities

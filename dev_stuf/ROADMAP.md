@@ -4,8 +4,10 @@
 - **v0.1.0** - Initial release: Basic OData 4.01 implementation (stdio transport)
 - **v0.1.2** - Bug fixes and stability improvements
 - **v0.2.0** - HTTP/HTTPS transport, Docker deployment, CLI binary (`filemaker-odata-mcp`)
-- **v0.2.6** - **Current**: 19 MCP tools, enhanced connection management (saved/default connections), NPM package published as `filemaker-odata-mcp`
-- **Target**: v0.3.0 (FileMaker 2025 advanced OData features)
+- **v0.2.6** - 19 MCP tools, enhanced connection management (saved/default connections), NPM package published as `filemaker-odata-mcp`
+- **v0.3.0** - Stability & correctness release: bug fixes, security hardening, test coverage, Dify support
+- **v0.3.1** - **Current**: patch release on top of 0.3.0
+- **Target**: v0.4.0 (FileMaker 2025 advanced OData features)
 
 ---
 
@@ -23,11 +25,30 @@
 
 ---
 
-## 🚀 Upcoming Features (v0.3.0+)
+## Completed in v0.3.x
+
+### What Was Delivered
+
+- **`fm_odata_test_connection_detailed`** - New tool surfacing the underlying error when a connection fails (replaces silent 401/network failures)
+- **SIGTERM handling** - Graceful Docker shutdown via `process.on('SIGTERM')` — no more forceful container kills
+- **Docker localhost warning** - Server warns at startup when `MCP_HOST=localhost` is detected inside a container
+- **CORS fix** - CORS middleware now registered before routes, fixing preflight failures
+- **JSON-RPC response correlation** - Concurrent HTTP requests no longer receive mismatched responses
+- **Tool routing fix** - Tools dispatched by exact name set instead of fragile string-prefix matching
+- **Security: password redaction** - Passwords are scrubbed from debug log output before writing
+- **Config hardening** - `validateConfig()` now invoked at startup; `verifySsl` helper centralises SSL flag parsing; saved-file schema tightened
+- **OData URL & parser fixes** - FileMaker-incompatible URL construction corrected; regex metacharacters in table names escaped
+- **Version from package.json** - Server version read at runtime instead of being hardcoded
+- **Dify / Streamable HTTP support** - JSON-RPC notifications (no `id`) return HTTP 204 immediately, preventing client stalls
+- **Test coverage** - Tool-routing and config-helpers unit tests added
+
+---
+
+## 🚀 Upcoming Features (v0.4.0+)
 
 ### FileMaker 2025 Advanced OData Features
 
-FileMaker Server 2025 introduced significant enhancements to its OData 4.01 implementation. These features will be added in future versions with automatic server version detection.
+FileMaker Server 2025 introduced significant enhancements to its OData 4.01 implementation. These features were originally targeted for v0.3.0 but were deferred to focus on stability and correctness. They are now planned for the next minor release.
 
 #### 1. Aggregation Support ($apply)
 
@@ -344,19 +365,31 @@ FileMaker Server 2025:
 - CLI binary via NPM
 - Saved/default connection management
 
-### v0.3.0 (Q2 2026) - FileMaker 2025 Support
+### v0.3.0 (Released) - Stability & Correctness
+- `fm_odata_test_connection_detailed` tool
+- SIGTERM / graceful Docker shutdown
+- CORS, JSON-RPC correlation, tool routing fixes
+- Security: password redaction in debug logs
+- Config hardening and startup validation
+- OData URL and parser bug fixes
+- Dify / Streamable HTTP support
+
+### v0.3.1 (Released) - Current
+- Patch release on top of v0.3.0
+
+### v0.4.0 (Next) - FileMaker 2025 Support
 - Server version detection
 - Aggregation ($apply)
 - Type casting
 - Query parametrization
 - Nested queries (lambda operators)
 
-### v0.4.0 (Q3 2026) - Advanced Features
+### v0.5.0 - Advanced Features
 - Performance optimizations (caching, connection pooling)
 - Enhanced testing (90%+ coverage)
 - Comprehensive documentation
 
-### v1.0.0 (Q4 2026) - Production Ready
+### v1.0.0 - Production Ready
 - All FileMaker 2025 features complete
 - 90%+ test coverage
 - Complete documentation
@@ -386,5 +419,5 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: March 2025  
+**Last Updated**: May 2026  
 **Maintainer**: Francesc Sans <fsans@ntwk.es>

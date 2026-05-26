@@ -297,6 +297,8 @@ Create a new contact with name "John Doe" and email "john@example.com"
 - **[Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)** - Detailed configuration
 - **[Windsurf Setup](./dev_stuf/WINDSURF_SETUP.md)** - IDE integration guide
 - **[Docker Deployment](./DOCKER.md)** - Complete Docker guide with production examples
+- **[Roadmap](./dev_stuf/ROADMAP.md)** - Planned features and version history
+- **[Changelog](./CHANGELOG.md)** - Detailed release notes
 
 ## Available Tools
 
@@ -378,7 +380,7 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ## Changelog
 
-See [dev_stuf/VERSIONING.md](./dev_stuf/VERSIONING.md) for version history.
+See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes.
 
 ---
 
