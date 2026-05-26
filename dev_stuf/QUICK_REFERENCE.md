@@ -191,13 +191,18 @@ Find all contacts where LastName is 'Smith'
 
 ---
 
-## AVAILABLE TOOLS (19 Total)
+## AVAILABLE TOOLS (22 Total)
 
 **Data Operations:**
 - List tables, Get metadata
 - Query records, Get single record
 - Count records
 - Create, Update, Delete records
+
+**FileMaker 2025+ (connection-free expression builders):**
+- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM 2025+)
+- `fm_odata_cast` — type coercion via `Field/Edm.Type` (FM 21.1+)
+- `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM 21.1+)
 
 **Connection Management:**
 - Connect, List connections

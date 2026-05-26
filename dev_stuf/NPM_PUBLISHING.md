@@ -204,7 +204,7 @@ Once the GitHub repository is created:
 ```markdown
 ## Features
 - MCP server for FileMaker Server OData 4.01 API
-- 19 tools for database introspection and CRUD operations
+- 22 tools for database introspection, CRUD operations, and FileMaker 2025 OData features
 - HTTP/HTTPS transport for standalone server mode
 - Docker deployment support
 - Connection management with saved/default connections

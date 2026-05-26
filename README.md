@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- 🔌 **19 MCP Tools** for FileMaker database operations
+- 🔌 **22 MCP Tools** for FileMaker database operations
 - 🔍 **Database Discovery** - Explore tables, fields, and metadata
 - 📊 **CRUD Operations** - Create, read, update, and delete records
 - 🔐 **Secure Connections** - SSL support for self-signed certificates
@@ -302,13 +302,18 @@ Create a new contact with name "John Doe" and email "john@example.com"
 
 ## Available Tools
 
-| Category      | Tools                                                                 |
-|---------------|-----------------------------------------------------------------------|
-| **Discovery** | `fm_odata_list_tables`, `fm_odata_get_metadata`, `fm_odata_get_service_document` |
-| **Queries**   | `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`, `fm_odata_count_records` |
-| **CRUD**      | `fm_odata_create_record`, `fm_odata_update_record`, `fm_odata_delete_record` |
-| **Connection**| `fm_odata_connect`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
-| **Config**    | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections` |
+| Category        | Tools                                                                 |
+|-----------------|-----------------------------------------------------------------------|
+| **Discovery**   | `fm_odata_list_tables`, `fm_odata_get_metadata`, `fm_odata_get_service_document` |
+| **Queries**     | `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`, `fm_odata_count_records` |
+| **CRUD**        | `fm_odata_create_record`, `fm_odata_update_record`, `fm_odata_delete_record` |
+| **FM 2025+**    | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
+| **Connection**  | `fm_odata_connect`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
+| **Config**      | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections` |
+
+> The **FM 2025+** tools are connection-free expression builders. `fm_odata_cast` and
+> `fm_odata_build_filter` require FileMaker Server 21.1+; `fm_odata_aggregate` requires
+> FileMaker Server 2025+.
 
 ## Requirements
 
@@ -351,6 +356,7 @@ $top      - Limit results
 $skip     - Skip records (pagination)
 $expand   - Include related records
 $count    - Include total count
+$apply    - Server-side aggregation (FileMaker Server 2025+)
 ```
 
 **Example prompts:**
@@ -363,6 +369,39 @@ Show only Name and Email fields from Contacts
 Sort contacts by LastName in descending order
 
 Get the first 10 contacts, skip the first 20
+```
+
+### FileMaker 2025 Advanced Features
+
+Three additional tools provide expression-builder helpers for newer FileMaker Server capabilities.
+They require no active connection and return strings ready to use in the standard query tools.
+
+**`fm_odata_aggregate`** — server-side aggregation (FileMaker Server 2025+):
+```text
+Sum invoice amounts grouped by customer:
+  table=Invoices, method=sum, field=Amount, alias=Total, groupBy=["Customer"]
+
+Count open cases per user:
+  table=Cases, method=count, alias=OpenCount, filter="Status eq 'Open'", groupBy=["AssignedTo"]
+```
+
+**`fm_odata_cast`** — server-side type coercion (FileMaker Server 21.1+):
+```text
+Return StartDate as a number for arithmetic:
+  fields=[{field:"StartDate", type:"Int64"}], context="select"
+  → use result as $select value in fm_odata_query_records
+
+Cast Amount to String for text comparison in a filter:
+  fields=[{field:"Amount", type:"String"}], context="filter"
+  → embed result in a $filter expression: Amount/Edm.String eq '100'
+```
+
+**`fm_odata_build_filter`** — parameterized filter builder (FileMaker Server 21.1+):
+```text
+Reusable filter with named placeholders:
+  template="Title eq @title and Age gt @minAge",
+  params={"@title":"Wizard of Oz","@minAge":18}
+  → filter: "Title eq 'Wizard of Oz' and Age gt 18"
 ```
 
 ## Contributing

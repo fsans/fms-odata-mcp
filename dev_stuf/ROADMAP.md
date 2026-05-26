@@ -6,8 +6,8 @@
 - **v0.2.0** - HTTP/HTTPS transport, Docker deployment, CLI binary (`filemaker-odata-mcp`)
 - **v0.2.6** - 19 MCP tools, enhanced connection management (saved/default connections), NPM package published as `filemaker-odata-mcp`
 - **v0.3.0** - Stability & correctness release: bug fixes, security hardening, test coverage, Dify support
-- **v0.3.1** - **Current**: patch release on top of 0.3.0
-- **Target**: v0.4.0 (FileMaker 2025 advanced OData features)
+- **v0.3.1** - Patch release on top of 0.3.0
+- **v0.4.0** - **In Progress**: FileMaker 2025 advanced OData features (aggregation, type casting, parameterization)
 
 ---
 
@@ -44,166 +44,118 @@
 
 ---
 
-## 🚀 Upcoming Features (v0.4.0+)
+## ✅ Completed in v0.4.0
 
 ### FileMaker 2025 Advanced OData Features
 
-FileMaker Server 2025 introduced significant enhancements to its OData 4.01 implementation. These features were originally targeted for v0.3.0 but were deferred to focus on stability and correctness. They are now planned for the next minor release.
+FileMaker Server 2025 introduced significant enhancements to its OData 4.01 implementation.
+These features were deferred from v0.3.0 to keep that release focused on stability.
+All three expression-builder tools are **connection-free** — they produce query strings
+locally, ready to pass into `fm_odata_query_records` or other existing tools.
 
 #### 1. Aggregation Support ($apply)
 
-**Status**: 📋 Planned  
-**FileMaker Version**: 2025+  
-**Priority**: High  
-**Estimated Effort**: 3-5 days
+**Status**: ✅ Done (branch: `feat/fm2025-odata-features`)
+**FileMaker Version**: 2025+
+**Tool**: `fm_odata_aggregate`
 
-**Description**: Implement OData `$apply` query option for data aggregation and grouping.
+**Description**: Server-side aggregation via OData `$apply`. Groups records by one or
+more fields and computes sum, average, min, max, countdistinct, or count — no need to
+fetch all records client-side.
 
-**Features to Implement**:
-- `aggregate()` - Sum, average, min, max, count operations
-- `groupby()` - Group records by one or more fields
-- `filter()` - Apply filters within aggregation
-- Combined operations (e.g., group + aggregate + filter)
+**Implemented**:
+- `aggregate()` — sum, average, min, max, countdistinct, count ($count)
+- `groupby()` — group by one or more fields
+- `filter()` — pre-filter transformation before aggregation
+- Combined pipeline: `filter(…)/groupby((…),aggregate(…))`
+- `ODataParser.buildApplyExpression()` static helper
+- `ODataClient.aggregateRecords()` method
+- 9 unit tests
 
-**Example Use Cases**:
-```javascript
-// Sum sales by region
-$apply=groupby((Region), aggregate(Sales with sum as TotalSales))
-
-// Average age by department
-$apply=groupby((Department), aggregate(Age with average as AvgAge))
-
-// Count records by category
-$apply=groupby((Category), aggregate($count as Total))
-
-// Complex: Filter, group, and aggregate
-$apply=filter(Status eq 'Active')/groupby((Region), aggregate(Revenue with sum as Total))
+**Example**:
 ```
-
-**Implementation Tasks**:
-- [ ] Add `$apply` parameter to `ODataQueryOptions`
-- [ ] Implement aggregation query builder
-- [ ] Add aggregation response parser
-- [ ] Create dedicated `fm_odata_aggregate` tool
-- [ ] Add unit tests for aggregation scenarios
-- [ ] Document aggregation syntax and examples
+// Sum sales by region, active records only
+fm_odata_aggregate: table=Sales, method=sum, alias=TotalSales, field=Amount,
+  groupBy=["Region"], filter="Status eq 'Active'"
+// → $apply=filter(Status eq 'Active')/groupby((Region),aggregate(Amount with sum as TotalSales))
+```
 
 ---
 
 #### 2. Type Casting Support
 
-**Status**: 📋 Planned  
-**FileMaker Version**: 2025+  
-**Priority**: Medium  
-**Estimated Effort**: 2-3 days
+**Status**: ✅ Done (branch: `feat/fm2025-odata-features`)
+**FileMaker Version**: 21.1+
+**Tool**: `fm_odata_cast` (connection-free)
 
-**Description**: Support OData `cast()` function for type conversions in queries.
+**Description**: Server-side type coercion via OData property path segments
+(`Field/Edm.Type`). Used in `$select` or `$filter` expressions. Avoids client-side
+type conversion.
 
-**Features to Implement**:
-- Cast between EDM types (String, Int32, Decimal, DateTime, etc.)
-- Type coercion in filter expressions
-- Validation of cast operations
+**Implemented**:
+- Property path casting: `Field/Edm.Type` syntax
+- Supported types: `String`, `Int32`, `Int64`, `Decimal`, `Double`, `Boolean`,
+  `Date`, `TimeOfDay`, `DateTimeOffset`
+- `select` context: joins multiple casts with commas for `$select`
+- `filter` context: returns individual cast paths to embed in `$filter`
+- `ODataParser.buildCastExpression()` static helper
+- 6 unit tests + 3 routing tests
 
-**Example Use Cases**:
-```javascript
-// Cast number to string for comparison
-$filter=cast(Age, 'Edm.String') eq '25'
-
-// Cast string to number for arithmetic
-$filter=cast(StringField, 'Edm.Int32') gt 100
-
-// Cast date for comparison
-$filter=cast(DateField, 'Edm.DateTimeOffset') ge 2024-01-01T00:00:00Z
+**Example**:
 ```
-
-**Implementation Tasks**:
-- [ ] Add cast() function parser
-- [ ] Implement type conversion logic
-- [ ] Add EDM type definitions
-- [ ] Validate cast operations
-- [ ] Add unit tests for casting
-- [ ] Document casting syntax and supported types
+// Return StartDate as a number for arithmetic
+fm_odata_cast: fields=[{field:"StartDate", type:"Int64"}], context="select"
+// → $select=StartDate/Edm.Int64
+```
 
 ---
 
-#### 3. Query Parametrization
+#### 3. Query Parameterization
 
-**Status**: 📋 Planned  
-**FileMaker Version**: 2025+  
-**Priority**: Medium  
-**Estimated Effort**: 2-3 days
+**Status**: ✅ Done (branch: `feat/fm2025-odata-features`)
+**FileMaker Version**: 21.1+
+**Tool**: `fm_odata_build_filter` (connection-free)
 
-**Description**: Support parameterized queries using `@parameter` syntax for reusable queries.
+**Description**: Parameterized `$filter` expressions using OData `@alias` syntax.
+Improves readability and allows reuse of filter templates with different values.
+FileMaker supports `@alias` in `$filter` only.
 
-**Features to Implement**:
-- Parameter definition syntax
-- Parameter substitution in queries
-- Type-safe parameter handling
-- Multiple parameter support
+**Implemented**:
+- `resolved` mode (default): substitutes alias values into the template, returns a
+  plain filter string ready for `fm_odata_query_records`
+- `raw` mode: returns `{ filter, params, queryString }` for manual URL construction
+- Auto-quoting of string values; numbers/booleans/null passed through as-is
+- Internal single-quote escaping (`O'Brien` → `O''Brien`)
+- Longest-alias-first substitution to prevent partial replacements
+- `@`-prefix validation on alias keys
+- `ODataParser.buildParameterizedFilter()` and `formatParamValue()` helpers
+- 10 unit tests + 3 routing tests
 
-**Example Use Cases**:
-```javascript
-// Simple parameter
-?$filter=FirstName eq @name&@name='John'
-
-// Multiple parameters
-?$filter=Age gt @minAge and Age lt @maxAge&@minAge=18&@maxAge=65
-
-// Date parameters
-?$filter=CreatedDate ge @startDate&@startDate=2024-01-01T00:00:00Z
-
-// Reusable query patterns
-?$filter=Status eq @status and Region eq @region&@status='Active'&@region='Europe'
+**Example**:
 ```
-
-**Implementation Tasks**:
-- [ ] Add parameter parsing to URL builder
-- [ ] Implement parameter substitution
-- [ ] Add parameter validation
-- [ ] Support parameter types (string, number, date, boolean)
-- [ ] Add unit tests for parametrization
-- [ ] Document parameter syntax and examples
+// Reusable filter template
+fm_odata_build_filter: template="Title eq @title and Age gt @minAge",
+  params={"@title":"Wizard of Oz","@minAge":18}
+// resolved → filter: "Title eq 'Wizard of Oz' and Age gt 18"
+```
 
 ---
 
-#### 4. Nested Queries (Lambda Operators)
+#### 4. Lambda Operators (any / all)
 
-**Status**: 📋 Planned  
-**FileMaker Version**: 2025+  
-**Priority**: Medium-High  
-**Estimated Effort**: 4-6 days
+**Status**: ⛔ Not implemented — **unsupported by FileMaker Server OData**
+**FileMaker Version**: N/A
 
-**Description**: Support lambda operators for querying related records and collections.
+Lambda operators `any` and `all` are explicitly listed as unsupported in the official
+Claris OData documentation (`odata-unsupported-features.html`, current as of 2026).
 
-**Features to Implement**:
-- `any()` - Check if any item matches condition
-- `all()` - Check if all items match condition
-- Nested property access
-- Multi-level navigation
-
-**Example Use Cases**:
-```javascript
-// Any: Orders with any item over $100
-$filter=OrderDetails/any(d: d/Price gt 100)
-
-// All: Orders where all items are shipped
-$filter=OrderDetails/all(d: d/Status eq 'Shipped')
-
-// Nested: Customers with orders containing specific products
-$filter=Orders/any(o: o/OrderDetails/any(d: d/ProductName eq 'Widget'))
-
-// Combined: Active customers with recent high-value orders
-$filter=Status eq 'Active' and Orders/any(o: o/Date ge 2024-01-01 and o/Total gt 1000)
+**Alternative**: Use `$expand` with nested `$filter` options for filtering on related
+navigation properties, e.g.:
+```
+$expand=Orders($filter=Status eq 'Active')
 ```
 
-**Implementation Tasks**:
-- [ ] Implement lambda expression parser
-- [ ] Add `any()` operator support
-- [ ] Add `all()` operator support
-- [ ] Support nested navigation paths
-- [ ] Handle complex nested conditions
-- [ ] Add unit tests for lambda operators
-- [ ] Document nested query syntax
+This feature will not be implemented until Claris adds server-side support.
 
 ---
 
@@ -231,17 +183,20 @@ FileMaker Server 19+:
   ✅ CRUD operations
   ✅ Standard query options ($filter, $select, $orderby, etc.)
 
-FileMaker Server 2023:
+FileMaker Server 21.1+:
   ✅ All v19+ features
+  ✅ Type casting (Field/Edm.Type) → fm_odata_cast
+  ✅ Parameterization (@alias syntax) → fm_odata_build_filter
+
+FileMaker Server 2023:
+  ✅ All 21.1+ features
   ✅ Enhanced metadata
   ✅ Improved error messages
 
 FileMaker Server 2025:
   ✅ All 2023 features
-  ✅ Aggregation ($apply)
-  ✅ Type casting (cast())
-  ✅ Parametrization (@parameter)
-  ✅ Nested queries (any/all)
+  ✅ Aggregation ($apply) → fm_odata_aggregate
+  ❌ Lambda operators any/all — unsupported by FileMaker OData (all versions)
 ```
 
 ---
@@ -303,7 +258,7 @@ FileMaker Server 2025:
 
 **Implementation Tasks**:
 - [ ] Comprehensive filter expression cookbook
-- [ ] Aggregation use case examples
+- [x] Aggregation use case examples (covered in tool description and CHANGELOG)
 - [ ] Complex query patterns
 - [ ] Performance tuning guide
 - [ ] Common pitfalls and solutions
@@ -374,15 +329,15 @@ FileMaker Server 2025:
 - OData URL and parser bug fixes
 - Dify / Streamable HTTP support
 
-### v0.3.1 (Released) - Current
+### v0.3.1 (Released)
 - Patch release on top of v0.3.0
 
-### v0.4.0 (Next) - FileMaker 2025 Support
-- Server version detection
-- Aggregation ($apply)
-- Type casting
-- Query parametrization
-- Nested queries (lambda operators)
+### v0.4.0 (In Progress) - FileMaker 2025 Support
+- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM 2025+)
+- `fm_odata_cast` — type coercion via `Field/Edm.Type` paths (FM 21.1+)
+- `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM 21.1+)
+- Lambda operators `any`/`all` — **not implemented** (unsupported by FileMaker OData)
+- Tool count: 19 → 22
 
 ### v0.5.0 - Advanced Features
 - Performance optimizations (caching, connection pooling)
@@ -419,5 +374,5 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: May 2026  
+**Last Updated**: May 2026 (v0.4.0 features added)  
 **Maintainer**: Francesc Sans <fsans@ntwk.es>

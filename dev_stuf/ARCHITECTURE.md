@@ -16,7 +16,7 @@
 │  │        Transport Layer (stdio / HTTP / HTTPS)              │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │                   Tools Handler (19 tools)                 │ │
+│  │                   Tools Handler (22 tools)                 │ │
 │  │  OData: list_tables, get_metadata, query_records           │ │
 │  │         get_record, get_records, count_records             │ │
 │  │         create_record, update_record, delete_record        │ │

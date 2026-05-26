@@ -7,6 +7,71 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased] — v0.4.0 (FileMaker 2025 advanced OData features)
+
+Three new expression-builder tools for FileMaker Server 2025 OData capabilities.
+All three are **connection-free** — they build query expressions locally and return
+strings ready to pass into existing tools like `fm_odata_query_records`.
+Total tool count increases from 19 to 22.
+
+### Added
+
+- **`fm_odata_aggregate`** — server-side aggregation via OData `$apply`
+  (requires FileMaker Server 2025+).
+  Accepts `table`, `method` (sum/average/min/max/countdistinct/count), `alias`,
+  optional `field`, `groupBy` array, and `filter` pre-condition.
+  Internally builds `groupby((…),aggregate(…))` / `filter(…)/…` expressions via
+  `ODataParser.buildApplyExpression()` and executes a GET with `?$apply=…`.
+
+- **`fm_odata_cast`** — server-side type coercion via OData property path segments
+  (requires FileMaker Server 21.1+).
+  Accepts an array of `{field, type}` pairs and an optional `context`
+  (`select` or `filter`). Returns `Field/Edm.Type` expressions ready for use in
+  `$select` or embedded in `$filter`. No active connection required.
+  Supported types: `String`, `Int32`, `Int64`, `Decimal`, `Double`, `Boolean`,
+  `Date`, `TimeOfDay`, `DateTimeOffset`.
+
+- **`fm_odata_build_filter`** — parameterized `$filter` builder via OData `@alias`
+  syntax (requires FileMaker Server 21.1+).
+  Accepts a `template` string with `@alias` placeholders, a `params` map, and an
+  optional `mode`:
+  - `resolved` (default): substitutes alias values into the template and returns a
+    plain filter string for immediate use in `fm_odata_query_records`.
+  - `raw`: returns the OData parameterized query string form
+    (`$filter=…&@alias=value`) for manual URL construction.
+  String values are auto-quoted and internal single quotes doubled; numbers,
+  booleans, and `null` are passed through as-is. No active connection required.
+
+- **`ODataParser.buildApplyExpression()`** — static helper building `$apply`
+  expressions from structured aggregation inputs.
+
+- **`ODataParser.buildCastExpression()`** — static helper producing
+  `Field/Edm.Type` path segments; normalises bare type names and `Edm.`-prefixed
+  names to the same output.
+
+- **`ODataParser.buildParameterizedFilter()`** — static helper for `@alias`
+  substitution in filter templates; supports resolved and raw modes.
+
+- **`ODataClient.aggregateRecords()`** — new method executing GET with `?$apply=`.
+
+- **`AGENTS.md`** — project-level rules file for AI agents: no attribution footers
+  in commits, documented FileMaker OData unsupported features (lambda `any`/`all`,
+  `$search`, geo functions).
+
+### Not implemented (FileMaker limitation)
+
+- **Lambda operators `any` / `all`** — officially unsupported by FileMaker Server
+  OData (listed in Claris `odata-unsupported-features.html`, current as of 2026).
+  Will not be implemented until Claris adds support.
+
+### Tests
+
+- 22 new unit tests: `buildApplyExpression` (9), `buildCastExpression` (6),
+  `buildParameterizedFilter` (10), plus 6 routing/behaviour tests for the new tools.
+- Total: 121 tests across 5 suites (up from 90).
+
+---
+
 ## [0.3.1] - 2026-05-25
 
 Patch release on top of 0.3.0. Version bump and npm publish housekeeping.
@@ -20,9 +85,10 @@ Patch release on top of 0.3.0. Version bump and npm publish housekeeping.
 ## [0.3.0] - 2026-05-25
 
 Major stability and correctness release. All changes since 0.2.8 are included here.
-FileMaker 2025 advanced OData features (aggregation, type casting, parametrization,
-lambda operators) were originally targeted for this release but have been deferred
-to v0.4.0 to keep this release focused on reliability.
+FileMaker 2025 advanced OData features (aggregation, type casting, parametrization)
+were deferred from this release to keep it focused on reliability; they are
+implemented in v0.4.0. Lambda operators (`any`/`all`) remain unsupported by
+FileMaker Server OData and are not planned.
 
 ### Added
 
