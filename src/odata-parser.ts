@@ -241,6 +241,90 @@ export class ODataParser {
   }
 
   /**
+   * Build a parameterized OData $filter expression (FileMaker Server 21.1+).
+   *
+   * OData parameter aliases let you write a filter template with @param
+   * placeholders and supply values separately, improving readability and
+   * allowing reuse of the same template with different values.
+   *
+   * FileMaker Server supports parameter aliases in $filter only (not $orderby).
+   * Alias names must start with "@".
+   *
+   * This helper supports two output modes:
+   *
+   * 1. "resolved" (default) — substitutes alias values directly into the
+   *    filter string, producing a plain filter expression ready for use as the
+   *    `filter` argument of fm_odata_query_records.
+   *
+   *    buildParameterizedFilter(
+   *      "Title eq @title and Status eq @status",
+   *      { "@title": "'Wizard of Oz'", "@status": "'Active'" }
+   *    )
+   *    // → "Title eq 'Wizard of Oz' and Status eq 'Active'"
+   *
+   * 2. "raw" — returns both the template and the alias key=value pairs as
+   *    separate query string segments, which together form the OData
+   *    parameterized URL. Useful when the caller wants to construct the full
+   *    URL manually.
+   *
+   *    buildParameterizedFilter(
+   *      "Title eq @title",
+   *      { "@title": "'Wizard of Oz'" },
+   *      "raw"
+   *    )
+   *    // → {
+   *    //     filter: "Title eq @title",
+   *    //     params: "@title='Wizard of Oz'",
+   *    //     queryString: "$filter=Title eq @title&@title='Wizard of Oz'"
+   *    //   }
+   *
+   * Value formatting rules (applied automatically in "resolved" mode):
+   *   - String values that are not already single-quoted are wrapped in '...'
+   *     with internal single quotes doubled ('O''Brien').
+   *   - Numeric, boolean, and null literals are passed through unchanged.
+   *   - Date/time literals must be pre-formatted by the caller (ISO 8601).
+   */
+  static buildParameterizedFilter(
+    template: string,
+    params: Record<string, string | number | boolean | null>,
+    mode: "resolved" | "raw" = "resolved"
+  ): string | { filter: string; params: string; queryString: string } {
+    if (mode === "raw") {
+      const paramParts = Object.entries(params)
+        .map(([k, v]) => `${k}=${ODataParser.formatParamValue(v)}`)
+        .join("&");
+      const queryString = `$filter=${template}&${paramParts}`;
+      return { filter: template, params: paramParts, queryString };
+    }
+
+    // "resolved" mode: substitute each @alias with its formatted value
+    let resolved = template;
+    // Sort by descending length so "@titlePrefix" is replaced before "@title"
+    const sortedKeys = Object.keys(params).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      const value = ODataParser.formatParamValue(params[key]);
+      // Replace all occurrences; use word-boundary-style check (alias ends at
+      // non-identifier chars or end of string) to avoid partial substitution
+      resolved = resolved.replace(
+        new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9_])", "g"),
+        value
+      );
+    }
+    return resolved;
+  }
+
+  /** Format a parameter value for embedding in an OData expression. */
+  private static formatParamValue(value: string | number | boolean | null): string {
+    if (value === null) return "null";
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    const s = String(value);
+    // Already single-quoted — pass through as-is
+    if (s.startsWith("'") && s.endsWith("'")) return s;
+    // Wrap in single quotes, escaping internal single quotes by doubling them
+    return `'${s.replace(/'/g, "''")}'`;
+  }
+
+  /**
    * Build an OData type-cast property path segment (FileMaker Server 21.1+).
    *
    * FileMaker's OData API supports explicit server-side type coercion by appending

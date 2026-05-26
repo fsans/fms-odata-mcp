@@ -394,6 +394,94 @@ describe('ODataParser', () => {
     });
   });
 
+  describe('buildParameterizedFilter', () => {
+    test('resolved mode: substitutes a string alias with auto-quoting', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title",
+        { "@title": "Wizard of Oz" }
+      );
+      expect(result).toBe("Title eq 'Wizard of Oz'");
+    });
+
+    test('resolved mode: passes through already-quoted string value', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title",
+        { "@title": "'Wizard of Oz'" }
+      );
+      expect(result).toBe("Title eq 'Wizard of Oz'");
+    });
+
+    test('resolved mode: substitutes a numeric alias without quotes', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Age gt @minAge",
+        { "@minAge": 18 }
+      );
+      expect(result).toBe("Age gt 18");
+    });
+
+    test('resolved mode: substitutes a boolean alias', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Active eq @flag",
+        { "@flag": true }
+      );
+      expect(result).toBe("Active eq true");
+    });
+
+    test('resolved mode: substitutes null alias', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "DeletedAt eq @val",
+        { "@val": null }
+      );
+      expect(result).toBe("DeletedAt eq null");
+    });
+
+    test('resolved mode: substitutes multiple aliases', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title and Status eq @status",
+        { "@title": "Oz", "@status": "Active" }
+      );
+      expect(result).toBe("Title eq 'Oz' and Status eq 'Active'");
+    });
+
+    test('resolved mode: escapes internal single quotes in string values', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "LastName eq @name",
+        { "@name": "O'Brien" }
+      );
+      expect(result).toBe("LastName eq 'O''Brien'");
+    });
+
+    test('resolved mode: longer alias is not partially replaced by shorter alias', () => {
+      // @titlePrefix must not be broken by @title substitution
+      const result = ODataParser.buildParameterizedFilter(
+        "@titlePrefix eq @title",
+        { "@title": "Oz", "@titlePrefix": "The" }
+      );
+      expect(result).toBe("'The' eq 'Oz'");
+    });
+
+    test('raw mode: returns filter template, params string, and queryString', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title",
+        { "@title": "'Wizard of Oz'" },
+        "raw"
+      ) as { filter: string; params: string; queryString: string };
+      expect(result.filter).toBe("Title eq @title");
+      expect(result.params).toBe("@title='Wizard of Oz'");
+      expect(result.queryString).toBe("$filter=Title eq @title&@title='Wizard of Oz'");
+    });
+
+    test('raw mode: multiple params joined with &', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title and Age gt @age",
+        { "@title": "Oz", "@age": 18 },
+        "raw"
+      ) as { filter: string; params: string; queryString: string };
+      expect(result.queryString).toContain("@title='Oz'");
+      expect(result.queryString).toContain("@age=18");
+    });
+  });
+
   describe('buildCastExpression', () => {
     test('should append /Edm.<type> when called with bare type name', () => {
       expect(ODataParser.buildCastExpression('StartDate', 'Int64')).toBe('StartDate/Edm.Int64');

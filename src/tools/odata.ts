@@ -201,6 +201,55 @@ export const odataTools = [
     },
   },
 
+  // Parameterized Filter Builder (FileMaker Server 21.1+)
+  {
+    name: "fm_odata_build_filter",
+    description:
+      "Build a parameterized OData $filter expression (requires FileMaker Server 21.1+). " +
+      "Write a filter template with @alias placeholders and supply values separately. " +
+      "In 'resolved' mode (default) the aliases are substituted client-side and the result " +
+      "can be used directly as the 'filter' argument of fm_odata_query_records. " +
+      "In 'raw' mode the OData parameter alias query string is returned instead, " +
+      "useful for constructing URLs manually. " +
+      "String values are automatically single-quoted; numbers/booleans are passed through as-is. " +
+      "Example: template 'Title eq @title and Status eq @status', " +
+      "params { '@title': 'Wizard of Oz', '@status': 'Active' }.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        template: {
+          type: "string",
+          description:
+            "OData $filter template using @alias placeholders for values. " +
+            "Example: \"Title eq @title and Age gt @minAge\"",
+        },
+        params: {
+          type: "object",
+          description:
+            "Map of alias names (starting with @) to their values. " +
+            "String values are auto-quoted; numbers and booleans are used as-is. " +
+            "Example: { \"@title\": \"Wizard of Oz\", \"@minAge\": 18 }",
+          additionalProperties: {
+            oneOf: [
+              { type: "string" },
+              { type: "number" },
+              { type: "boolean" },
+              { type: "null" },
+            ],
+          },
+        },
+        mode: {
+          type: "string",
+          enum: ["resolved", "raw"],
+          description:
+            "'resolved' (default): substitutes alias values into the template and returns a plain filter string. " +
+            "'raw': returns the OData parameterized query string form with aliases kept separate.",
+        },
+      },
+      required: ["template", "params"],
+    },
+  },
+
   // Aggregation Tool (FileMaker Server 2025+)
   {
     name: "fm_odata_aggregate",
@@ -320,6 +369,9 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
     // Connection-free tools — handled before the connection guard
     if (name === "fm_odata_cast") {
       return handleCast(args);
+    }
+    if (name === "fm_odata_build_filter") {
+      return handleBuildFilter(args);
     }
 
     const client = connectionManager.getCurrentClient();
@@ -504,6 +556,37 @@ async function handleCountRecords(client: any, args: any) {
       {
         type: "text",
         text: `Total records in ${args.table}: ${count}`,
+      },
+    ],
+  };
+}
+
+function handleBuildFilter(args: any) {
+  const { template, params, mode = "resolved" } = args;
+
+  // Validate: all param keys must start with @
+  const badKeys = Object.keys(params).filter((k: string) => !k.startsWith("@"));
+  if (badKeys.length > 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: parameter alias names must start with '@'. Invalid: ${badKeys.join(", ")}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const result = ODataParser.buildParameterizedFilter(template, params, mode);
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: typeof result === "string"
+          ? JSON.stringify({ filter: result }, null, 2)
+          : JSON.stringify(result, null, 2),
       },
     ],
   };
