@@ -377,6 +377,7 @@ Three additional tools provide expression-builder helpers for newer FileMaker Se
 They require no active connection and return strings ready to use in the standard query tools.
 
 **`fm_odata_aggregate`** — server-side aggregation (FileMaker Server 2025+):
+
 ```text
 Sum invoice amounts grouped by customer:
   table=Invoices, method=sum, field=Amount, alias=Total, groupBy=["Customer"]
@@ -386,6 +387,7 @@ Count open cases per user:
 ```
 
 **`fm_odata_cast`** — server-side type coercion (FileMaker Server 21.1+):
+
 ```text
 Return StartDate as a number for arithmetic:
   fields=[{field:"StartDate", type:"Int64"}], context="select"
@@ -397,6 +399,7 @@ Cast Amount to String for text comparison in a filter:
 ```
 
 **`fm_odata_build_filter`** — parameterized filter builder (FileMaker Server 21.1+):
+
 ```text
 Reusable filter with named placeholders:
   template="Title eq @title and Age gt @minAge",

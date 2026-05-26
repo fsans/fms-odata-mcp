@@ -73,7 +73,8 @@ fetch all records client-side.
 - 9 unit tests
 
 **Example**:
-```
+
+```text
 // Sum sales by region, active records only
 fm_odata_aggregate: table=Sales, method=sum, alias=TotalSales, field=Amount,
   groupBy=["Region"], filter="Status eq 'Active'"
@@ -102,7 +103,8 @@ type conversion.
 - 6 unit tests + 3 routing tests
 
 **Example**:
-```
+
+```text
 // Return StartDate as a number for arithmetic
 fm_odata_cast: fields=[{field:"StartDate", type:"Int64"}], context="select"
 // → $select=StartDate/Edm.Int64
@@ -132,7 +134,8 @@ FileMaker supports `@alias` in `$filter` only.
 - 10 unit tests + 3 routing tests
 
 **Example**:
-```
+
+```text
 // Reusable filter template
 fm_odata_build_filter: template="Title eq @title and Age gt @minAge",
   params={"@title":"Wizard of Oz","@minAge":18}
@@ -151,7 +154,8 @@ Claris OData documentation (`odata-unsupported-features.html`, current as of 202
 
 **Alternative**: Use `$expand` with nested `$filter` options for filtering on related
 navigation properties, e.g.:
-```
+
+```text
 $expand=Orders($filter=Status eq 'Active')
 ```
 
