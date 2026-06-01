@@ -13,7 +13,10 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 - 📊 **CRUD Operations** - Create, read, update, and delete records
 - 🔐 **Secure Connections** - SSL support for self-signed certificates
 - 💾 **Connection Management** - Save and reuse database connections
-- 📝 **OData 4.01 Standard** - Full query capabilities ($filter, $select, $orderby, etc.)
+- 📝 **OData 4.01 Standard** - Full query capabilities ($filter, $select, $orderby, $apply, etc.)
+- 🔒 **Password Redaction** - Credentials are scrubbed from debug logs
+- 🧮 **FileMaker 2025 Aggregation** - Server-side `$apply` via `fm_odata_aggregate` (v22.0.1+)
+- 🏷️ **Type Casting & Parameterized Filters** - `fm_odata_cast` and `fm_odata_build_filter` (v21.1+)
 
 ## Quick Start
 
@@ -309,11 +312,14 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | **CRUD**        | `fm_odata_create_record`, `fm_odata_update_record`, `fm_odata_delete_record` |
 | **FM 2024/2025+** | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
 | **Connection**  | `fm_odata_connect`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
-| **Config**      | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections` |
+| **Config**      | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
 
 > The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and
 > `fm_odata_build_filter` require FileMaker Server v21.1+ (FileMaker 2024); `fm_odata_aggregate`
 > requires FileMaker Server v22.0.1+ (FileMaker 2025).
+>
+> **Note:** `fm_odata_aggregate`, `fm_odata_cast`, and `fm_odata_build_filter` are included in
+> the current unreleased v0.4.0. They are present in the `main` branch but not yet published to npm.
 
 ## Requirements
 
