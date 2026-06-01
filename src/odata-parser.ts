@@ -175,6 +175,187 @@ export class ODataParser {
   }
 
   /**
+   * Build an OData $apply expression for server-side aggregation.
+   *
+   * Supported aggregation methods (per OData 4.01 / FileMaker Server 2025):
+   *   sum, average, min, max, countdistinct
+   * Special method "count" emits `$count as <alias>` (no source field).
+   *
+   * Examples:
+   *   // Count all records
+   *   buildApplyExpression()
+   *   // → "aggregate($count as Total)"
+   *
+   *   // Sum a field
+   *   buildApplyExpression({ field: 'Amount', method: 'sum', alias: 'TotalAmount' })
+   *   // → "aggregate(Amount with sum as TotalAmount)"
+   *
+   *   // Group + aggregate
+   *   buildApplyExpression(
+   *     { field: 'Sales', method: 'sum', alias: 'TotalSales' },
+   *     ['Region']
+   *   )
+   *   // → "groupby((Region),aggregate(Sales with sum as TotalSales))"
+   *
+   *   // Group + aggregate + pre-filter
+   *   buildApplyExpression(
+   *     { field: 'Revenue', method: 'sum', alias: 'Total' },
+   *     ['Region'],
+   *     "Status eq 'Active'"
+   *   )
+   *   // → "filter(Status eq 'Active')/groupby((Region),aggregate(Revenue with sum as Total))"
+   */
+  static buildApplyExpression(
+    aggregation?: { field?: string; method: string; alias: string },
+    groupBy?: string[],
+    filter?: string
+  ): string {
+    // Build aggregate clause
+    let aggregateClause = "";
+    if (aggregation) {
+      if (aggregation.method === "count") {
+        aggregateClause = `aggregate($count as ${aggregation.alias})`;
+      } else {
+        const field = aggregation.field ?? aggregation.alias;
+        aggregateClause = `aggregate(${field} with ${aggregation.method} as ${aggregation.alias})`;
+      }
+    } else {
+      aggregateClause = "aggregate($count as Total)";
+    }
+
+    // Wrap in groupby if groupBy fields are provided
+    let expression: string;
+    if (groupBy && groupBy.length > 0) {
+      const groupFields = groupBy.join(",");
+      expression = `groupby((${groupFields}),${aggregateClause})`;
+    } else {
+      expression = aggregateClause;
+    }
+
+    // Prepend filter transformation if provided
+    if (filter) {
+      expression = `filter(${filter})/${expression}`;
+    }
+
+    return expression;
+  }
+
+  /**
+   * Build a parameterized OData $filter expression (FileMaker Server v21.1+ / FileMaker 2024+).
+   *
+   * OData parameter aliases let you write a filter template with @param
+   * placeholders and supply values separately, improving readability and
+   * allowing reuse of the same template with different values.
+   *
+   * FileMaker Server supports parameter aliases in $filter only (not $orderby).
+   * Alias names must start with "@".
+   *
+   * This helper supports two output modes:
+   *
+   * 1. "resolved" (default) — substitutes alias values directly into the
+   *    filter string, producing a plain filter expression ready for use as the
+   *    `filter` argument of fm_odata_query_records.
+   *
+   *    buildParameterizedFilter(
+   *      "Title eq @title and Status eq @status",
+   *      { "@title": "'Wizard of Oz'", "@status": "'Active'" }
+   *    )
+   *    // → "Title eq 'Wizard of Oz' and Status eq 'Active'"
+   *
+   * 2. "raw" — returns both the template and the alias key=value pairs as
+   *    separate query string segments, which together form the OData
+   *    parameterized URL. Useful when the caller wants to construct the full
+   *    URL manually.
+   *
+   *    buildParameterizedFilter(
+   *      "Title eq @title",
+   *      { "@title": "'Wizard of Oz'" },
+   *      "raw"
+   *    )
+   *    // → {
+   *    //     filter: "Title eq @title",
+   *    //     params: "@title='Wizard of Oz'",
+   *    //     queryString: "$filter=Title eq @title&@title='Wizard of Oz'"
+   *    //   }
+   *
+   * Value formatting rules (applied automatically in "resolved" mode):
+   *   - String values that are not already single-quoted are wrapped in '...'
+   *     with internal single quotes doubled ('O''Brien').
+   *   - Numeric, boolean, and null literals are passed through unchanged.
+   *   - Date/time literals must be pre-formatted by the caller (ISO 8601).
+   */
+  static buildParameterizedFilter(
+    template: string,
+    params: Record<string, string | number | boolean | null>,
+    mode: "resolved" | "raw" = "resolved"
+  ): string | { filter: string; params: string; queryString: string } {
+    if (mode === "raw") {
+      const paramParts = Object.entries(params)
+        .map(([k, v]) => `${k}=${ODataParser.formatParamValue(v)}`)
+        .join("&");
+      const queryString = `$filter=${template}&${paramParts}`;
+      return { filter: template, params: paramParts, queryString };
+    }
+
+    // "resolved" mode: substitute each @alias with its formatted value
+    let resolved = template;
+    // Sort by descending length so "@titlePrefix" is replaced before "@title"
+    const sortedKeys = Object.keys(params).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      const value = ODataParser.formatParamValue(params[key]);
+      // Replace all occurrences; use word-boundary-style check (alias ends at
+      // non-identifier chars or end of string) to avoid partial substitution
+      resolved = resolved.replace(
+        new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9_])", "g"),
+        value
+      );
+    }
+    return resolved;
+  }
+
+  /** Format a parameter value for embedding in an OData expression. */
+  private static formatParamValue(value: string | number | boolean | null): string {
+    if (value === null) return "null";
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    const s = String(value);
+    // Already single-quoted — pass through as-is
+    if (s.startsWith("'") && s.endsWith("'")) return s;
+    // Wrap in single quotes, escaping internal single quotes by doubling them
+    return `'${s.replace(/'/g, "''")}'`;
+  }
+
+  /**
+   * Build an OData type-cast property path segment (FileMaker Server v21.1+ / FileMaker 2024+).
+   *
+   * FileMaker's OData API supports explicit server-side type coercion by appending
+   * "/Edm.<Type>" to a field name inside $select or $filter expressions.
+   * This avoids the need for client-side conversion and ensures the server returns
+   * the value in the requested primitive type.
+   *
+   * Supported target types (Edm primitives):
+   *   String, Int32, Int64, Decimal, Double, Boolean, Date, TimeOfDay, DateTimeOffset
+   *
+   * Usage in $select:
+   *   buildCastExpression('StartDate', 'Int64')
+   *   // → "StartDate/Edm.Int64"
+   *   // Use as: $select=StartDate/Edm.Int64
+   *
+   * Usage in $filter (cast before comparison):
+   *   buildCastExpression('Amount', 'String') + " eq '100'"
+   *   // → "Amount/Edm.String eq '100'"
+   *   // Use as: $filter=Amount/Edm.String eq '100'
+   *
+   * Multiple casts in $select (join with comma):
+   *   [buildCastExpression('Price','Decimal'), buildCastExpression('Name','String')].join(',')
+   *   // → "Price/Edm.Decimal,Name/Edm.String"
+   */
+  static buildCastExpression(field: string, targetType: string): string {
+    // Normalize: strip any leading "Edm." so callers can pass either "Int32" or "Edm.Int32"
+    const type = targetType.startsWith("Edm.") ? targetType : `Edm.${targetType}`;
+    return `${field}/${type}`;
+  }
+
+  /**
    * Format batch operation results
    */
   static formatBatchResults(results: BatchResult[]): string {

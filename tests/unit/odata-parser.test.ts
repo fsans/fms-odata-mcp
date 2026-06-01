@@ -393,4 +393,182 @@ describe('ODataParser', () => {
       expect(formatted).toContain('"failed": 1');
     });
   });
+
+  describe('buildParameterizedFilter', () => {
+    test('resolved mode: substitutes a string alias with auto-quoting', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title",
+        { "@title": "Wizard of Oz" }
+      );
+      expect(result).toBe("Title eq 'Wizard of Oz'");
+    });
+
+    test('resolved mode: passes through already-quoted string value', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title",
+        { "@title": "'Wizard of Oz'" }
+      );
+      expect(result).toBe("Title eq 'Wizard of Oz'");
+    });
+
+    test('resolved mode: substitutes a numeric alias without quotes', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Age gt @minAge",
+        { "@minAge": 18 }
+      );
+      expect(result).toBe("Age gt 18");
+    });
+
+    test('resolved mode: substitutes a boolean alias', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Active eq @flag",
+        { "@flag": true }
+      );
+      expect(result).toBe("Active eq true");
+    });
+
+    test('resolved mode: substitutes null alias', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "DeletedAt eq @val",
+        { "@val": null }
+      );
+      expect(result).toBe("DeletedAt eq null");
+    });
+
+    test('resolved mode: substitutes multiple aliases', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title and Status eq @status",
+        { "@title": "Oz", "@status": "Active" }
+      );
+      expect(result).toBe("Title eq 'Oz' and Status eq 'Active'");
+    });
+
+    test('resolved mode: escapes internal single quotes in string values', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "LastName eq @name",
+        { "@name": "O'Brien" }
+      );
+      expect(result).toBe("LastName eq 'O''Brien'");
+    });
+
+    test('resolved mode: longer alias is not partially replaced by shorter alias', () => {
+      // @titlePrefix must not be broken by @title substitution
+      const result = ODataParser.buildParameterizedFilter(
+        "@titlePrefix eq @title",
+        { "@title": "Oz", "@titlePrefix": "The" }
+      );
+      expect(result).toBe("'The' eq 'Oz'");
+    });
+
+    test('raw mode: returns filter template, params string, and queryString', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title",
+        { "@title": "'Wizard of Oz'" },
+        "raw"
+      ) as { filter: string; params: string; queryString: string };
+      expect(result.filter).toBe("Title eq @title");
+      expect(result.params).toBe("@title='Wizard of Oz'");
+      expect(result.queryString).toBe("$filter=Title eq @title&@title='Wizard of Oz'");
+    });
+
+    test('raw mode: multiple params joined with &', () => {
+      const result = ODataParser.buildParameterizedFilter(
+        "Title eq @title and Age gt @age",
+        { "@title": "Oz", "@age": 18 },
+        "raw"
+      ) as { filter: string; params: string; queryString: string };
+      expect(result.queryString).toContain("@title='Oz'");
+      expect(result.queryString).toContain("@age=18");
+    });
+  });
+
+  describe('buildCastExpression', () => {
+    test('should append /Edm.<type> when called with bare type name', () => {
+      expect(ODataParser.buildCastExpression('StartDate', 'Int64')).toBe('StartDate/Edm.Int64');
+    });
+
+    test('should not double-prefix when type already starts with Edm.', () => {
+      expect(ODataParser.buildCastExpression('Amount', 'Edm.Decimal')).toBe('Amount/Edm.Decimal');
+    });
+
+    test('should work for String type', () => {
+      expect(ODataParser.buildCastExpression('Amount', 'String')).toBe('Amount/Edm.String');
+    });
+
+    test('should work for DateTimeOffset type', () => {
+      expect(ODataParser.buildCastExpression('CreatedAt', 'DateTimeOffset')).toBe('CreatedAt/Edm.DateTimeOffset');
+    });
+
+    test('should produce a usable $filter fragment when compared', () => {
+      const castPath = ODataParser.buildCastExpression('Amount', 'String');
+      const filterExpr = `${castPath} eq '100'`;
+      expect(filterExpr).toBe("Amount/Edm.String eq '100'");
+    });
+
+    test('should produce joinable $select fragments', () => {
+      const a = ODataParser.buildCastExpression('StartDate', 'Int64');
+      const b = ODataParser.buildCastExpression('Name', 'String');
+      expect([a, b].join(',')).toBe('StartDate/Edm.Int64,Name/Edm.String');
+    });
+  });
+
+  describe('buildApplyExpression', () => {
+    test('should produce aggregate($count as Total) when called with no args', () => {
+      expect(ODataParser.buildApplyExpression()).toBe('aggregate($count as Total)');
+    });
+
+    test('should produce $count alias form for method "count"', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'count', alias: 'RecordCount' });
+      expect(expr).toBe('aggregate($count as RecordCount)');
+    });
+
+    test('should produce "field with method as alias" form for sum', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'sum', alias: 'TotalAmount', field: 'Amount' });
+      expect(expr).toBe('aggregate(Amount with sum as TotalAmount)');
+    });
+
+    test('should produce "field with method as alias" form for average', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'average', alias: 'AvgAge', field: 'Age' });
+      expect(expr).toBe('aggregate(Age with average as AvgAge)');
+    });
+
+    test('should fall back to alias as field name when field is omitted for non-count', () => {
+      const expr = ODataParser.buildApplyExpression({ method: 'max', alias: 'Revenue' });
+      expect(expr).toBe('aggregate(Revenue with max as Revenue)');
+    });
+
+    test('should wrap in groupby when groupBy fields are provided', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'sum', alias: 'TotalSales', field: 'Sales' },
+        ['Region']
+      );
+      expect(expr).toBe('groupby((Region),aggregate(Sales with sum as TotalSales))');
+    });
+
+    test('should handle multiple groupBy fields', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'sum', alias: 'TotalSales', field: 'Sales' },
+        ['Region', 'Status']
+      );
+      expect(expr).toBe('groupby((Region,Status),aggregate(Sales with sum as TotalSales))');
+    });
+
+    test('should prepend filter transformation when filter is provided', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'sum', alias: 'Total', field: 'Revenue' },
+        ['Region'],
+        "Status eq 'Active'"
+      );
+      expect(expr).toBe("filter(Status eq 'Active')/groupby((Region),aggregate(Revenue with sum as Total))");
+    });
+
+    test('should prepend filter even without groupBy', () => {
+      const expr = ODataParser.buildApplyExpression(
+        { method: 'count', alias: 'Total' },
+        undefined,
+        "Status eq 'Active'"
+      );
+      expect(expr).toBe("filter(Status eq 'Active')/aggregate($count as Total)");
+    });
+  });
 });
