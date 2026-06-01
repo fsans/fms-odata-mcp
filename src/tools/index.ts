@@ -16,7 +16,13 @@ export const allTools = [
 // `fm_odata_list_connections` is routed to the connection handler and not
 // accidentally matched by `fm_odata_list_*` prefix logic.
 const odataToolNames = new Set(odataTools.map((t) => t.name));
-const connectionToolNames = new Set(connectionTools.map((t) => t.name));
+const connectionToolNames = new Set([
+  ...connectionTools.map((t) => t.name),
+  // Multi-session tools registered in connectionTools but worth making explicit:
+  "fm_odata_connect_multi",
+  "fm_odata_list_active_sessions",
+  "fm_odata_describe_sessions",
+]);
 const configurationToolNames = new Set(configurationTools.map((t) => t.name));
 
 /**
