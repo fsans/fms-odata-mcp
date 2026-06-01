@@ -105,6 +105,34 @@ describe("handleToolCall routing", () => {
     expect(parsed.castExpression).toBe("Amount/Edm.String\nStatus/Edm.Int32");
   });
 
+  // Multi-session tool routing assertions
+  test("fm_odata_list_active_sessions routes to connection handler (not OData)", async () => {
+    const result: any = await handleToolCall("fm_odata_list_active_sessions", {});
+    const text = result.content?.[0]?.text ?? "";
+    expect(text).not.toMatch(/Unknown tool/i);
+    expect(text).toMatch(/No active sessions|Active sessions/i);
+  });
+
+  test("fm_odata_describe_sessions routes to connection handler (not OData)", async () => {
+    const result: any = await handleToolCall("fm_odata_describe_sessions", {});
+    const text = result.content?.[0]?.text ?? "";
+    expect(text).not.toMatch(/Unknown tool/i);
+    expect(text).toMatch(/No active sessions/i);
+  });
+
+  test("fm_odata_connect_multi routes to connection handler (not OData)", async () => {
+    // Passing args that will fail network-wise but must NOT return "Unknown tool".
+    const result: any = await handleToolCall("fm_odata_connect_multi", {
+      server: "https://no-such-server.invalid",
+      user: "admin",
+      password: "pass",
+      databases: [{ database: "TestDB" }],
+      verifySsl: false,
+    });
+    const text = result.content?.[0]?.text ?? "";
+    expect(text).not.toMatch(/Unknown tool/i);
+  });
+
   test("unknown tool returns isError", async () => {
     const result: any = await handleToolCall("fm_odata_made_up_tool", {});
     expect(result.isError).toBe(true);
