@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased] — v0.4.0 (FileMaker 2025 advanced OData features)
+## [0.4.0] - 2026-06-01
 
 Three new expression-builder tools for FileMaker Server 2025 OData capabilities.
 All three are **connection-free** — they build query expressions locally and return
