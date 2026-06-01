@@ -277,7 +277,8 @@ endswith(Email, '.com')
 
 1. Report any bugs or issues
 2. Test with different FileMaker databases
-3. Test all 22 tools
+3. Test all 25 tools
 4. Verify OData filter expressions work correctly
 5. Test with related records (expand parameter)
-6. Performance testing with large datasets
+6. Test multi-file solutions with `fm_odata_connect_multi`
+7. Performance testing with large datasets
