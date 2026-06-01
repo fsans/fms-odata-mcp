@@ -191,11 +191,11 @@ Find all contacts where LastName is 'Smith'
 
 ---
 
-## AVAILABLE TOOLS (22 Total)
+## AVAILABLE TOOLS (25 Total)
 
 **Data Operations:**
-- List tables, Get metadata
-- Query records, Get single record
+- List tables, Get metadata, Get service document
+- Query records, Get single record, Get records
 - Count records
 - Create, Update, Delete records
 
@@ -205,11 +205,21 @@ Find all contacts where LastName is 'Smith'
 - `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM v21.1+ / FM 2024)
 
 **Connection Management:**
-- Connect, List connections
-- Set/Get current connection
+- `fm_odata_connect` — connect with inline credentials
+- `fm_odata_connect_multi` — bulk-connect N databases (LOGIC + DATA separation model)
+- `fm_odata_set_connection` — switch active session (saved config or runtime alias)
+- `fm_odata_list_connections` — list saved connections
+- `fm_odata_get_current_connection` — show active connection
+
+**Multi-Session / Multi-File:**
+- `fm_odata_list_active_sessions` — list all live sessions with alias and status
+- `fm_odata_describe_sessions` — merged schema across all sessions (table → connection map)
+
+All 11 connection-dependent OData tools accept an optional `connection` param to target
+a specific session per call without changing the active connection.
 
 **Configuration:**
-- Add/Remove connections
+- Add/Remove/Get/List saved connections
 - Set default connection
 
 **Full tool reference:** See `CLAUDE_DESKTOP_PROMPTS.md`

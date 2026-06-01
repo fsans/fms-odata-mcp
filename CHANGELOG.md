@@ -7,6 +7,70 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased] — v0.5.0 (multi-session / multi-file support)
+
+### Added
+
+- **`fm_odata_connect_multi`** — bulk-connect N databases in one call.
+  Accepts a shared `server`/`user`/`password` plus a `databases` array
+  where each entry can override credentials and set an `alias` and `primary` flag.
+  Connects and tests all sessions in parallel; sets the primary (or first
+  successful) session as active. Designed for FileMaker separation-of-concerns
+  solutions (LOGIC + DATA files) and multi-solution server setups.
+
+- **`fm_odata_list_active_sessions`** — list all live in-memory sessions.
+  Returns alias, server, database, user, and which session is currently active.
+  Replaces guessing for AI agents working in multi-file environments.
+
+- **`fm_odata_describe_sessions`** — merged schema across all active sessions.
+  Calls `$metadata` on every session in parallel, returns a flat annotated table
+  list `[{table, connection, fieldCount, fields[]}]`. Flags table name collisions
+  across sessions and suggests using the `connection` param to disambiguate.
+
+- **Per-call `connection` parameter** on all 11 connection-dependent OData tools
+  (`fm_odata_get_service_document`, `fm_odata_get_metadata`, `fm_odata_list_tables`,
+  `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`,
+  `fm_odata_count_records`, `fm_odata_aggregate`, `fm_odata_create_record`,
+  `fm_odata_update_record`, `fm_odata_delete_record`).
+  Lets AI agents target a specific session per call without changing the active
+  session pointer. Stateless tools (`fm_odata_cast`, `fm_odata_build_filter`)
+  are unaffected.
+
+- **`ConnectionManager.getClientByName()`** — side-effect-free session lookup
+  by alias; does not mutate the active connection pointer.
+
+- **`ConnectionManager.listActiveSessions()`** — returns `SessionInfo[]` for all
+  in-memory sessions including `isCurrent` flag.
+
+- **Explicit alias support** in `ConnectionManager.createInlineClientNamed()` —
+  multi-connect sessions are registered under human-readable aliases rather than
+  auto-generated `inline_…` keys.
+
+### Changed
+
+- **`fm_odata_set_connection`** — now accepts runtime session aliases (inline /
+  multi-connect) in addition to persisted config names.
+
+- **`ConnectionManager.setCurrentConnection()`** — checks in-memory session cache
+  first, then falls back to persisted config, eliminating the need to re-register
+  inline sessions.
+
+### Fixed
+
+- **`working-http-transport.ts` TypeScript strict-null error** — pre-existing
+  `TS2345` ("undefined not assignable to string | number") in the pending-response
+  map lookup; guarded with an explicit null check.
+
+### Tests
+
+- New: `tests/unit/multi-session.test.ts` — 30 tests covering ConnectionManager
+  primitives, tool routing for all 3 new tools, per-call connection targeting,
+  session switching, collision detection.
+- Extended: `tests/unit/tool-routing.test.ts` — 3 new routing assertions.
+- Total: 146 tests across 6 suites (up from 121 across 5 suites).
+
+---
+
 ## [0.4.0] - 2026-06-01
 
 Three new expression-builder tools for FileMaker Server 2025 OData capabilities.

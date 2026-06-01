@@ -8,15 +8,18 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- 🔌 **22 MCP Tools** for FileMaker database operations
-- 🔍 **Database Discovery** - Explore tables, fields, and metadata
-- 📊 **CRUD Operations** - Create, read, update, and delete records
-- 🔐 **Secure Connections** - SSL support for self-signed certificates
-- 💾 **Connection Management** - Save and reuse database connections
-- 📝 **OData 4.01 Standard** - Full query capabilities ($filter, $select, $orderby, $apply, etc.)
-- 🔒 **Password Redaction** - Credentials are scrubbed from debug logs
-- 🧮 **FileMaker 2025 Aggregation** - Server-side `$apply` via `fm_odata_aggregate` (v22.0.1+)
-- 🏷️ **Type Casting & Parameterized Filters** - `fm_odata_cast` and `fm_odata_build_filter` (v21.1+)
+- **25 MCP Tools** for FileMaker database operations
+- **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
+- **Session Management** - List and target active sessions per call (`fm_odata_list_active_sessions`, per-call `connection` param)
+- **Schema Discovery** - Merged schema across all active sessions (`fm_odata_describe_sessions`)
+- **Database Discovery** - Explore tables, fields, and metadata
+- **CRUD Operations** - Create, read, update, and delete records
+- **Secure Connections** - SSL support for self-signed certificates
+- **Connection Management** - Save and reuse database connections
+- **OData 4.01 Standard** - Full query capabilities ($filter, $select, $orderby, $apply, etc.)
+- **Password Redaction** - Credentials are scrubbed from debug logs
+- **FileMaker 2025 Aggregation** - Server-side `$apply` via `fm_odata_aggregate` (v22.0.1+)
+- **Type Casting & Parameterized Filters** - `fm_odata_cast` and `fm_odata_build_filter` (v21.1+)
 
 ## Quick Start
 
@@ -305,21 +308,22 @@ Create a new contact with name "John Doe" and email "john@example.com"
 
 ## Available Tools
 
-| Category        | Tools                                                                 |
-|-----------------|-----------------------------------------------------------------------|
-| **Discovery**   | `fm_odata_list_tables`, `fm_odata_get_metadata`, `fm_odata_get_service_document` |
-| **Queries**     | `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`, `fm_odata_count_records` |
-| **CRUD**        | `fm_odata_create_record`, `fm_odata_update_record`, `fm_odata_delete_record` |
+| Category          | Tools                                                                 |
+|-------------------|-----------------------------------------------------------------------|
+| **Discovery**     | `fm_odata_list_tables`, `fm_odata_get_metadata`, `fm_odata_get_service_document` |
+| **Queries**       | `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`, `fm_odata_count_records` |
+| **CRUD**          | `fm_odata_create_record`, `fm_odata_update_record`, `fm_odata_delete_record` |
 | **FM 2024/2025+** | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
-| **Connection**  | `fm_odata_connect`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
-| **Config**      | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
+| **Connection**    | `fm_odata_connect`, `fm_odata_connect_multi`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
+| **Sessions**      | `fm_odata_list_active_sessions`, `fm_odata_describe_sessions` |
+| **Config**        | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
 
 > The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and
 > `fm_odata_build_filter` require FileMaker Server v21.1+ (FileMaker 2024); `fm_odata_aggregate`
 > requires FileMaker Server v22.0.1+ (FileMaker 2025).
 >
-> **Note:** `fm_odata_aggregate`, `fm_odata_cast`, and `fm_odata_build_filter` are included in
-> the current unreleased v0.4.0. They are present in the `main` branch but not yet published to npm.
+> All 11 connection-dependent OData tools accept an optional `connection` parameter to target
+> a specific session without changing the active connection. Useful in multi-file solutions.
 
 ## Requirements
 

@@ -7,7 +7,8 @@
 - **v0.2.6** - 19 MCP tools, enhanced connection management (saved/default connections), NPM package published as `filemaker-odata-mcp`
 - **v0.3.0** - Stability & correctness release: bug fixes, security hardening, test coverage, Dify support
 - **v0.3.1** - Patch release on top of 0.3.0
-- **v0.4.0** - **In Progress**: FileMaker 2025 advanced OData features (aggregation, type casting, parameterization)
+- **v0.4.0** - FileMaker 2025 advanced OData features (aggregation, type casting, parameterization)
+- **v0.5.0** - **In Progress**: Multi-session / multi-file support (`fm_odata_connect_multi`, session management, per-call `connection` param)
 
 ---
 
