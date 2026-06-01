@@ -214,13 +214,14 @@ npx filemaker-odata-mcp
 
 ## Next Steps After Successful Testing
 
-1. ✅ Test all 22 tools (see full list in TESTING_GUIDE.md)
-2. ✅ Try complex queries with multiple filters
-3. ✅ Test CRUD operations (Create, Read, Update, Delete)
-4. ✅ Save connections for later use
-5. ✅ Test with other databases
+1. Test all 25 tools (see full list in TESTING_GUIDE.md)
+2. Try complex queries with multiple filters
+3. Test CRUD operations (Create, Read, Update, Delete)
+4. Save connections for later use
+5. Test multi-file solutions with `fm_odata_connect_multi`
+6. Test with other databases
 
-## Quick Reference: All Available Tools
+## Quick Reference: All Available Tools (25 total)
 
 ### OData Operations
 - `fm_odata_get_service_document`
@@ -233,12 +234,23 @@ npx filemaker-odata-mcp
 - `fm_odata_create_record`
 - `fm_odata_update_record`
 - `fm_odata_delete_record`
+- `fm_odata_aggregate` (FM Server v22.0.1+ / FM 2025)
+- `fm_odata_cast` (FM Server v21.1+ / FM 2024)
+- `fm_odata_build_filter` (FM Server v21.1+ / FM 2024)
+
+All 11 connection-dependent OData tools accept an optional `connection` param to
+target a specific session without changing the active connection.
 
 ### Connection Management
-- `fm_odata_connect`
-- `fm_odata_set_connection`
-- `fm_odata_list_connections`
-- `fm_odata_get_current_connection`
+- `fm_odata_connect` — connect with inline credentials
+- `fm_odata_connect_multi` — bulk-connect N databases (LOGIC + DATA, etc.)
+- `fm_odata_set_connection` — switch active session (config name or runtime alias)
+- `fm_odata_list_connections` — list saved connections from config file
+- `fm_odata_get_current_connection` — show the active connection
+
+### Multi-Session / Multi-File
+- `fm_odata_list_active_sessions` — list all live sessions with alias and status
+- `fm_odata_describe_sessions` — merged schema across all active sessions
 
 ### Configuration Management
 - `fm_odata_config_add_connection`
