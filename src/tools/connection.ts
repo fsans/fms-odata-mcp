@@ -1,6 +1,7 @@
 import { connectionManager } from "../connection.js";
 import { Connection } from "../config.js";
 import { logger } from "../logger.js";
+import { buildFeatureReport, featureWarning } from "../fm-version.js";
 
 /**
  * Connection Tool Definitions
@@ -167,6 +168,26 @@ export const connectionTools = [
       required: [],
     },
   },
+  {
+    name: "fm_odata_get_server_version",
+    description:
+      "Detect the FileMaker Server version for the active (or named) session by reading " +
+      "the OData $metadata document. Returns the version number and a feature-compatibility " +
+      "report showing which version-gated tools (aggregate, cast, build_filter) are supported. " +
+      "The result is cached for the session lifetime — subsequent calls are instant. " +
+      "Use this to understand what your server supports before using advanced tools.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        connection: {
+          type: "string",
+          description:
+            "Optional session alias to check. When omitted the currently active session is used.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 /**
@@ -210,6 +231,9 @@ export async function handleConnectionTool(name: string, args: any): Promise<any
 
       case "fm_odata_describe_sessions":
         return await handleDescribeSessions();
+
+      case "fm_odata_get_server_version":
+        return await handleGetServerVersion(args);
 
       default:
         return {
@@ -481,7 +505,11 @@ function handleListActiveSessions() {
 
   const lines = sessions.map((s) => {
     const active = s.isCurrent ? " [active]" : "";
-    return `- ${s.name}${active}: ${s.server}/${s.database} (user: ${s.user})`;
+    const versionStr =
+      s.fmVersion !== undefined
+        ? ` | FM Server ${s.fmVersion ? s.fmVersion.raw : "unknown"}`
+        : "";
+    return `- ${s.name}${active}: ${s.server}/${s.database} (user: ${s.user})${versionStr}`;
   });
 
   return {
@@ -578,6 +606,65 @@ async function handleDescribeSessions() {
       "Use the 'connection' parameter on OData tools to disambiguate: " +
       collisions.join(", ");
   }
+
+  return {
+    content: [{ type: "text", text: JSON.stringify(output, null, 2) }],
+  };
+}
+
+async function handleGetServerVersion(args: any) {
+  // Resolve the target session name
+  let sessionName: string | undefined;
+  if (args?.connection) {
+    sessionName = args.connection;
+  } else {
+    sessionName = connectionManager.getCurrentConnectionName();
+  }
+
+  if (!sessionName) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: "No active connection. Use fm_odata_connect or fm_odata_set_connection first.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  let version;
+  try {
+    version = await connectionManager.getServerVersion(sessionName);
+  } catch (err: any) {
+    return {
+      content: [{ type: "text", text: `Error: ${err.message}` }],
+      isError: true,
+    };
+  }
+
+  // Retrieve session meta for server/database context
+  const sessions = connectionManager.listActiveSessions();
+  const session = sessions.find((s) => s.name === sessionName);
+
+  const features = buildFeatureReport(version);
+
+  // Advisory notice when version is unknown
+  let notice: string | undefined;
+  if (!version) {
+    notice =
+      "FM Server version could not be detected from $metadata. " +
+      "Feature compatibility is unknown; tools will still attempt to run.";
+  }
+
+  const output: any = {
+    session: sessionName,
+    server: session?.server ?? "(unknown)",
+    database: session?.database ?? "(unknown)",
+    version: version ?? null,
+    features,
+  };
+  if (notice) output.notice = notice;
 
   return {
     content: [{ type: "text", text: JSON.stringify(output, null, 2) }],

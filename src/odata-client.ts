@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import https from "https";
 import { logger } from "./logger.js";
+import { FMServerVersion, parseServerVersion } from "./fm-version.js";
 
 export interface ODataClientConfig {
   server: string;
@@ -44,6 +45,11 @@ export class ODataClient {
   private axiosInstance: AxiosInstance;
   private config: ODataClientConfig;
   private baseUrl: string;
+  /**
+   * undefined = not yet fetched; null = fetched but version unparseable.
+   * Any other value = cached FM Server version for this session lifetime.
+   */
+  private _cachedVersion: FMServerVersion | null | undefined = undefined;
 
   constructor(config: ODataClientConfig) {
     this.config = config;
@@ -202,6 +208,26 @@ export class ODataClient {
       },
     });
     return response.data;
+  }
+
+  /**
+   * Return the FileMaker Server version for this session.
+   *
+   * Lazy — fetches $metadata on the first call, then caches the result for the
+   * lifetime of the ODataClient instance. Subsequent calls are free.
+   * Returns null if the version cannot be determined from the XML.
+   */
+  async getServerVersion(): Promise<FMServerVersion | null> {
+    if (this._cachedVersion !== undefined) {
+      return this._cachedVersion;
+    }
+    try {
+      const xml = await this.getMetadata();
+      this._cachedVersion = parseServerVersion(xml);
+    } catch {
+      this._cachedVersion = null;
+    }
+    return this._cachedVersion;
   }
 
   /**

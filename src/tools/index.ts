@@ -22,6 +22,7 @@ const connectionToolNames = new Set([
   "fm_odata_connect_multi",
   "fm_odata_list_active_sessions",
   "fm_odata_describe_sessions",
+  "fm_odata_get_server_version",
 ]);
 const configurationToolNames = new Set(configurationTools.map((t) => t.name));
 

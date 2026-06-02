@@ -1,6 +1,7 @@
 import { connectionManager } from "../connection.js";
 import { ODataParser } from "../odata-parser.js";
 import { logger } from "../logger.js";
+import { featureWarning, isFeatureSupported } from "../fm-version.js";
 
 /**
  * Shared property definition for the optional per-call connection targeting param.
@@ -417,12 +418,12 @@ function resolveClient(args: any) {
  */
 export async function handleODataTool(name: string, args: any): Promise<any> {
   try {
-    // Connection-free tools — handled before the connection guard
+    // Connection-free tools — advisory version notice when a client is available
     if (name === "fm_odata_cast") {
-      return handleCast(args);
+      return await handleCast(args);
     }
     if (name === "fm_odata_build_filter") {
-      return handleBuildFilter(args);
+      return await handleBuildFilter(args);
     }
 
     const { client, error } = resolveClient(args);
@@ -572,7 +573,22 @@ async function handleCountRecords(client: any, args: any) {
 // Connection-free expression builders
 // ---------------------------------------------------------------------------
 
-function handleBuildFilter(args: any) {
+/**
+ * Attempt to fetch a version advisory for a connection-free tool.
+ * Never throws — if no active client is available the notice is skipped.
+ */
+async function getAdvisoryNotice(args: any, feature: string): Promise<string | null> {
+  try {
+    const { client } = resolveClient(args);
+    if (!client) return null;
+    const version = await client.getServerVersion();
+    return featureWarning(version, feature);
+  } catch {
+    return null;
+  }
+}
+
+async function handleBuildFilter(args: any) {
   const { template, params, mode = "resolved" } = args;
 
   // Validate: all param keys must start with @
@@ -589,23 +605,31 @@ function handleBuildFilter(args: any) {
     };
   }
 
+  // Advisory version notice (best-effort — never blocks the expression)
+  const advisory = await getAdvisoryNotice(args, "build_filter");
+
   const result = ODataParser.buildParameterizedFilter(template, params, mode);
+
+  const body =
+    typeof result === "string"
+      ? JSON.stringify({ filter: result }, null, 2)
+      : JSON.stringify(result, null, 2);
 
   return {
     content: [
       {
         type: "text",
-        text:
-          typeof result === "string"
-            ? JSON.stringify({ filter: result }, null, 2)
-            : JSON.stringify(result, null, 2),
+        text: advisory ? `${advisory}\n\n${body}` : body,
       },
     ],
   };
 }
 
-function handleCast(args: any) {
+async function handleCast(args: any) {
   const { fields, context = "select" } = args;
+
+  // Advisory version notice (best-effort — never blocks the expression)
+  const advisory = await getAdvisoryNotice(args, "cast");
 
   const castExpressions: string[] = (fields as Array<{ field: string; type: string }>).map(
     ({ field, type }) => ODataParser.buildCastExpression(field, type)
@@ -624,11 +648,13 @@ function handleCast(args: any) {
     usage = `Use as: $select=${result}`;
   }
 
+  const body = JSON.stringify({ castExpression: result, usage }, null, 2);
+
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify({ castExpression: result, usage }, null, 2),
+        text: advisory ? `${advisory}\n\n${body}` : body,
       },
     ],
   };
@@ -648,18 +674,117 @@ async function handleAggregate(client: any, args: any) {
     };
   }
 
-  const applyExpression = ODataParser.buildApplyExpression(
-    { method, alias, field },
-    groupBy,
-    filter
-  );
+  // Version check — fall back to client-side computation when $apply unsupported
+  const version = await client.getServerVersion();
+  const supported = isFeatureSupported(version, "aggregate");
+  const warning = featureWarning(version, "aggregate");
 
-  logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
-  const response = await client.aggregateRecords(table, applyExpression);
+  if (supported) {
+    const applyExpression = ODataParser.buildApplyExpression(
+      { method, alias, field },
+      groupBy,
+      filter
+    );
+    logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
+    const response = await client.aggregateRecords(table, applyExpression);
+    return {
+      content: [{ type: "text", text: ODataParser.formatResponse(response) }],
+    };
+  }
+
+  // Client-side fallback: fetch up to 10 000 records and compute locally
+  const CAP = 10_000;
+  logger.debug(`Aggregate fallback: fetching up to ${CAP} records from ${table}`);
+  const fetchResponse = await client.queryRecords(table, {
+    filter: filter ?? undefined,
+    top: CAP,
+  });
+  const records: Record<string, any>[] = fetchResponse.value ?? [];
+  const recordCount = records.length;
+
+  const result = computeClientSideAggregate(records, method, field, alias, groupBy);
+  const versionStr = version ? `FM Server ${version.raw}` : "FM Server (unknown version)";
+  const notice =
+    `[Compatibility] ${versionStr} does not support $apply. ` +
+    `Result computed client-side from ${recordCount} record${recordCount !== 1 ? "s" : ""} (cap: ${CAP}).` +
+    (warning ? ` ${warning}` : "");
 
   return {
-    content: [{ type: "text", text: ODataParser.formatResponse(response) }],
+    content: [
+      {
+        type: "text",
+        text: `${notice}\n\n${JSON.stringify({ "@odata.context": `client-side`, value: result }, null, 2)}`,
+      },
+    ],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Client-side aggregate helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute an aggregation locally over an array of records.
+ * Supports groupBy (returns one row per group) or ungrouped (single row).
+ */
+function computeClientSideAggregate(
+  records: Record<string, any>[],
+  method: string,
+  field: string | undefined,
+  alias: string | undefined,
+  groupBy: string | undefined
+): Record<string, any>[] {
+  const outputAlias = alias ?? (field ? `${method}_${field}` : method);
+
+  if (groupBy) {
+    const groups = new Map<string, Record<string, any>[]>();
+    for (const rec of records) {
+      const key = String(rec[groupBy] ?? "");
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(rec);
+    }
+    const rows: Record<string, any>[] = [];
+    for (const [groupValue, groupRecords] of groups) {
+      rows.push({
+        [groupBy]: groupValue,
+        [outputAlias]: aggregateValue(groupRecords, method, field),
+      });
+    }
+    return rows;
+  }
+
+  return [{ [outputAlias]: aggregateValue(records, method, field) }];
+}
+
+function aggregateValue(
+  records: Record<string, any>[],
+  method: string,
+  field: string | undefined
+): number | null {
+  const m = method.toLowerCase();
+
+  if (m === "count") return records.length;
+  if (!field) return null;
+
+  // countdistinct works on any value type — handle before numeric filter
+  if (m === "countdistinct") return new Set(records.map((r) => r[field])).size;
+
+  const nums = records
+    .map((r) => {
+      const v = r[field];
+      return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v) : null;
+    })
+    .filter((v): v is number => v !== null);
+
+  if (nums.length === 0) return null;
+
+  switch (m) {
+    case "sum":     return nums.reduce((a, b) => a + b, 0);
+    case "average": return nums.reduce((a, b) => a + b, 0) / nums.length;
+    case "min":     return Math.min(...nums);
+    case "max":     return Math.max(...nums);
+    default:        return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

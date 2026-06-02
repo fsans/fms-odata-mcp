@@ -1,6 +1,7 @@
 import { ODataClient, ODataClientConfig } from "./odata-client.js";
 import { Connection, getDefaultConnection, getConnection } from "./config.js";
 import { logger } from "./logger.js";
+import { FMServerVersion } from "./fm-version.js";
 
 /**
  * Describes a single active in-memory session returned by listActiveSessions().
@@ -11,6 +12,8 @@ export interface SessionInfo {
   database: string;
   user: string;
   isCurrent: boolean;
+  /** Cached FM Server version for this session, if already fetched. */
+  fmVersion?: FMServerVersion | null;
 }
 
 /**
@@ -21,7 +24,7 @@ export class ConnectionManager {
   private clients: Map<string, ODataClient>;
   // Stores the original connection params so we can surface them in session listings
   // without needing to re-read the config file.
-  private clientMeta: Map<string, { server: string; database: string; user: string }>;
+  private clientMeta: Map<string, { server: string; database: string; user: string; fmVersion?: FMServerVersion | null }>;
   private currentConnectionName?: string;
 
   constructor() {
@@ -136,6 +139,9 @@ export class ConnectionManager {
         database: meta.database,
         user: meta.user,
         isCurrent: name === this.currentConnectionName,
+        // Only include fmVersion when it has already been fetched (avoids
+        // triggering a $metadata HTTP request just to list sessions).
+        ...(meta.fmVersion !== undefined ? { fmVersion: meta.fmVersion } : {}),
       });
     }
     return sessions;
@@ -196,6 +202,30 @@ export class ConnectionManager {
     this.getClient(connectionName, verifySsl, timeout);
     this.currentConnectionName = connectionName;
     logger.info(`Switched to connection: ${connectionName}`);
+  }
+
+  /**
+   * Fetch (or return cached) FileMaker Server version for a named session.
+   *
+   * Delegates to the ODataClient's lazy getter, then stores the result back
+   * in clientMeta so future listActiveSessions() calls can surface it without
+   * an extra HTTP round-trip.
+   *
+   * @param sessionName  Alias of the in-memory session to query.
+   * @returns The parsed version, or null if the version cannot be determined.
+   * @throws Error if the session alias is not found.
+   */
+  async getServerVersion(sessionName: string): Promise<FMServerVersion | null> {
+    const client = this.clients.get(sessionName);
+    if (!client) {
+      throw new Error(`Session "${sessionName}" not found`);
+    }
+    const version = await client.getServerVersion();
+    const meta = this.clientMeta.get(sessionName);
+    if (meta) {
+      meta.fmVersion = version;
+    }
+    return version;
   }
 
   /**
