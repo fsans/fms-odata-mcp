@@ -213,7 +213,7 @@ Should show:
 ```
 Starting filemaker-odata-mcp Server...
 Transport: stdio
-Registered 25 tools
+Registered 26 tools
 filemaker-odata-mcp Server running on stdio
 ```
 

@@ -191,7 +191,7 @@ Find all contacts where LastName is 'Smith'
 
 ---
 
-## AVAILABLE TOOLS (25 Total)
+## AVAILABLE TOOLS (26 Total)
 
 **Data Operations:**
 - List tables, Get metadata, Get service document
@@ -200,7 +200,8 @@ Find all contacts where LastName is 'Smith'
 - Create, Update, Delete records
 
 **FileMaker 2024/2025+ (connection-free expression builders):**
-- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM v22.0.1+ / FM 2025)
+- `fm_odata_aggregate` — server-side aggregation via `$apply` (FM v22.0.1+ / FM 2025);
+  falls back to client-side computation on older servers
 - `fm_odata_cast` — type coercion via `Field/Edm.Type` (FM v21.1+ / FM 2024)
 - `fm_odata_build_filter` — parameterized `$filter` via `@alias` (FM v21.1+ / FM 2024)
 
@@ -212,8 +213,9 @@ Find all contacts where LastName is 'Smith'
 - `fm_odata_get_current_connection` — show active connection
 
 **Multi-Session / Multi-File:**
-- `fm_odata_list_active_sessions` — list all live sessions with alias and status
+- `fm_odata_list_active_sessions` — list all live sessions with alias, status, and cached FM version
 - `fm_odata_describe_sessions` — merged schema across all sessions (table → connection map)
+- `fm_odata_get_server_version` — detect FM Server version + feature-compatibility report
 
 All 11 connection-dependent OData tools accept an optional `connection` param to target
 a specific session per call without changing the active connection.
