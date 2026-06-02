@@ -214,14 +214,14 @@ npx filemaker-odata-mcp
 
 ## Next Steps After Successful Testing
 
-1. Test all 25 tools (see full list in TESTING_GUIDE.md)
+1. Test all 26 tools (see full list in TESTING_GUIDE.md)
 2. Try complex queries with multiple filters
 3. Test CRUD operations (Create, Read, Update, Delete)
 4. Save connections for later use
 5. Test multi-file solutions with `fm_odata_connect_multi`
 6. Test with other databases
 
-## Quick Reference: All Available Tools (25 total)
+## Quick Reference: All Available Tools (26 total)
 
 ### OData Operations
 - `fm_odata_get_service_document`

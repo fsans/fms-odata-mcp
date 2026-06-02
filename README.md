@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- **25 MCP Tools** for FileMaker database operations
+- **26 MCP Tools** for FileMaker database operations
 - **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
 - **Session Management** - List and target active sessions per call
   (`fm_odata_list_active_sessions`, per-call `connection` param)
