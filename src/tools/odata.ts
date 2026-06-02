@@ -1,6 +1,21 @@
 import { connectionManager } from "../connection.js";
 import { ODataParser } from "../odata-parser.js";
 import { logger } from "../logger.js";
+import { featureWarning, isFeatureSupported } from "../fm-version.js";
+
+/**
+ * Shared property definition for the optional per-call connection targeting param.
+ * Added to every OData tool that requires an active session.
+ */
+const connectionParam = {
+  connection: {
+    type: "string",
+    description:
+      "Optional session alias to use for this call. " +
+      "When omitted the currently active session is used. " +
+      "Use fm_odata_list_active_sessions to see available aliases.",
+  },
+};
 
 /**
  * OData Tool Definitions
@@ -12,7 +27,7 @@ export const odataTools = [
     description: "Get the OData service document listing all available tables/entity sets in the database",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: { ...connectionParam },
       required: [],
     },
   },
@@ -21,7 +36,7 @@ export const odataTools = [
     description: "Get the OData metadata document (EDMX/XML) describing the database schema, tables, and fields",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: { ...connectionParam },
       required: [],
     },
   },
@@ -30,7 +45,7 @@ export const odataTools = [
     description: "List all tables/entity sets available in the database (parsed from metadata)",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: { ...connectionParam },
       required: [],
     },
   },
@@ -74,6 +89,7 @@ export const odataTools = [
           type: "boolean",
           description: "Include total count of matching records",
         },
+        ...connectionParam,
       },
       required: ["table"],
     },
@@ -100,6 +116,7 @@ export const odataTools = [
           type: "string",
           description: "Related records to expand",
         },
+        ...connectionParam,
       },
       required: ["table", "recordId"],
     },
@@ -122,6 +139,7 @@ export const odataTools = [
           type: "number",
           description: "Number of records to skip",
         },
+        ...connectionParam,
       },
       required: ["table"],
     },
@@ -140,12 +158,14 @@ export const odataTools = [
           type: "string",
           description: "OData $filter expression",
         },
+        ...connectionParam,
       },
       required: ["table"],
     },
   },
 
   // Type Cast Tool (FileMaker Server v21.1+ / FileMaker 2024+)
+  // Connection-free: builds expressions locally, no session needed.
   {
     name: "fm_odata_cast",
     description:
@@ -202,6 +222,7 @@ export const odataTools = [
   },
 
   // Parameterized Filter Builder (FileMaker Server v21.1+ / FileMaker 2024+)
+  // Connection-free: builds expressions locally, no session needed.
   {
     name: "fm_odata_build_filter",
     description:
@@ -295,6 +316,7 @@ export const odataTools = [
             "OData $filter expression applied before aggregation (e.g. \"Status eq 'Active'\"). " +
             "Equivalent to a WHERE clause.",
         },
+        ...connectionParam,
       },
       required: ["table", "method", "alias"],
     },
@@ -315,6 +337,7 @@ export const odataTools = [
           type: "object",
           description: "Field values for the new record (JSON object with field names as keys)",
         },
+        ...connectionParam,
       },
       required: ["table", "data"],
     },
@@ -337,6 +360,7 @@ export const odataTools = [
           type: "object",
           description: "Field values to update (JSON object with field names as keys)",
         },
+        ...connectionParam,
       },
       required: ["table", "recordId", "data"],
     },
@@ -355,6 +379,7 @@ export const odataTools = [
           type: "string",
           description: "Record ID to delete",
         },
+        ...connectionParam,
       },
       required: ["table", "recordId"],
     },
@@ -362,27 +387,49 @@ export const odataTools = [
 ];
 
 /**
+ * Resolve the OData client for a tool call.
+ *
+ * When args.connection is provided the named session is looked up directly
+ * (side-effect-free — does NOT change the active session pointer).
+ * Otherwise the currently active session is used.
+ */
+function resolveClient(args: any) {
+  if (args?.connection) {
+    const named = connectionManager.getClientByName(args.connection);
+    if (!named) {
+      return {
+        client: null,
+        error: `Session "${args.connection}" not found. Use fm_odata_list_active_sessions to see available aliases.`,
+      };
+    }
+    return { client: named, error: null };
+  }
+  const current = connectionManager.getCurrentClient();
+  return {
+    client: current,
+    error: current
+      ? null
+      : "No active connection. Please set a connection first using fm_odata_set_connection or fm_odata_connect.",
+  };
+}
+
+/**
  * OData Tool Handlers
  */
 export async function handleODataTool(name: string, args: any): Promise<any> {
   try {
-    // Connection-free tools — handled before the connection guard
+    // Connection-free tools — advisory version notice when a client is available
     if (name === "fm_odata_cast") {
-      return handleCast(args);
+      return await handleCast(args);
     }
     if (name === "fm_odata_build_filter") {
-      return handleBuildFilter(args);
+      return await handleBuildFilter(args);
     }
 
-    const client = connectionManager.getCurrentClient();
+    const { client, error } = resolveClient(args);
     if (!client) {
       return {
-        content: [
-          {
-            type: "text",
-            text: "No active connection. Please set a connection first using fm_odata_set_connection or fm_odata_connect.",
-          },
-        ],
+        content: [{ type: "text", text: error! }],
         isError: true,
       };
     }
@@ -428,51 +475,34 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
 
       default:
         return {
-          content: [
-            {
-              type: "text",
-              text: `Unknown OData tool: ${name}`,
-            },
-          ],
+          content: [{ type: "text", text: `Unknown OData tool: ${name}` }],
           isError: true,
         };
     }
   } catch (error: any) {
     logger.error(`Error in ${name}:`, error);
     return {
-      content: [
-        {
-          type: "text",
-          text: ODataParser.formatError(error),
-        },
-      ],
+      content: [{ type: "text", text: ODataParser.formatError(error) }],
       isError: true,
     };
   }
 }
 
+// ---------------------------------------------------------------------------
 // Metadata Tool Handlers
+// ---------------------------------------------------------------------------
+
 async function handleGetServiceDocument(client: any) {
   const serviceDoc = await client.getServiceDocument();
   return {
-    content: [
-      {
-        type: "text",
-        text: ODataParser.formatServiceDocument(serviceDoc),
-      },
-    ],
+    content: [{ type: "text", text: ODataParser.formatServiceDocument(serviceDoc) }],
   };
 }
 
 async function handleGetMetadata(client: any) {
   const metadata = await client.getMetadata();
   return {
-    content: [
-      {
-        type: "text",
-        text: metadata,
-      },
-    ],
+    content: [{ type: "text", text: metadata }],
   };
 }
 
@@ -480,16 +510,14 @@ async function handleListTables(client: any) {
   const metadata = await client.getMetadata();
   const tables = ODataParser.parseMetadataForTables(metadata);
   return {
-    content: [
-      {
-        type: "text",
-        text: `Available tables:\n${tables.join("\n")}`,
-      },
-    ],
+    content: [{ type: "text", text: `Available tables:\n${tables.join("\n")}` }],
   };
 }
 
+// ---------------------------------------------------------------------------
 // Query Tool Handlers
+// ---------------------------------------------------------------------------
+
 async function handleQueryRecords(client: any, args: any) {
   const response = await client.queryRecords(args.table, {
     filter: args.filter,
@@ -505,12 +533,7 @@ async function handleQueryRecords(client: any, args: any) {
   const formatted = ODataParser.formatQueryResponse(response);
 
   return {
-    content: [
-      {
-        type: "text",
-        text: `${summary}\n\n${formatted}`,
-      },
-    ],
+    content: [{ type: "text", text: `${summary}\n\n${formatted}` }],
   };
 }
 
@@ -521,12 +544,7 @@ async function handleGetRecord(client: any, args: any) {
   });
 
   return {
-    content: [
-      {
-        type: "text",
-        text: ODataParser.formatRecordResponse(record),
-      },
-    ],
+    content: [{ type: "text", text: ODataParser.formatRecordResponse(record) }],
   };
 }
 
@@ -540,28 +558,37 @@ async function handleGetRecords(client: any, args: any) {
   const formatted = ODataParser.formatQueryResponse(response);
 
   return {
-    content: [
-      {
-        type: "text",
-        text: `${summary}\n\n${formatted}`,
-      },
-    ],
+    content: [{ type: "text", text: `${summary}\n\n${formatted}` }],
   };
 }
 
 async function handleCountRecords(client: any, args: any) {
   const count = await client.countRecords(args.table, args.filter);
   return {
-    content: [
-      {
-        type: "text",
-        text: `Total records in ${args.table}: ${count}`,
-      },
-    ],
+    content: [{ type: "text", text: `Total records in ${args.table}: ${count}` }],
   };
 }
 
-function handleBuildFilter(args: any) {
+// ---------------------------------------------------------------------------
+// Connection-free expression builders
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt to fetch a version advisory for a connection-free tool.
+ * Never throws — if no active client is available the notice is skipped.
+ */
+async function getAdvisoryNotice(args: any, feature: string): Promise<string | null> {
+  try {
+    const { client } = resolveClient(args);
+    if (!client) return null;
+    const version = await client.getServerVersion();
+    return featureWarning(version, feature);
+  } catch {
+    return null;
+  }
+}
+
+async function handleBuildFilter(args: any) {
   const { template, params, mode = "resolved" } = args;
 
   // Validate: all param keys must start with @
@@ -578,22 +605,31 @@ function handleBuildFilter(args: any) {
     };
   }
 
+  // Advisory version notice (best-effort — never blocks the expression)
+  const advisory = await getAdvisoryNotice(args, "build_filter");
+
   const result = ODataParser.buildParameterizedFilter(template, params, mode);
+
+  const body =
+    typeof result === "string"
+      ? JSON.stringify({ filter: result }, null, 2)
+      : JSON.stringify(result, null, 2);
 
   return {
     content: [
       {
         type: "text",
-        text: typeof result === "string"
-          ? JSON.stringify({ filter: result }, null, 2)
-          : JSON.stringify(result, null, 2),
+        text: advisory ? `${advisory}\n\n${body}` : body,
       },
     ],
   };
 }
 
-function handleCast(args: any) {
+async function handleCast(args: any) {
   const { fields, context = "select" } = args;
+
+  // Advisory version notice (best-effort — never blocks the expression)
+  const advisory = await getAdvisoryNotice(args, "cast");
 
   const castExpressions: string[] = (fields as Array<{ field: string; type: string }>).map(
     ({ field, type }) => ODataParser.buildCastExpression(field, type)
@@ -603,63 +639,158 @@ function handleCast(args: any) {
   let usage: string;
 
   if (context === "filter") {
-    // For filter context, return each expression on its own line with an example
     result = castExpressions.join("\n");
     usage =
       "Use each cast path inside a $filter expression, e.g.:\n" +
       castExpressions.map((e) => `  $filter=${e} eq <value>`).join("\n");
   } else {
-    // For select context, join with commas
     result = castExpressions.join(",");
     usage = `Use as: $select=${result}`;
   }
 
+  const body = JSON.stringify({ castExpression: result, usage }, null, 2);
+
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify({ castExpression: result, usage }, null, 2),
+        text: advisory ? `${advisory}\n\n${body}` : body,
       },
     ],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Aggregation
+// ---------------------------------------------------------------------------
 
 async function handleAggregate(client: any, args: any) {
   const { table, method, alias, field, groupBy, filter } = args;
 
-  // Validate: field is required for everything except 'count'
   if (method !== "count" && !field) {
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error: 'field' is required when method is '${method}'.`,
-        },
-      ],
+      content: [{ type: "text", text: `Error: 'field' is required when method is '${method}'.` }],
       isError: true,
     };
   }
 
-  const applyExpression = ODataParser.buildApplyExpression(
-    { method, alias, field },
-    groupBy,
-    filter
-  );
+  // Version check — fall back to client-side computation when $apply unsupported
+  const version = await client.getServerVersion();
+  const supported = isFeatureSupported(version, "aggregate");
+  const warning = featureWarning(version, "aggregate");
 
-  logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
-  const response = await client.aggregateRecords(table, applyExpression);
+  if (supported) {
+    const applyExpression = ODataParser.buildApplyExpression(
+      { method, alias, field },
+      groupBy,
+      filter
+    );
+    logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
+    const response = await client.aggregateRecords(table, applyExpression);
+    return {
+      content: [{ type: "text", text: ODataParser.formatResponse(response) }],
+    };
+  }
+
+  // Client-side fallback: fetch up to 10 000 records and compute locally
+  const CAP = 10_000;
+  logger.debug(`Aggregate fallback: fetching up to ${CAP} records from ${table}`);
+  const fetchResponse = await client.queryRecords(table, {
+    filter: filter ?? undefined,
+    top: CAP,
+  });
+  const records: Record<string, any>[] = fetchResponse.value ?? [];
+  const recordCount = records.length;
+
+  const result = computeClientSideAggregate(records, method, field, alias, groupBy);
+  const versionStr = version ? `FM Server ${version.raw}` : "FM Server (unknown version)";
+  const notice =
+    `[Compatibility] ${versionStr} does not support $apply. ` +
+    `Result computed client-side from ${recordCount} record${recordCount !== 1 ? "s" : ""} (cap: ${CAP}).` +
+    (warning ? ` ${warning}` : "");
 
   return {
     content: [
       {
         type: "text",
-        text: ODataParser.formatResponse(response),
+        text: `${notice}\n\n${JSON.stringify({ "@odata.context": `client-side`, value: result }, null, 2)}`,
       },
     ],
   };
 }
 
+// ---------------------------------------------------------------------------
+// Client-side aggregate helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute an aggregation locally over an array of records.
+ * Supports groupBy (returns one row per group) or ungrouped (single row).
+ */
+function computeClientSideAggregate(
+  records: Record<string, any>[],
+  method: string,
+  field: string | undefined,
+  alias: string | undefined,
+  groupBy: string | undefined
+): Record<string, any>[] {
+  const outputAlias = alias ?? (field ? `${method}_${field}` : method);
+
+  if (groupBy) {
+    const groups = new Map<string, Record<string, any>[]>();
+    for (const rec of records) {
+      const key = String(rec[groupBy] ?? "");
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(rec);
+    }
+    const rows: Record<string, any>[] = [];
+    for (const [groupValue, groupRecords] of groups) {
+      rows.push({
+        [groupBy]: groupValue,
+        [outputAlias]: aggregateValue(groupRecords, method, field),
+      });
+    }
+    return rows;
+  }
+
+  return [{ [outputAlias]: aggregateValue(records, method, field) }];
+}
+
+function aggregateValue(
+  records: Record<string, any>[],
+  method: string,
+  field: string | undefined
+): number | null {
+  const m = method.toLowerCase();
+
+  if (m === "count") return records.length;
+  if (!field) return null;
+
+  // countdistinct works on any value type — handle before numeric filter
+  if (m === "countdistinct") return new Set(records.map((r) => r[field])).size;
+
+  const nums = records
+    .map((r) => {
+      const v = r[field];
+      return v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v) : null;
+    })
+    .filter((v): v is number => v !== null);
+
+  if (nums.length === 0) return null;
+
+  switch (m) {
+    case "sum":     return nums.reduce((a, b) => a + b, 0);
+    case "average": return nums.reduce((a, b) => a + b, 0) / nums.length;
+    case "min":     return Math.min(...nums);
+    case "max":     return Math.max(...nums);
+    default:        return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CRUD Tool Handlers
+// ---------------------------------------------------------------------------
+
 async function handleCreateRecord(client: any, args: any) {
   const newRecord = await client.createRecord(args.table, args.data);
   return {
@@ -678,7 +809,7 @@ async function handleUpdateRecord(client: any, args: any) {
     content: [
       {
         type: "text",
-        text: `Record ${args.recordId} in ${args.table} updated successfully`,
+        text: `Record ${args.recordId} in ${args.table} updated successfully.`,
       },
     ],
   };
@@ -690,7 +821,7 @@ async function handleDeleteRecord(client: any, args: any) {
     content: [
       {
         type: "text",
-        text: `Record ${args.recordId} deleted from ${args.table}`,
+        text: `Record ${args.recordId} deleted from ${args.table} successfully.`,
       },
     ],
   };

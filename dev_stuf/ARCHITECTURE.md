@@ -11,16 +11,20 @@
                                 │ MCP Protocol (stdio | http | https)
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
-│              filemaker-odata-mcp v0.3.1                          │
+│              filemaker-odata-mcp v0.5.1                          │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │        Transport Layer (stdio / HTTP / HTTPS)              │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │                   Tools Handler (22 tools)                 │ │
+│  │                   Tools Handler (26 tools)                 │ │
 │  │  OData: list_tables, get_metadata, query_records           │ │
 │  │         get_record, get_records, count_records             │ │
 │  │         create_record, update_record, delete_record        │ │
-│  │  Connection: connect, set_connection, list_connections     │ │
+│  │         aggregate, cast, build_filter                      │ │
+│  │  Connection: connect, connect_multi, set_connection        │ │
+│  │              list_connections, get_current_connection      │ │
+│  │              list_active_sessions, describe_sessions       │ │
+│  │              get_server_version                            │ │
 │  │  Config: config_add/remove/get/list/set_default            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
@@ -30,8 +34,9 @@
 │  └────────────────────────────────────────────────────────────┘ │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │                 Connection Manager                         │ │
-│  │  - Inline connections  - Saved connections (config file)   │ │
-│  │  - Default connection  - SSL/timeout settings              │ │
+│  │  - Inline + named sessions  - Saved connections (config)   │ │
+│  │  - Multi-session map        - SSL/timeout settings         │ │
+│  │  - getClientByName()        - listActiveSessions()         │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ HTTPS/OData 4.01

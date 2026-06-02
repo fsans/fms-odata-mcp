@@ -200,7 +200,37 @@ You can also ask in natural language - Claude will translate to the correct tool
 
 ---
 
-## 11. CONFIGURATION MANAGEMENT (OPTIONAL)
+## 11. MULTI-SESSION & SERVER VERSION
+
+### Connect to Multiple Databases (Separation Model)
+```
+Connect to my FileMaker solution: LOGIC file at https://fms.example.com (database "CRM_Logic")
+and DATA file (database "CRM_Data"), both using username "api" and password "secret"
+```
+
+### List All Active Sessions
+```
+List all my active FileMaker sessions
+```
+
+### Target a Specific Session Per Call
+```
+Query the Contacts table from the "data" session
+```
+
+### Describe Schema Across All Sessions
+```
+Describe all tables across all my active FileMaker sessions
+```
+
+### Check Server Version and Feature Compatibility
+```
+What version of FileMaker Server am I connected to, and which features are supported?
+```
+
+---
+
+## 12. CONFIGURATION MANAGEMENT (OPTIONAL)
 
 ### Save Connection Permanently
 ```
@@ -225,9 +255,13 @@ Set "production" as my default FileMaker connection
 | Category | Tool Name | Purpose |
 |----------|-----------|---------|
 | **Connection** | `fm_odata_connect` | Connect with inline credentials |
-| | `fm_odata_set_connection` | Use saved connection |
-| | `fm_odata_list_connections` | List all connections |
+| | `fm_odata_connect_multi` | Bulk-connect N databases in one call |
+| | `fm_odata_set_connection` | Use saved config or runtime alias |
+| | `fm_odata_list_connections` | List saved connections |
 | | `fm_odata_get_current_connection` | Show current connection |
+| **Multi-Session** | `fm_odata_list_active_sessions` | List all live sessions with alias and status |
+| | `fm_odata_describe_sessions` | Merged schema across all active sessions |
+| | `fm_odata_get_server_version` | Detect FM Server version + feature report |
 | **Discovery** | `fm_odata_get_service_document` | Get service document |
 | | `fm_odata_get_metadata` | Get metadata XML |
 | | `fm_odata_list_tables` | List all tables |
@@ -238,6 +272,9 @@ Set "production" as my default FileMaker connection
 | **CRUD** | `fm_odata_create_record` | Create new record |
 | | `fm_odata_update_record` | Update existing record |
 | | `fm_odata_delete_record` | Delete record |
+| **FM 2024/2025** | `fm_odata_aggregate` | Server-side aggregation via `$apply` (FM 22.0.1+; client-side fallback) |
+| | `fm_odata_cast` | Type coercion `Field/Edm.Type` (FM 21.1+) |
+| | `fm_odata_build_filter` | Parameterized `$filter` via `@alias` (FM 21.1+) |
 | **Config** | `fm_odata_config_add_connection` | Save connection |
 | | `fm_odata_config_remove_connection` | Remove connection |
 | | `fm_odata_config_list_connections` | List saved connections |

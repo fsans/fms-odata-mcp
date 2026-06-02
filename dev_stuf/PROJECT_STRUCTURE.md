@@ -5,618 +5,221 @@
 ```
 FMS-ODATA-MCP/
 ├── src/
-│   ├── index.ts                      # Main entry point, server initialization
-│   ├── server.ts                     # FileMakerODataServer class
-│   ├── config/
-│   │   ├── config.ts                 # Configuration management
-│   │   └── constants.ts              # Constants and enums
-│   ├── connection/
-│   │   ├── ConnectionManager.ts      # Connection pool and lifecycle
-│   │   ├── AuthManager.ts            # Authentication handling
-│   │   └── RetryHandler.ts           # Retry logic for failed requests
-│   ├── odata/
-│   │   ├── ODataClient.ts            # Main OData client
-│   │   ├── ODataQueryBuilder.ts      # URL construction
-│   │   ├── ODataResponseParser.ts    # Response parsing
-│   │   └── ODataErrorHandler.ts      # Error handling
-│   ├── handlers/
-│   │   ├── tools/
-│   │   │   ├── listDatabases.ts      # List databases tool
-│   │   │   ├── getMetadata.ts        # Get metadata tool
-│   │   │   ├── queryRecords.ts       # Query records tool
-│   │   │   ├── getRecord.ts          # Get record tool
-│   │   │   ├── createRecord.ts       # Create record tool
-│   │   │   ├── updateRecord.ts       # Update record tool
-│   │   │   ├── deleteRecord.ts       # Delete record tool
-│   │   │   └── executeBatch.ts       # Batch operations tool
-│   │   └── resources/
-│   │       ├── serviceDocument.ts    # Service document resource
-│   │       ├── metadata.ts           # Metadata resource
-│   │       └── tableData.ts          # Table data resource
-│   ├── types/
-│   │   ├── odata.ts                  # OData-specific types
-│   │   ├── filemaker.ts              # FileMaker-specific types
-│   │   └── mcp.ts                    # MCP-specific types
-│   └── utils/
-│       ├── logger.ts                 # Logging utility
-│       ├── validation.ts             # Input validation
-│       └── cache.ts                  # Caching utility
+│   ├── bin/
+│   │   └── cli.ts                        # CLI entry point (npx filemaker-odata-mcp)
+│   ├── tools/
+│   │   ├── index.ts                      # Tool registry and routing dispatcher
+│   │   ├── odata.ts                      # 14 OData operation tools
+│   │   ├── connection.ts                 # 8 connection/session tools
+│   │   └── configuration.ts             # 4 saved-config tools
+│   ├── config.ts                         # Load/validate config from env + file
+│   ├── connection.ts                     # ConnectionManager: session map, inline/multi
+│   ├── fm-version.ts                     # Version parsing, feature matrix, fallbacks
+│   ├── http-server.ts                    # Express HTTP/HTTPS server mode
+│   ├── index.ts                          # Main entry point, server initialization
+│   ├── logger.ts                         # Debug logging with password redaction
+│   ├── odata-client.ts                   # Axios OData client; URL builder; version cache
+│   ├── odata-parser.ts                   # OData response/error parser; $apply/$filter builders
+│   ├── simple-http-transport.ts          # Streamable HTTP transport (Dify/standard MCP)
+│   ├── transport.ts                      # Transport factory (stdio | http | https)
+│   ├── version.ts                        # Reads version from package.json at runtime
+│   └── working-http-transport.ts        # HTTP transport with JSON-RPC notification fix
 ├── tests/
 │   ├── unit/
-│   │   ├── odata/
-│   │   │   ├── ODataClient.test.ts
-│   │   │   ├── ODataQueryBuilder.test.ts
-│   │   │   └── ODataResponseParser.test.ts
-│   │   ├── handlers/
-│   │   │   ├── tools/
-│   │   │   │   └── queryRecords.test.ts
-│   │   │   └── resources/
-│   │   │       └── metadata.test.ts
-│   │   └── utils/
-│   │       └── validation.test.ts
-│   ├── integration/
-│   │   ├── connection.test.ts
-│   │   ├── tools.test.ts
-│   │   └── resources.test.ts
-│   └── fixtures/
-│       ├── mock-responses.json       # Mock FileMaker responses
-│       └── test-data.json            # Test data
-├── docs/
-│   ├── API.md                        # API documentation
-│   ├── EXAMPLES.md                   # Usage examples
-│   └── TROUBLESHOOTING.md            # Common issues and solutions
+│   │   ├── config-helpers.test.ts        # Config validation helpers
+│   │   ├── config.test.ts                # Config loading and env parsing
+│   │   ├── fm-version.test.ts            # Version parsing, feature matrix, fallbacks (55 tests)
+│   │   ├── multi-session.test.ts         # ConnectionManager, multi-session routing (30 tests)
+│   │   ├── odata-client.test.ts          # ODataClient HTTP layer
+│   │   ├── odata-parser.test.ts          # Response/error parsing, $apply/$filter builders
+│   │   └── tool-routing.test.ts          # Tool name→handler dispatch for all 26 tools
+│   └── integration/
+│       └── tools/
+│           ├── configuration.test.ts     # Saved-config tool integration tests
+│           ├── connection.test.ts        # Connection tool integration tests
+│           └── odata.test.ts             # OData tool integration tests
+├── dev_stuf/                             # Developer documentation (not published to npm)
+│   ├── ARCHITECTURE.md
+│   ├── CLAUDE_DESKTOP_PROMPTS.md
+│   ├── CLAUDE_DESKTOP_SETUP.md
+│   ├── DEPLOYMENT_SCENARIOS.md
+│   ├── NPM_PUBLISHING.md
+│   ├── PROJECT_STRUCTURE.md              # This file
+│   ├── QUICK_REFERENCE.md
+│   ├── QUICK_START_TEST.md
+│   ├── ROADMAP.md
+│   ├── TESTING_GUIDE.md
+│   └── WINDSURF_SETUP.md
+├── .env.example                          # Environment variable template
 ├── .gitignore
-├── .eslintrc.json
-├── .prettierrc
+├── AGENTS.md                             # AI agent rules for this repo
+├── CHANGELOG.md                          # Version history
+├── CLAUDE.md                             # Claude Code guidance
+├── CONTRIBUTING.md
+├── docker-compose.yml
+├── Dockerfile
 ├── package.json
-├── tsconfig.json
-├── README.md                         # Project overview
-├── ARCHITECTURE.md                   # Architecture documentation
-├── PROJECT_STRUCTURE.md              # This file
-└── CHANGELOG.md                      # Version history
+├── README.md
+├── start.sh                              # Build + Docker start convenience script
+└── tsconfig.json
 
 ```
 
 ## File Descriptions
 
-### Core Files
+### Entry Points
 
 #### `src/index.ts`
-Main entry point that:
-- Initializes the MCP server
-- Sets up transport (stdio)
-- Handles process lifecycle
-- Error handling and shutdown
+Main server entry point. Initializes the MCP `Server` from `@modelcontextprotocol/sdk`,
+registers all 26 tool definitions from `src/tools/index.ts`, selects and starts the
+transport (stdio / HTTP / HTTPS), and handles SIGTERM for graceful shutdown.
 
-```typescript
-#!/usr/bin/env node
-import { FileMakerODataServer } from './server.js';
+#### `src/bin/cli.ts`
+CLI entry point for the `filemaker-odata-mcp` binary installed via npm.
+Parses command-line flags (`--help`, `--version`) via `commander` and delegates to
+`src/index.ts` for normal operation.
 
-const server = new FileMakerODataServer();
-server.run().catch(console.error);
-```
+---
 
-#### `src/server.ts`
-Main server class that:
-- Extends MCP SDK Server
-- Registers tool handlers
-- Registers resource handlers
-- Manages server lifecycle
+### Core Modules
 
-```typescript
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+#### `src/config.ts`
+Loads and validates configuration from environment variables and the persisted config
+file (`~/.fms-odata-mcp/config.json`). Exports `loadConfig()`, `saveConfig()`,
+`validateConfig()`, and the `ServerConfig` / `SavedConnection` interfaces.
 
-export class FileMakerODataServer {
-  private server: Server;
-  private connectionManager: ConnectionManager;
-  private odataClient: ODataClient;
-  
-  constructor() {
-    // Initialize server with capabilities
-    // Set up handlers
-  }
-  
-  async run() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-  }
-}
-```
+#### `src/connection.ts`
+`ConnectionManager` class — the session registry for the whole server.
 
-### Configuration
+Key responsibilities:
+- Stores a `Map<string, ODataClient>` keyed by session alias or config name
+- `createInlineClient()` / `createInlineClientNamed()` — register one-off or named sessions
+- `connectMulti()` — parallel bulk-connect with shared/per-entry credentials
+- `getClientByName()` — side-effect-free lookup; does not change active session
+- `setCurrentConnection()` — checks in-memory cache first, then saved config
+- `listActiveSessions()` — returns `SessionInfo[]` with `isCurrent` and cached `fmVersion`
+- `getServerVersion()` — delegates to the session's `ODataClient.getServerVersion()`
 
-#### `src/config/config.ts`
-Configuration management:
-- Read environment variables
-- Validate configuration
-- Provide defaults
-- Export config object
+#### `src/odata-client.ts`
+Axios-based HTTP client for FileMaker Server OData 4.01. One instance per session.
 
-```typescript
-export interface ServerConfig {
-  filemakerServerUrl: string;
-  username: string;
-  password: string;
-  defaultDatabase?: string;
-  timeout: number;
-  maxRetries: number;
-  retryDelay: number;
-  cacheMetadataSeconds: number;
-}
+Key responsibilities:
+- Constructs `/fmi/odata/v4/{database}/{table}` URLs with query params
+- Executes GET / POST / PATCH / DELETE with Basic Auth
+- `getServerVersion()` — lazy-fetches `$metadata`, caches result in `_cachedVersion`
+- Redacts passwords from debug log output
 
-export function loadConfig(): ServerConfig {
-  // Load and validate configuration
-}
-```
+#### `src/odata-parser.ts`
+Stateless parsing helpers.
 
-#### `src/config/constants.ts`
-Application constants:
-- OData version
-- Default timeouts
-- Error codes
-- HTTP status codes
+- `ODataParser.parseQueryResponse()` / `parseServiceDocument()` / `parseMetadata()`
+- `ODataParser.formatError()` — normalises Axios/OData errors into readable strings
+- `ODataParser.buildApplyExpression()` — builds `$apply=groupby((…),aggregate(…))` strings
+- `ODataParser.buildCastExpression()` — builds `Field/Edm.Type` path segments
+- `ODataParser.buildParameterizedFilter()` / `formatParamValue()` — `@alias` substitution
 
-```typescript
-export const ODATA_VERSION = '4.01';
-export const DEFAULT_TIMEOUT = 30000;
-export const BASE_PATH = '/fmi/odata/v4';
-```
+#### `src/fm-version.ts`
+Server version detection and feature compatibility matrix (added in v0.5.1).
 
-### Connection Management
+- `parseServerVersion(xml)` — extracts version from `$metadata` XML;
+  tries `Org.OData.Core.V1.ProductVersion` annotation first, then `edmx:Edmx Version`
+  attribute; returns `null` if undetectable
+- `compareVersions(a, b)` — semver-style numeric comparison
+- `isFeatureSupported(feature, version)` — consults `FM_FEATURE_MATRIX`
+- `featureWarning(feature, version)` — returns advisory notice string or `null`
+- `buildFeatureReport(version)` — returns `{ feature: { supported, minVersion } }` map
+- `FM_FEATURE_MATRIX` — gates: `basic_odata` (FM 19+), `cast`/`build_filter` (FM 21.1+),
+  `aggregate` (FM 22.0.1+)
 
-#### `src/connection/ConnectionManager.ts`
-Manages HTTP connections:
-- Connection pooling
-- Lifecycle management
-- Health checks
+#### `src/transport.ts`
+Transport factory. Reads `MCP_TRANSPORT` env var and returns a `StdioServerTransport`,
+`SimpleHttpTransport`, or `HttpsTransport` accordingly.
 
-```typescript
-export class ConnectionManager {
-  private config: ServerConfig;
-  private httpAgent: Agent;
-  
-  constructor(config: ServerConfig) {
-    // Initialize connection pool
-  }
-  
-  getClient(): ODataClient {
-    // Return configured OData client
-  }
-}
-```
+#### `src/http-server.ts`
+Express server for HTTP/HTTPS transport mode. Registers CORS before routes, handles
+`/health` and `/mcp` endpoints, implements graceful shutdown.
 
-#### `src/connection/AuthManager.ts`
-Authentication handling:
-- Basic Auth implementation
-- Token management (future)
-- Credential validation
+#### `src/working-http-transport.ts`
+HTTP transport with the JSON-RPC notification fix: detects requests with no `id` field
+(notifications), returns HTTP 204 immediately instead of waiting on a promise that never
+resolves (which caused Dify and other standard MCP clients to stall).
 
-```typescript
-export class AuthManager {
-  private username: string;
-  private password: string;
-  
-  getAuthHeader(): string {
-    // Return Basic Auth header
-  }
-  
-  validateCredentials(): Promise<boolean> {
-    // Test authentication
-  }
-}
-```
+#### `src/simple-http-transport.ts`
+Streamable HTTP transport for MCP clients that use the newer streaming protocol
+(e.g. Dify with `streamable_http`).
 
-#### `src/connection/RetryHandler.ts`
-Retry logic:
-- Exponential backoff
-- Max retry configuration
-- Error categorization
+#### `src/logger.ts`
+Thin wrapper around the `debug` package. All namespaces are prefixed `fms-odata-mcp:`.
+Passwords are redacted before log output via a regex scrub.
 
-```typescript
-export class RetryHandler {
-  async executeWithRetry<T>(
-    operation: () => Promise<T>,
-    maxRetries: number
-  ): Promise<T> {
-    // Implement retry logic
-  }
-}
-```
+#### `src/version.ts`
+Reads the package version from `package.json` at runtime so the server's reported
+version is always in sync with npm.
 
-### OData Client Layer
+---
 
-#### `src/odata/ODataClient.ts`
-Main OData client:
-- HTTP request execution
-- Response handling
-- Error transformation
+### Tools Layer (`src/tools/`)
 
-```typescript
-export class ODataClient {
-  constructor(
-    private config: ServerConfig,
-    private authManager: AuthManager
-  ) {}
-  
-  async get(url: string): Promise<any> {
-    // Execute GET request
-  }
-  
-  async post(url: string, data: any): Promise<any> {
-    // Execute POST request
-  }
-  
-  async patch(url: string, data: any): Promise<any> {
-    // Execute PATCH request
-  }
-  
-  async delete(url: string): Promise<void> {
-    // Execute DELETE request
-  }
-}
-```
+#### `src/tools/index.ts`
+Tool registry and routing dispatcher. Exports:
+- `TOOL_DEFINITIONS` — array of all 26 MCP tool definition objects
+- `handleToolCall(name, args)` — dispatches to the correct handler by set-membership lookup
+- Named sets: `odataToolNames`, `connectionToolNames`, `configToolNames`
 
-#### `src/odata/ODataQueryBuilder.ts`
-URL construction:
-- Build OData URLs
-- Add query parameters
-- Encode special characters
+#### `src/tools/odata.ts`
+Handlers for all 14 OData operation tools:
+- `fm_odata_get_service_document`, `fm_odata_get_metadata`, `fm_odata_list_tables`
+- `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`
+- `fm_odata_count_records`, `fm_odata_create_record`, `fm_odata_update_record`
+- `fm_odata_delete_record`
+- `fm_odata_aggregate` — version-gated; server-side `$apply` on FM 22.0.1+,
+  client-side fallback on older/unknown servers
+- `fm_odata_cast` — prepends advisory notice when server version is incompatible
+- `fm_odata_build_filter` — prepends advisory notice when server version is incompatible
 
-```typescript
-export class ODataQueryBuilder {
-  buildUrl(options: QueryOptions): string {
-    // Construct OData URL with query parameters
-  }
-  
-  buildFilterExpression(filter: string): string {
-    // Build $filter expression
-  }
-}
-```
+All 11 connection-dependent tools accept an optional `connection` param to target
+a specific session without changing the active session pointer.
 
-#### `src/odata/ODataResponseParser.ts`
-Response parsing:
-- Parse JSON responses
-- Extract metadata
-- Format for MCP
+#### `src/tools/connection.ts`
+Handlers for all 8 connection/session tools:
+- `fm_odata_connect`, `fm_odata_connect_multi`, `fm_odata_set_connection`
+- `fm_odata_list_connections`, `fm_odata_get_current_connection`
+- `fm_odata_list_active_sessions`, `fm_odata_describe_sessions`
+- `fm_odata_get_server_version`
 
-```typescript
-export class ODataResponseParser {
-  parseQueryResponse(response: any): any {
-    // Parse and format query results
-  }
-  
-  parseMetadata(xml: string): any {
-    // Parse EDMX metadata
-  }
-}
-```
+#### `src/tools/configuration.ts`
+Handlers for all 4 saved-config tools:
+- `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`
+- `fm_odata_config_get_connection`, `fm_odata_config_list_connections`
+- `fm_odata_config_set_default_connection`
 
-#### `src/odata/ODataErrorHandler.ts`
-Error handling:
-- Parse OData errors
-- Transform to MCP errors
-- Add context
+---
 
-```typescript
-export class ODataErrorHandler {
-  handleError(error: any): McpError {
-    // Transform errors
-  }
-}
-```
+### Tests (`tests/`)
 
-### Tool Handlers
+Unit tests run via `npm test` (jest + ts-jest, ESM mode). Integration tests in
+`tests/integration/` are excluded from the default run.
 
-#### `src/handlers/tools/queryRecords.ts`
-Query records tool implementation:
+| Test file | What it covers | Tests |
+|-----------|---------------|-------|
+| `unit/config-helpers.test.ts` | Config validation helpers | — |
+| `unit/config.test.ts` | Env var loading, file loading | — |
+| `unit/fm-version.test.ts` | Version parsing, feature matrix, client-side fallback | 55 |
+| `unit/multi-session.test.ts` | ConnectionManager primitives, multi-connect, collision detection | 30 |
+| `unit/odata-client.test.ts` | HTTP layer, URL construction | — |
+| `unit/odata-parser.test.ts` | Response/error parsing, $apply/$filter/$cast builders | — |
+| `unit/tool-routing.test.ts` | All 26 tool name→handler dispatch assertions | — |
 
-```typescript
-export async function handleQueryRecords(
-  args: QueryRecordsArgs,
-  client: ODataClient
-): Promise<ToolResponse> {
-  // Validate input
-  // Build query
-  // Execute request
-  // Format response
-}
-```
+**Total: 191 tests across 7 suites.**
 
-Similar structure for other tool handlers:
-- `listDatabases.ts`
-- `getMetadata.ts`
-- `getRecord.ts`
-- `createRecord.ts`
-- `updateRecord.ts`
-- `deleteRecord.ts`
-- `executeBatch.ts`
-
-### Resource Handlers
-
-#### `src/handlers/resources/metadata.ts`
-Metadata resource implementation:
-
-```typescript
-export async function handleMetadataResource(
-  uri: string,
-  client: ODataClient
-): Promise<ResourceResponse> {
-  // Parse URI
-  // Fetch metadata
-  // Cache if appropriate
-  // Format response
-}
-```
-
-Similar structure for other resource handlers:
-- `serviceDocument.ts`
-- `tableData.ts`
-
-### Types
-
-#### `src/types/odata.ts`
-OData-specific types:
-
-```typescript
-export interface ODataQueryOptions {
-  filter?: string;
-  select?: string;
-  orderby?: string;
-  top?: number;
-  skip?: number;
-  expand?: string;
-  count?: boolean;
-}
-
-export interface ODataResponse {
-  '@odata.context': string;
-  '@odata.count'?: number;
-  value: any[];
-}
-```
-
-#### `src/types/filemaker.ts`
-FileMaker-specific types:
-
-```typescript
-export interface FileMakerRecord {
-  recordId: string;
-  fieldData: Record<string, any>;
-  portalData?: Record<string, any[]>;
-}
-```
-
-#### `src/types/mcp.ts`
-MCP-specific types:
-
-```typescript
-export interface ToolResponse {
-  content: Array<{
-    type: 'text';
-    text: string;
-  }>;
-  isError?: boolean;
-}
-```
-
-### Utilities
-
-#### `src/utils/logger.ts`
-Logging utility:
-
-```typescript
-export class Logger {
-  info(message: string, ...args: any[]): void {}
-  error(message: string, error: Error): void {}
-  debug(message: string, ...args: any[]): void {}
-}
-```
-
-#### `src/utils/validation.ts`
-Input validation:
-
-```typescript
-export function validateDatabaseName(name: string): boolean {}
-export function validateTableName(name: string): boolean {}
-export function validateRecordId(id: string): boolean {}
-export function validateFilterExpression(filter: string): boolean {}
-```
-
-#### `src/utils/cache.ts`
-Caching utility:
-
-```typescript
-export class Cache {
-  set(key: string, value: any, ttlSeconds: number): void {}
-  get(key: string): any | null {}
-  clear(): void {}
-}
-```
-
-## Configuration Files
-
-### `package.json`
-```json
-{
-  "name": "filemaker-odata-mcp",
-  "version": "0.3.1",
-  "description": "MCP server for FileMaker Server OData API",
-  "type": "module",
-  "main": "dist/index.js",
-  "bin": {
-    "filemaker-odata-mcp": "./dist/index.js"
-  },
-  "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
-    "dev": "tsc --watch",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "lint": "eslint src/**/*.ts",
-    "format": "prettier --write \"src/**/*.ts\""
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "axios": "^1.6.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.0.0",
-    "jest": "^29.0.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.3.0"
-  }
-}
-```
-
-### `tsconfig.json`
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "outDir": "./build",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "build", "tests"]
-}
-```
-
-### `.gitignore`
-```
-# Dependencies
-node_modules/
-
-# Build output
-build/
-dist/
-
-# Environment variables
-.env
-.env.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Testing
-coverage/
-.nyc_output/
-
-# Misc
-*.bak
-*.tmp
-```
+---
 
 ## Development Workflow
 
-### 1. Initial Setup
 ```bash
-# Create project directory
-cd /Users/fsans/Documents/GitHub/FMS-ODATA-MCP
-npx @modelcontextprotocol/create-server FMS-ODATA-MCP
-cd FMS-ODATA-MCP
-
-# Install dependencies
-npm install axios
-npm install --save-dev @types/node jest
+npm run build          # TypeScript compile → dist/
+npm test               # Run unit tests (jest, tests/unit/**)
+npm run test:coverage  # With coverage report
+npm run dev            # Build then run
+./start.sh             # Build image and start HTTP Docker container
 ```
-
-### 2. Development
-```bash
-# Watch mode for development
-npm run dev
-
-# In another terminal, build
-npm run build
-```
-
-### 3. Testing
-```bash
-# Run tests
-npm test
-
-# Watch mode
-npm test:watch
-```
-
-### 4. Linting and Formatting
-```bash
-# Lint code
-npm run lint
-
-# Format code
-npm run format
-```
-
-### 5. Building
-```bash
-# Build for production
-npm run build
-```
-
-## File Naming Conventions
-
-- **PascalCase**: Class files (e.g., `ODataClient.ts`)
-- **camelCase**: Function files (e.g., `queryRecords.ts`)
-- **kebab-case**: Configuration files (e.g., `.eslintrc.json`)
-- **UPPERCASE**: Documentation files (e.g., `README.md`)
-
-## Code Organization Principles
-
-1. **Separation of Concerns**: Each file has a single, clear responsibility
-2. **Modularity**: Components are independent and reusable
-3. **Type Safety**: Strong typing throughout the codebase
-4. **Error Handling**: Consistent error handling patterns
-5. **Testing**: Each module has corresponding tests
-6. **Documentation**: Clear inline comments and external documentation
-
-## Import/Export Patterns
-
-```typescript
-// Use named exports for utilities and handlers
-export function validateInput(input: string): boolean {}
-
-// Use default exports for classes
-export default class ODataClient {}
-
-// Group related exports
-export {
-  ODataClient,
-  ODataQueryBuilder,
-  ODataResponseParser
-} from './odata/index.js';
-```
-
-## Next Steps
-
-1. Create the directory structure
-2. Initialize npm project
-3. Set up TypeScript configuration
-4. Create core files with basic structure
-5. Implement one tool as a proof of concept
-6. Add tests
-7. Iterate and expand functionality
