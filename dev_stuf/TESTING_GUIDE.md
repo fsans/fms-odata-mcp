@@ -273,6 +273,62 @@ endswith(Email, '.com')
 - OData errors are parsed and displayed
 - Network errors are handled gracefully
 
+### Test 13: Multi-Session Connect
+
+```
+Ask Cline: "Connect to two databases: LOGIC file at https://your-server.com
+database 'CRM_Logic' and DATA file database 'CRM_Data', both using
+username 'api' and password 'secret'. Call them 'logic' and 'data'."
+```
+
+**Expected Tool Call**: `fm_odata_connect_multi`
+
+**Expected Result**: Both sessions connected; primary session set to "logic"
+
+### Test 14: List Active Sessions
+
+```
+Ask Cline: "List all my active FileMaker sessions"
+```
+
+**Expected Tool Call**: `fm_odata_list_active_sessions`
+
+**Expected Result**: JSON list of sessions with alias, server, database, user, isCurrent flag
+
+### Test 15: Per-Call Connection Targeting
+
+```
+Ask Cline: "Query the contact table using the 'data' session"
+```
+
+**Expected Tool Call**: `fm_odata_query_records` with `connection: "data"`
+
+**Expected Result**: Records from the "data" session without changing active session
+
+### Test 16: Server Version Detection
+
+```
+Ask Cline: "What version of FileMaker Server am I connected to?"
+```
+
+**Expected Tool Call**: `fm_odata_get_server_version`
+
+**Expected Result**: JSON with `version` (e.g. `"22.0.1.300"`), `features` map
+showing which capabilities are supported
+
+### Test 17: Describe Sessions (Multi-File Schema)
+
+```
+Ask Cline: "Show me the merged schema across all my active sessions"
+```
+
+**Expected Tool Call**: `fm_odata_describe_sessions`
+
+**Expected Result**: Flat table list annotated with which session each table comes
+from; collision warnings if the same table name appears in multiple sessions
+
+---
+
 ## Next Steps After Testing
 
 1. Report any bugs or issues

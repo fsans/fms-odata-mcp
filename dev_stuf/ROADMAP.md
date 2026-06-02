@@ -8,7 +8,8 @@
 - **v0.3.0** - Stability & correctness release: bug fixes, security hardening, test coverage, Dify support
 - **v0.3.1** - Patch release on top of 0.3.0
 - **v0.4.0** - FileMaker 2025 advanced OData features (aggregation, type casting, parameterization)
-- **v0.5.0** - **In Progress**: Multi-session / multi-file support (`fm_odata_connect_multi`, session management, per-call `connection` param)
+- **v0.5.0** - Multi-session / multi-file support: `fm_odata_connect_multi`, session management, per-call `connection` param (25 tools)
+- **v0.5.1** - Server version detection, feature matrix, aggregate fallback (`fm_odata_get_server_version`) (26 tools)
 
 ---
 
@@ -166,43 +167,19 @@ This feature will not be implemented until Claris adds server-side support.
 
 ### 5. Server Version Detection
 
-**Status**: 📋 Planned  
-**Priority**: Critical (for feature gating)  
-**Estimated Effort**: 1-2 days
+**Status**: ✅ Done (v0.5.1)
+**Tool**: `fm_odata_get_server_version`
 
-**Description**: Automatically detect FileMaker Server version to enable/disable features based on compatibility.
-
-**Implementation Tasks**:
-- [ ] Add version detection method to `ODataClient`
-- [ ] Parse version from service document or metadata
-- [ ] Store version info in connection metadata
-- [ ] Create feature compatibility matrix
-- [ ] Add version-based feature gating
-- [ ] Display version warnings for unsupported features
-- [ ] Add `fm_odata_get_server_version` tool
-
-**Version Compatibility Matrix**:
-```
-FileMaker Server 19+:
-  ✅ Basic OData 4.01 (current implementation)
-  ✅ CRUD operations
-  ✅ Standard query options ($filter, $select, $orderby, etc.)
-
-FileMaker Server v21.1+ (FileMaker 2024):
-  ✅ All v19+ features
-  ✅ Type casting (Field/Edm.Type) → fm_odata_cast
-  ✅ Parameterization (@alias syntax) → fm_odata_build_filter
-
-FileMaker Server 2023 (v20.x):
-  ✅ All v21.1+ features
-  ✅ Enhanced metadata
-  ✅ Improved error messages
-
-FileMaker Server 2025 (v22.0.1+):
-  ✅ All 2023 features
-  ✅ Aggregation ($apply) → fm_odata_aggregate
-  ❌ Lambda operators any/all — unsupported by FileMaker OData (all versions)
-```
+**Implemented**:
+- Version parsed from `$metadata` XML (`Org.OData.Core.V1.ProductVersion` annotation,
+  then `Version` attribute on `edmx:Edmx`); returns `null` if undetectable
+- Per-session cache in `ODataClient._cachedVersion` — zero extra HTTP calls after first fetch
+- Feature compatibility matrix: `basic_odata` (FM 19+), `cast`/`build_filter` (FM 21.1+),
+  `aggregate` (FM 22.0.1+)
+- `fm_odata_aggregate` falls back to client-side computation on older/unknown servers
+- `fm_odata_cast` / `fm_odata_build_filter` prepend advisory notice, never hard-fail
+- `fm_odata_list_active_sessions` shows cached version inline (no extra HTTP)
+- 55 unit tests in `tests/unit/fm-version.test.ts`
 
 ---
 

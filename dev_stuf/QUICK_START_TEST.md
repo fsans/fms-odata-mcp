@@ -251,6 +251,7 @@ target a specific session without changing the active connection.
 ### Multi-Session / Multi-File
 - `fm_odata_list_active_sessions` — list all live sessions with alias and status
 - `fm_odata_describe_sessions` — merged schema across all active sessions
+- `fm_odata_get_server_version` — detect FM Server version + feature-compatibility report
 
 ### Configuration Management
 - `fm_odata_config_add_connection`

@@ -7,7 +7,58 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased] — v0.5.0 (multi-session / multi-file support)
+## [0.5.1] - 2026-06-02
+
+Server version detection, feature compatibility matrix, and smart fallbacks.
+Tool count increases from 25 to 26.
+
+### Added
+
+- **`fm_odata_get_server_version`** — detects FileMaker Server version from `$metadata`
+  XML (cached per session, zero extra HTTP calls on subsequent uses). Returns structured
+  JSON: `{ session, server, database, version, features }` where `features` is a
+  compatibility map (`basic_odata`, `cast`, `build_filter`, `aggregate`).
+
+- **`src/fm-version.ts`** — new module: `FMServerVersion` interface, `FM_FEATURE_MATRIX`,
+  `parseServerVersion()`, `compareVersions()`, `isFeatureSupported()`,
+  `featureWarning()`, `buildFeatureReport()`.
+
+- **Version detection** reads the `Org.OData.Core.V1.ProductVersion` annotation in
+  `$metadata` XML first; falls back to the `Version` attribute on `edmx:Edmx`; returns
+  `null` if undetectable. Result is cached in `ODataClient._cachedVersion` for the
+  session lifetime.
+
+- **Feature compatibility matrix**:
+  - `basic_odata` — FM 19.0.0+ (all supported servers)
+  - `cast` — FM 21.1.0+ (FileMaker 2024)
+  - `build_filter` — FM 21.1.0+ (FileMaker 2024)
+  - `aggregate` — FM 22.0.1+ (FileMaker 2025)
+
+### Changed
+
+- **`fm_odata_aggregate`** — now version-gated: executes server-side `$apply` on
+  FM 22.0.1+; falls back to client-side computation (sum/avg/min/max/count/countdistinct
+  + groupBy) capped at 10 000 records on older or unknown servers. A `[Compatibility]`
+  advisory notice is prepended to the result when the fallback is used.
+
+- **`fm_odata_cast`** and **`fm_odata_build_filter`** — prepend an advisory notice
+  when the server version is known-incompatible or undetectable. Expression is always
+  returned; no hard errors.
+
+- **`fm_odata_list_active_sessions`** — appends `| FM Server x.x.x` when version is
+  already cached for a session (zero extra HTTP calls).
+
+### Tests
+
+- New: `tests/unit/fm-version.test.ts` — 55 tests covering version parsing (8 EDMX
+  fixture variants), `compareVersions`, `isFeatureSupported` across all boundaries,
+  `featureWarning`, `buildFeatureReport` for v19/v22/null, all 6 client-side aggregate
+  methods, groupBy, server-side path, and `fm_odata_get_server_version` routing.
+- Total: 191 tests across 7 suites (up from 146 across 6 suites).
+
+---
+
+## [0.5.0] - 2026-06-02
 
 ### Added
 
