@@ -7,6 +7,121 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.5.1] - 2026-06-02
+
+Server version detection, feature compatibility matrix, and smart fallbacks.
+Tool count increases from 25 to 26.
+
+### Added
+
+- **`fm_odata_get_server_version`** — detects FileMaker Server version from `$metadata`
+  XML (cached per session, zero extra HTTP calls on subsequent uses). Returns structured
+  JSON: `{ session, server, database, version, features }` where `features` is a
+  compatibility map (`basic_odata`, `cast`, `build_filter`, `aggregate`).
+
+- **`src/fm-version.ts`** — new module: `FMServerVersion` interface, `FM_FEATURE_MATRIX`,
+  `parseServerVersion()`, `compareVersions()`, `isFeatureSupported()`,
+  `featureWarning()`, `buildFeatureReport()`.
+
+- **Version detection** reads the `Org.OData.Core.V1.ProductVersion` annotation in
+  `$metadata` XML first; falls back to the `Version` attribute on `edmx:Edmx`; returns
+  `null` if undetectable. Result is cached in `ODataClient._cachedVersion` for the
+  session lifetime.
+
+- **Feature compatibility matrix**:
+  - `basic_odata` — FM 19.0.0+ (all supported servers)
+  - `cast` — FM 21.1.0+ (FileMaker 2024)
+  - `build_filter` — FM 21.1.0+ (FileMaker 2024)
+  - `aggregate` — FM 22.0.1+ (FileMaker 2025)
+
+### Changed
+
+- **`fm_odata_aggregate`** — now version-gated: executes server-side `$apply` on
+  FM 22.0.1+; falls back to client-side computation (sum/avg/min/max/count/countdistinct
+  + groupBy) capped at 10 000 records on older or unknown servers. A `[Compatibility]`
+  advisory notice is prepended to the result when the fallback is used.
+
+- **`fm_odata_cast`** and **`fm_odata_build_filter`** — prepend an advisory notice
+  when the server version is known-incompatible or undetectable. Expression is always
+  returned; no hard errors.
+
+- **`fm_odata_list_active_sessions`** — appends `| FM Server x.x.x` when version is
+  already cached for a session (zero extra HTTP calls).
+
+### Tests
+
+- New: `tests/unit/fm-version.test.ts` — 55 tests covering version parsing (8 EDMX
+  fixture variants), `compareVersions`, `isFeatureSupported` across all boundaries,
+  `featureWarning`, `buildFeatureReport` for v19/v22/null, all 6 client-side aggregate
+  methods, groupBy, server-side path, and `fm_odata_get_server_version` routing.
+- Total: 191 tests across 7 suites (up from 146 across 6 suites).
+
+---
+
+## [0.5.0] - 2026-06-02
+
+### Added
+
+- **`fm_odata_connect_multi`** — bulk-connect N databases in one call.
+  Accepts a shared `server`/`user`/`password` plus a `databases` array
+  where each entry can override credentials and set an `alias` and `primary` flag.
+  Connects and tests all sessions in parallel; sets the primary (or first
+  successful) session as active. Designed for FileMaker separation-of-concerns
+  solutions (LOGIC + DATA files) and multi-solution server setups.
+
+- **`fm_odata_list_active_sessions`** — list all live in-memory sessions.
+  Returns alias, server, database, user, and which session is currently active.
+  Replaces guessing for AI agents working in multi-file environments.
+
+- **`fm_odata_describe_sessions`** — merged schema across all active sessions.
+  Calls `$metadata` on every session in parallel, returns a flat annotated table
+  list `[{table, connection, fieldCount, fields[]}]`. Flags table name collisions
+  across sessions and suggests using the `connection` param to disambiguate.
+
+- **Per-call `connection` parameter** on all 11 connection-dependent OData tools
+  (`fm_odata_get_service_document`, `fm_odata_get_metadata`, `fm_odata_list_tables`,
+  `fm_odata_query_records`, `fm_odata_get_record`, `fm_odata_get_records`,
+  `fm_odata_count_records`, `fm_odata_aggregate`, `fm_odata_create_record`,
+  `fm_odata_update_record`, `fm_odata_delete_record`).
+  Lets AI agents target a specific session per call without changing the active
+  session pointer. Stateless tools (`fm_odata_cast`, `fm_odata_build_filter`)
+  are unaffected.
+
+- **`ConnectionManager.getClientByName()`** — side-effect-free session lookup
+  by alias; does not mutate the active connection pointer.
+
+- **`ConnectionManager.listActiveSessions()`** — returns `SessionInfo[]` for all
+  in-memory sessions including `isCurrent` flag.
+
+- **Explicit alias support** in `ConnectionManager.createInlineClientNamed()` —
+  multi-connect sessions are registered under human-readable aliases rather than
+  auto-generated `inline_…` keys.
+
+### Changed
+
+- **`fm_odata_set_connection`** — now accepts runtime session aliases (inline /
+  multi-connect) in addition to persisted config names.
+
+- **`ConnectionManager.setCurrentConnection()`** — checks in-memory session cache
+  first, then falls back to persisted config, eliminating the need to re-register
+  inline sessions.
+
+### Fixed
+
+- **`working-http-transport.ts` TypeScript strict-null error** — pre-existing
+  `TS2345` ("undefined not assignable to string | number") in the pending-response
+  map lookup; guarded with an explicit null check.
+
+### Tests
+
+- New: `tests/unit/multi-session.test.ts` — 30 tests covering ConnectionManager
+  primitives, tool routing for all 3 new tools, per-call connection targeting,
+  session switching, collision detection.
+- Extended: `tests/unit/tool-routing.test.ts` — 3 new routing assertions.
+- Total: 146 tests across 6 suites (up from 121 across 5 suites).
+
+---
+
 ## [0.4.0] - 2026-06-01
 
 Three new expression-builder tools for FileMaker Server 2025 OData capabilities.
