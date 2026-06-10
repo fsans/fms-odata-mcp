@@ -105,10 +105,28 @@ export function parseServerVersion(metadataXml: string): FMServerVersion | null 
     if (v) return v;
   }
 
-  // Strategy 2: any annotation whose String value looks like a 3-4 part FM version
+  // Strategy 1c: FileMaker Server 26+ ServerVersion annotation (e.g. "OData Engine 26.0.1")
+  const serverVersionMatch = metadataXml.match(
+    /Term\s*=\s*["']ServerVersion["'][^>]*String\s*=\s*["']([^"']+)["']/i
+  );
+  if (serverVersionMatch) {
+    const v = parseVersionString(serverVersionMatch[1]);
+    if (v && v.major >= 17) return v;
+  }
+
+  // Strategy 1d: reversed attribute order for ServerVersion
+  const serverVersionMatchRev = metadataXml.match(
+    /String\s*=\s*["']([^"']+)["'][^>]*Term\s*=\s*["']ServerVersion["']/i
+  );
+  if (serverVersionMatchRev) {
+    const v = parseVersionString(serverVersionMatchRev[1]);
+    if (v && v.major >= 17) return v;
+  }
+
+  // Strategy 2: any annotation whose String value contains a 3-4 part FM version
   // (major >= 17, to avoid false-positives from OData spec "4.0")
   const genericAnnotationMatch = metadataXml.match(
-    /Term\s*=\s*["'][^"']*Version[^"']*["'][^>]*String\s*=\s*["'](\d{2,}\.\d+\.\d+[^"']*?)["']/
+    /Term\s*=\s*["'][^"']*Version[^"']*["'][^>]*String\s*=\s*["'][^"']*?(\d{2,}\.\d+\.\d+(?:\.\d+)?)[^"']*?["']/i
   );
   if (genericAnnotationMatch) {
     const v = parseVersionString(genericAnnotationMatch[1]);

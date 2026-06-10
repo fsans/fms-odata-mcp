@@ -41,6 +41,18 @@ const EDMX_NO_ANNOTATION = `<?xml version="1.0" encoding="utf-8"?>
 const EDMX_EMPTY = "";
 const EDMX_GARBAGE = "this is not xml at all !!!";
 
+// FileMaker Server 26+ format
+const EDMX_V26_SERVER_VERSION = `<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="FileMaker" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <Annotations Target="FileMaker.Container">
+        <Annotation Term="ServerVersion" String="OData Engine 26.0.1" />
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
 // Reversed attribute order variant
 const EDMX_REVERSED_ATTRS = `<?xml version="1.0" encoding="utf-8"?>
 <edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
@@ -105,6 +117,15 @@ describe("parseServerVersion", () => {
 
   test("returns null for non-string input (null)", () => {
     expect(parseServerVersion(null as any)).toBeNull();
+  });
+
+  test("extracts version from ServerVersion annotation (v26.0.1)", () => {
+    const v = parseServerVersion(EDMX_V26_SERVER_VERSION);
+    expect(v).not.toBeNull();
+    expect(v!.major).toBe(26);
+    expect(v!.minor).toBe(0);
+    expect(v!.patch).toBe(1);
+    expect(v!.raw).toBe("26.0.1");
   });
 });
 
