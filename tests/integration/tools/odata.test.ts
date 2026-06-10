@@ -13,7 +13,7 @@ jest.mock("../../../src/connection.js", () => ({
 jest.mock("../../../src/odata-parser.js", () => ({
   ODataParser: {
     formatServiceDocument: jest.fn((doc) => JSON.stringify(doc)),
-    parseMetadataForTables: jest.fn(() => ["table1", "table2"]),
+    parseMetadataForTables: jest.fn(() => [{ name: "table1" }, { name: "table2" }]),
     createQuerySummary: jest.fn(() => "Found 5 records"),
     formatQueryResponse: jest.fn(() => "Formatted results"),
     formatRecordResponse: jest.fn(() => "Formatted record"),

@@ -191,6 +191,16 @@ describe("isFeatureSupported", () => {
     expect(isFeatureSupported(null, "basic_odata")).toBe(false);
   });
 
+  test("metadata_comments NOT supported below v26.0.0", () => {
+    expect(isFeatureSupported(v19, "metadata_comments")).toBe(false);
+    expect(isFeatureSupported(v22, "metadata_comments")).toBe(false);
+  });
+
+  test("metadata_comments supported at v26.0.0+", () => {
+    const v26: FMServerVersion = { major: 26, minor: 0, patch: 0, raw: "26.0.0" };
+    expect(isFeatureSupported(v26, "metadata_comments")).toBe(true);
+  });
+
   test("unknown feature → returns true (don't block unknown features)", () => {
     expect(isFeatureSupported(v22, "some_future_feature")).toBe(true);
   });
@@ -250,12 +260,13 @@ describe("buildFeatureReport", () => {
   const v22: FMServerVersion = { major: 22, minor: 0, patch: 1, raw: "22.0.1" };
   const v19: FMServerVersion = { major: 19, minor: 0, patch: 0, raw: "19.0.0" };
 
-  test("all features supported on v22.0.1", () => {
+  test("all features supported on v22.0.1 except metadata_comments", () => {
     const report = buildFeatureReport(v22);
     expect(report.basic_odata.supported).toBe(true);
     expect(report.cast.supported).toBe(true);
     expect(report.build_filter.supported).toBe(true);
     expect(report.aggregate.supported).toBe(true);
+    expect(report.metadata_comments.supported).toBe(false);
   });
 
   test("only basic_odata supported on v19.0.0", () => {
