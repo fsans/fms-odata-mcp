@@ -159,9 +159,11 @@ export const connectionTools = [
       "Fetch and merge the OData schema ($metadata) from every active session. " +
       "Returns a flat list of all EntitySets (tables) across all connected databases, " +
       "each annotated with the session alias that owns it. " +
+      "On FileMaker Server v26+ table and field comments / AI annotations are included. " +
       "Flags any table names that appear in more than one session (collision). " +
       "Use this to understand the full schema of a multi-file FileMaker solution " +
-      "and to know which 'connection' alias to pass when querying a specific table.",
+      "and to know which 'connection' alias to pass when querying a specific table. " +
+      "Call fm_odata_get_server_version first to know whether enriched metadata (comments) will be available.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -171,11 +173,14 @@ export const connectionTools = [
   {
     name: "fm_odata_get_server_version",
     description:
-      "Detect the FileMaker Server version for the active (or named) session by reading " +
-      "the OData $metadata document. Returns the version number and a feature-compatibility " +
-      "report showing which version-gated tools (aggregate, cast, build_filter) are supported. " +
+      "Detect the FileMaker Server version and feature capabilities for the active (or named) session. " +
+      "Reads the OData $metadata document and returns the version number plus a compatibility report " +
+      "showing which advanced features are supported: aggregate (v22.0.1+), cast (v21.1+), " +
+      "build_filter (v21.1+), and metadata_comments (v26+). " +
       "The result is cached for the session lifetime — subsequent calls are instant. " +
-      "Use this to understand what your server supports before using advanced tools.",
+      "ALWAYS call this first after connecting to understand what the server can do before using " +
+      "version-gated tools such as fm_odata_aggregate, fm_odata_cast, fm_odata_build_filter, " +
+      "or fm_odata_list_tables with includeDetails.",
     inputSchema: {
       type: "object",
       properties: {
