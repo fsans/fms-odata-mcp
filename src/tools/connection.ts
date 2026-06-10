@@ -1,7 +1,7 @@
 import { connectionManager } from "../connection.js";
 import { Connection } from "../config.js";
 import { logger } from "../logger.js";
-import { buildFeatureReport, featureWarning } from "../fm-version.js";
+import { buildFeatureReport, featureWarning, isFeatureSupported } from "../fm-version.js";
 
 /**
  * Connection Tool Definitions
@@ -542,24 +542,35 @@ async function handleDescribeSessions() {
       }
       try {
         const metadataXml = await client.getMetadata();
-        const tableNames = ODataParser.parseMetadataForTables(metadataXml);
-        const tables = tableNames.map((tableName) => ({
-          table: tableName,
-          fields: ODataParser.parseMetadataForFields(metadataXml, tableName),
+        const version = await client.getServerVersion();
+        const enriched = !!version && isFeatureSupported(version, "metadata_comments");
+        const tableInfos = ODataParser.parseMetadataForTables(metadataXml, version ?? undefined);
+        const tables = tableInfos.map((tableInfo) => ({
+          table: tableInfo.name,
+          comment: enriched ? tableInfo.comment : undefined,
+          fields: ODataParser.parseMetadataForFields(metadataXml, tableInfo.name, version ?? undefined),
         }));
-        return { session, tables, error: null };
+        return { session, tables, enriched, error: null };
       } catch (err: any) {
-        return { session, tables: [], error: err.message };
+        return { session, tables: [], enriched: false, error: err.message };
       }
     })
   );
 
   // Build flat table list annotated with connection alias
+  type FieldEntry = {
+    name: string;
+    type: string;
+    comment?: string;
+    aiAnnotation?: string;
+  };
+
   type TableEntry = {
     table: string;
     connection: string;
     fieldCount: number;
-    fields: Array<{ name: string; type: string }>;
+    fields: FieldEntry[];
+    comment?: string;
   };
 
   const flatTables: TableEntry[] = [];
@@ -567,13 +578,20 @@ async function handleDescribeSessions() {
 
   for (const { session, tables, error } of sessionSchemas) {
     if (error) continue;
-    for (const { table, fields } of tables) {
-      flatTables.push({
+    for (const { table, comment, fields } of tables) {
+      const entry: TableEntry = {
         table,
         connection: session.name,
         fieldCount: fields.length,
-        fields: fields.map((f) => ({ name: f.name, type: f.type })),
-      });
+        fields: fields.map((f) => ({
+          name: f.name,
+          type: f.type,
+          comment: f.comment,
+          aiAnnotation: f.aiAnnotation,
+        })),
+      };
+      if (comment) entry.comment = comment;
+      flatTables.push(entry);
       tableNameCount[table] = (tableNameCount[table] ?? 0) + 1;
     }
   }

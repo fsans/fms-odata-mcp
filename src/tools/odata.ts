@@ -42,10 +42,21 @@ export const odataTools = [
   },
   {
     name: "fm_odata_list_tables",
-    description: "List all tables/entity sets available in the database (parsed from metadata)",
+    description:
+      "List all tables/entity sets available in the database (parsed from metadata). " +
+      "On FileMaker Server 2026 (v26+) set includeDetails to true to also receive " +
+      "table comments when they are present in the metadata.",
     inputSchema: {
       type: "object",
-      properties: { ...connectionParam },
+      properties: {
+        includeDetails: {
+          type: "boolean",
+          description:
+            "When true and the server is v26+, returns table names with their comments. " +
+            "Defaults to false for backwards compatibility.",
+        },
+        ...connectionParam,
+      },
       required: [],
     },
   },
@@ -445,7 +456,7 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
         return await handleGetMetadata(client);
 
       case "fm_odata_list_tables":
-        return await handleListTables(client);
+        return await handleListTables(client, args);
 
       // Query Tools
       case "fm_odata_query_records":
@@ -506,11 +517,21 @@ async function handleGetMetadata(client: any) {
   };
 }
 
-async function handleListTables(client: any) {
+async function handleListTables(client: any, args: any) {
   const metadata = await client.getMetadata();
-  const tables = ODataParser.parseMetadataForTables(metadata);
+  const version = await client.getServerVersion();
+  const tables = ODataParser.parseMetadataForTables(metadata, version ?? undefined);
+
+  const includeDetails = args?.includeDetails === true;
+  const lines = tables.map((t: { name: string; comment?: string }) => {
+    if (includeDetails && t.comment) {
+      return `${t.name} — ${t.comment}`;
+    }
+    return t.name;
+  });
+
   return {
-    content: [{ type: "text", text: `Available tables:\n${tables.join("\n")}` }],
+    content: [{ type: "text", text: `Available tables:\n${lines.join("\n")}` }],
   };
 }
 

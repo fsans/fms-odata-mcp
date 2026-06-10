@@ -46,6 +46,11 @@ export const FM_FEATURE_MATRIX: Record<string, FeatureInfo> = {
     description: "Server-side aggregation via OData $apply (FileMaker 2025)",
     fallback: "Client-side computation over up to 10 000 records",
   },
+  metadata_comments: {
+    minVersion: { major: 26, minor: 0, patch: 0, raw: "26.0.0" },
+    description: "Table/field comments and AI annotations exposed in $metadata (FileMaker 2026)",
+    fallback: "Metadata is parsed without comments/annotations",
+  },
 };
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import { ODataResponse } from "./odata-client.js";
+import { FMServerVersion, isFeatureSupported } from "./fm-version.js";
 
 /**
  * OData Response Parser
@@ -78,30 +79,56 @@ export class ODataParser {
   }
 
   /**
-   * Parse OData $metadata XML to extract table information
+   * Parse OData $metadata XML to extract table information.
+   *
+   * When `serverVersion` is v26+ (FileMaker 2026), table comments are also
+   * extracted from annotation elements. On older or unknown servers comments
+   * are omitted to avoid false positives.
    */
-  static parseMetadataForTables(metadataXml: string): string[] {
-    const tables: string[] = [];
-    
-    // Simple regex to extract EntitySet names from metadata
-    const entitySetRegex = /<EntitySet\s+Name="([^"]+)"/g;
+  static parseMetadataForTables(
+    metadataXml: string,
+    serverVersion?: FMServerVersion
+  ): TableInfo[] {
+    const enriched = !!serverVersion && isFeatureSupported(serverVersion, "metadata_comments");
+    const tables: TableInfo[] = [];
+
+    const entitySetRegex = /<EntitySet\s+Name="([^"]+)"([^>]*)>/g;
     let match;
-    
+
     while ((match = entitySetRegex.exec(metadataXml)) !== null) {
-      tables.push(match[1]);
+      const name = match[1];
+      const tagBody = match[2];
+      const entry: TableInfo = { name };
+
+      if (enriched) {
+        // Attempt to extract comment from the EntitySet tag or a trailing Annotation
+        const commentMatch = tagBody.match(/Description="([^"]*)"/);
+        if (commentMatch) {
+          entry.comment = commentMatch[1];
+        }
+      }
+
+      tables.push(entry);
     }
-    
+
     return tables;
   }
 
   /**
-   * Parse OData $metadata XML to extract field information for a table
+   * Parse OData $metadata XML to extract field information for a table.
+   *
+   * When `serverVersion` is v26+ (FileMaker 2026), field comments and AI
+   * annotations are also extracted from annotation elements inside the
+   * EntityType definition. On older or unknown servers these fields are
+   * omitted.
    */
   static parseMetadataForFields(
     metadataXml: string,
-    tableName: string
+    tableName: string,
+    serverVersion?: FMServerVersion
   ): FieldInfo[] {
     const fields: FieldInfo[] = [];
+    const enriched = !!serverVersion && isFeatureSupported(serverVersion, "metadata_comments");
 
     // Escape regex metacharacters in the table name to avoid injection and
     // accidental matches (FileMaker permits '.', '+', '(', etc. in names).
@@ -113,31 +140,56 @@ export class ODataParser {
       "i"
     );
     const entityTypeMatch = metadataXml.match(entityTypeRegex);
-    
+
     if (entityTypeMatch) {
       const entityTypeContent = entityTypeMatch[1];
-      
+
       // Extract properties
       const propertyRegex = /<Property\s+Name="([^"]+)"\s+Type="([^"]+)"([^>]*?)\/>/g;
       let match;
-      
+
       while ((match = propertyRegex.exec(entityTypeContent)) !== null) {
         const name = match[1];
         const type = match[2];
         const attributes = match[3];
-        
+
         const nullable = !attributes.includes('Nullable="false"');
         const maxLength = attributes.match(/MaxLength="(\d+)"/)?.[1];
-        
-        fields.push({
+
+        const field: FieldInfo = {
           name,
           type,
           nullable,
           maxLength: maxLength ? parseInt(maxLength) : undefined,
-        });
+        };
+
+        if (enriched) {
+          // Look for a trailing Description Annotation for this property.
+          // Use Core.V1.Description (standard OData) and exclude AI-specific terms.
+          const annotationRegex = new RegExp(
+            `<Annotation\\s+Term="(?:(?!AI)[^"])*Description"[^>]*>\\s*<String>([^<]*)</String>\\s*</Annotation>\\s*<Property\\s+Name="${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
+            "i"
+          );
+          const annotationMatch = entityTypeContent.match(annotationRegex);
+          if (annotationMatch) {
+            field.comment = annotationMatch[1];
+          }
+
+          // AI annotation (vendor-specific term containing 'AI')
+          const aiRegex = new RegExp(
+            `<Annotation\\s+Term="[^"]*AI[^"]*"[^>]*>\\s*<String>([^<]*)</String>\\s*</Annotation>\\s*<Property\\s+Name="${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
+            "i"
+          );
+          const aiMatch = entityTypeContent.match(aiRegex);
+          if (aiMatch) {
+            field.aiAnnotation = aiMatch[1];
+          }
+        }
+
+        fields.push(field);
       }
     }
-    
+
     return fields;
   }
 
@@ -370,11 +422,18 @@ export class ODataParser {
   }
 }
 
+export interface TableInfo {
+  name: string;
+  comment?: string;
+}
+
 export interface FieldInfo {
   name: string;
   type: string;
   nullable: boolean;
   maxLength?: number;
+  comment?: string;
+  aiAnnotation?: string;
 }
 
 export interface BatchResult {
