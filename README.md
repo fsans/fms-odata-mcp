@@ -26,6 +26,8 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 - **FileMaker 2026 Metadata Comments** - Table/field comments and AI annotations extracted
   from `$metadata` on v26+ servers (`fm_odata_list_tables` with `includeDetails`,
   enriched `fm_odata_describe_sessions` output)
+- **Schema Editing (DDL)** - Create/alter/delete tables, fields, and indexes via
+  FileMaker's OData schema endpoints (opt-in with `FM_ALLOW_SCHEMA_EDITS=true`)
 
 ## Quick Start
 
@@ -324,6 +326,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | **Sessions**      | `fm_odata_list_active_sessions`, `fm_odata_describe_sessions` |
 | **Diagnostics**   | `fm_odata_get_server_version` |
 | **Config**        | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
+| **Schema (DDL)**  | `fm_odata_create_table`, `fm_odata_add_fields`, `fm_odata_delete_table`, `fm_odata_delete_field`, `fm_odata_create_index`, `fm_odata_delete_index` |
 
 > The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and
 > `fm_odata_build_filter` require FileMaker Server v21.1+ (FileMaker 2024); `fm_odata_aggregate`
@@ -337,6 +340,9 @@ Create a new contact with name "John Doe" and email "john@example.com"
 > `cast`, `build_filter`, `aggregate`, and `metadata_comments` (v26+). On servers that do not
 > support server-side `$apply`, `fm_odata_aggregate` automatically falls back to client-side
 > computation (capped at 10 000 records) with a `[Compatibility]` advisory.
+>
+> The **Schema (DDL)** tools are hidden by default. Set `FM_ALLOW_SCHEMA_EDITS=true` to
+> register them. See [Schema Editing](#schema-editing-ddl) below.
 
 ## Requirements
 
@@ -356,6 +362,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | `FM_PASSWORD` | Password                                       | Yes      | -       |
 | `FM_VERIFY_SSL`| Verify SSL certificates                        | No       | `true`  |
 | `FM_TIMEOUT`  | Request timeout (ms)                           | No       | `30000` |
+| `FM_ALLOW_SCHEMA_EDITS` | Enable schema (DDL) tools             | No       | `false` |
 
 ### HTTP/HTTPS Transport
 
@@ -447,6 +454,52 @@ Merged schema with field comments and AI annotations:
 
 On v25 and older servers these options are ignored safely — call
 `fm_odata_get_server_version` first to check `metadata_comments` support.
+
+## Schema Editing (DDL)
+
+FileMaker Server exposes a proprietary OData schema extension through the
+`FileMaker_Tables` and `FileMaker_Indexes` system endpoints. Six tools wrap it:
+
+| Tool | Operation |
+|------|-----------|
+| `fm_odata_create_table` | Create a table with field definitions |
+| `fm_odata_add_fields` | Add fields to an existing table |
+| `fm_odata_delete_table` | Delete a table and ALL its records |
+| `fm_odata_delete_field` | Delete a field and all its data |
+| `fm_odata_create_index` | Create an index on a field |
+| `fm_odata_delete_index` | Delete a field index (no data loss) |
+
+**Safety model:**
+
+- The tools are **not registered** unless the environment variable
+  `FM_ALLOW_SCHEMA_EDITS=true` is set on the MCP server.
+- `fm_odata_delete_table` and `fm_odata_delete_field` are irreversible and require an
+  explicit `confirm: true` argument; without it they refuse and describe what would be deleted.
+- The FileMaker account needs full access (schema modification) privileges. Claris recommends
+  a dedicated account for table deletion.
+
+**Field definitions** use SQL-style types: `NUMERIC`, `DECIMAL`, `INT`, `DATE`, `TIME`,
+`TIMESTAMP`, `VARCHAR(n)`, `BLOB`, etc. Repetitions in brackets (`INT[4]`). Optional flags:
+`primary`, `unique`, `global`, `nullable`, `default` (keyword such as `CURRENT_USER` or
+`CURRENT_TIMESTAMP`), and `externalSecurePath` for container fields.
+
+```text
+Create a Company table:
+  tableName="Company", fields=[
+    {name:"Company ID", type:"int", primary:true},
+    {name:"Company Name", type:"varchar(100)", nullable:false},
+    {name:"Notes", type:"varchar(2000)", global:true}
+  ]
+
+Add a phone field:
+  table="Company", fields=[{name:"Phone", type:"varchar(25)"}]
+
+Index the State field:
+  table="Company", field="State"
+```
+
+> **Limitations:** relationships, layouts, scripts, value lists, and calculation/summary
+> fields cannot be created via OData — only base tables, regular fields, and indexes.
 
 ## Contributing
 

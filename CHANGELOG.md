@@ -7,6 +7,45 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.7.0] - Unreleased
+
+FileMaker OData schema (DDL) editing support. Tool count: 26 by default,
+32 when schema editing is enabled.
+
+### Added
+
+- **6 schema (DDL) tools** wrapping FileMaker's proprietary OData schema extension
+  (`FileMaker_Tables` / `FileMaker_Indexes` system endpoints):
+  - `fm_odata_create_table` — `POST /FileMaker_Tables` with table name and field definitions
+  - `fm_odata_add_fields` — `PATCH /FileMaker_Tables/{table}` with a fields array
+  - `fm_odata_delete_table` — `DELETE /FileMaker_Tables/{table}` (destructive)
+  - `fm_odata_delete_field` — `DELETE /FileMaker_Tables/{table}/{field}` (destructive)
+  - `fm_odata_create_index` — `POST /FileMaker_Indexes/{table}` with `{indexName}`
+  - `fm_odata_delete_index` — `DELETE /FileMaker_Indexes/{table}/{field}`
+
+- **`FM_ALLOW_SCHEMA_EDITS` environment flag** — schema tools are only registered when
+  set to `true`. Disabled tools return a clear "schema editing is disabled" error if
+  called anyway. New `getAllTools()` export evaluates the flag at request time.
+
+- **`confirm: true` guard** — `fm_odata_delete_table` and `fm_odata_delete_field`
+  refuse to execute without an explicit `confirm: true` argument, returning a warning
+  describing the data that would be destroyed.
+
+- **`ODataClient` DDL methods** — `createTable`, `addFields`, `deleteTable`,
+  `deleteField`, `createIndex`, `deleteIndex` with URL-encoded path segments.
+  New exported interfaces `FMFieldDefinition` and `FMTableDefinition`.
+
+- All 6 tools accept the optional per-call `connection` parameter (multi-session).
+
+### Tests
+
+- New: `tests/unit/schema-tools.test.ts` — 23 tests covering env gating, routing,
+  confirm-flag refusal, URL/body construction, special-character encoding, and
+  error surfacing.
+- Total: 223 tests across 8 suites (up from 200 across 7).
+
+---
+
 ## [0.6.1] - 2026-06-10
 
 FileMaker Server 2026 (v26) OData metadata enhancement support. Tool count stays 26.
