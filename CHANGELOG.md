@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [0.7.0] - Unreleased
+## [0.7.0] - 2026-06-11
 
 FileMaker OData schema (DDL) editing support. Tool count: 26 by default,
 32 when schema editing is enabled.
