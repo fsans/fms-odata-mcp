@@ -21,6 +21,11 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 - **Password Redaction** - Credentials are scrubbed from debug logs
 - **FileMaker 2025 Aggregation** - Server-side `$apply` via `fm_odata_aggregate` (v22.0.1+)
 - **Type Casting & Parameterized Filters** - `fm_odata_cast` and `fm_odata_build_filter` (v21.1+)
+- **Server Version Detection** - `fm_odata_get_server_version` reports the FM Server version
+  and a feature-compatibility map; version-gated tools fall back gracefully on older servers
+- **FileMaker 2026 Metadata Comments** - Table/field comments and AI annotations extracted
+  from `$metadata` on v26+ servers (`fm_odata_list_tables` with `includeDetails`,
+  enriched `fm_odata_describe_sessions` output)
 
 ## Quick Start
 
@@ -317,6 +322,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | **FM 2024/2025+** | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
 | **Connection**    | `fm_odata_connect`, `fm_odata_connect_multi`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
 | **Sessions**      | `fm_odata_list_active_sessions`, `fm_odata_describe_sessions` |
+| **Diagnostics**   | `fm_odata_get_server_version` |
 | **Config**        | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
 
 > The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and
@@ -325,6 +331,12 @@ Create a new contact with name "John Doe" and email "john@example.com"
 >
 > All 11 connection-dependent OData tools accept an optional `connection` parameter to target
 > a specific session without changing the active connection. Useful in multi-file solutions.
+>
+> `fm_odata_get_server_version` detects the connected FileMaker Server version from `$metadata`
+> (cached per session) and returns a feature-compatibility report covering `basic_odata`,
+> `cast`, `build_filter`, `aggregate`, and `metadata_comments` (v26+). On servers that do not
+> support server-side `$apply`, `fm_odata_aggregate` automatically falls back to client-side
+> computation (capped at 10 000 records) with a `[Compatibility]` advisory.
 
 ## Requirements
 
@@ -417,6 +429,24 @@ Reusable filter with named placeholders:
   params={"@title":"Wizard of Oz","@minAge":18}
   → filter: "Title eq 'Wizard of Oz' and Age gt 18"
 ```
+
+### FileMaker 2026 Metadata Comments
+
+FileMaker Server 2026 (v26) exposes table and field comments — including AI annotations —
+in the OData `$metadata` document. When connected to a v26+ server:
+
+```text
+List tables with their comments:
+  fm_odata_list_tables with includeDetails=true
+  → contact — Contact table
+
+Merged schema with field comments and AI annotations:
+  fm_odata_describe_sessions
+  → tables include `comment`; fields include `comment` and `aiAnnotation`
+```
+
+On v25 and older servers these options are ignored safely — call
+`fm_odata_get_server_version` first to check `metadata_comments` support.
 
 ## Contributing
 
