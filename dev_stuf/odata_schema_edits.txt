@@ -1,0 +1,194 @@
+## Create a table
+To create a new table, use the HTTP POST method. The POST body must contain a single valid table representation, which includes an identifier that is the table name.
+
+Component	Description
+HTTP method
+POST
+URL
+https://host/fmi/odata/version/database-name/FileMaker_Tables
+host – FileMaker Cloud or FileMaker Server host name
+version – the OData version, always v4
+database-name – the name of the hosted database
+Example: /fmi/odata/v4/ContactMgmt/FileMaker_Tables
+Parameters	
+JSON example
+{
+  "tableName": "Company",
+  "fields": [
+    {
+      "name": "Company ID",
+      "type": "int",
+      "primary": true
+    },
+    {
+      "name": "User ID",
+      "type": "varchar(20)",
+      "unique": true,
+      "default": "CURRENT_USER"
+    },
+    {
+      "name": "Company Name",
+      "type": "varchar(100)",
+      "nullable": false
+    },
+    {
+      "name": "Notes",
+      "type": "varchar(2000)",
+      "global": true
+    },
+    {
+      "name": "Signed Contract",
+      "type": "blob",
+      "externalSecurePath": "ContactMgmt/"
+    }
+  ]
+}
+Atom example:
+<TableDefinition tableName="Company">
+  <FieldDefinition name="Company ID" type="int" primary="true"/>
+  <FieldDefinition name="User ID" type="varchar(20)" unique="true" default="CURRENT_USER"/>
+  <FieldDefinition name="Company Name" type="varchar(100)" nullable="false"/>
+  <FieldDefinition name="Notes" type="varchar(2000)" global="true"/>
+</TableDefinition>
+FileMaker information
+
+FileMaker_Tables is a system table used for creating, modifying, and deleting tables. The type parameter is one of the following types: NUMERIC, DECIMAL, INT, DATE, TIME, TIMESTAMP, VARCHAR, CHARACTER VARYING, BLOB, VARBINARY, LONGVARBINARY, or BINARY VARYING.
+
+Repetitions are specified in brackets after the type (for example, "INT[4]"). You can specify the maximum length of a text field in parentheses (for example, "VARCHAR(200)").
+
+When you create a new table and specify NULL as the default type, the keyword value defaults to TIMESTAMP.
+
+Optional parameters are used with the field name and field type:
+
+"primary": true or false (whether the field is a primary key; default is false)
+
+"unique": true or false (whether the field must have a unique value; default is false)
+
+"global": true or false (whether the field is global; default is false)
+
+"default": a string containing a keyword that's appropriate for the data type; valid keywords are USER, USERNAME, CURRENT_USER, CURRENT_DATE, CURDATE, CURRENT_TIME, CURTIME, CURRENT_TIMESTAMP, and CURTIMESTAMP
+
+"externalSecurePath" (container field only): a string containing a relative path for secure files in "externalSecurePath". Exclude the "[database location]/" portion of the base directory. Be sure to set this for each FileMaker Pro database in FileMaker Pro. 
+
+
+
+
+## Add fields into a table
+To create a new field in an existing table, send a PATCH request to the FileMaker_Tables system table, followed by the table name in the URL. The PATCH body must contain an array of fields to add to the table.
+
+If the request fails because of an error while adding a field, other fields can still be added to the table.
+
+Component	Description
+HTTP method
+PATCH
+URL
+https://host/fmi/odata/version/database-name/FileMaker_Tables/table-name
+host – FileMaker Cloud or FileMaker Server host name
+version – the OData version, always v4
+database-name – the name of the hosted database
+table-name - the name of the table or FileMaker Table ID (FMTID)
+Example: /fmi/odata/v4/ContactMgmt/FileMaker_Tables/Company
+The request above creates a field named Phone in the Company table.
+Parameters	
+JSON example
+{ 
+  "fields": [
+    {
+      "name": "Phone",
+      "type": "varchar(25)"
+    }
+  ]
+}
+Atom example:
+<TableDefinition tableName="Company">
+  <FieldDefinition name="Phone" type="varchar(25)"/>
+</TableDefinition>
+FileMaker information
+
+FileMaker_Tables is a system table used for creating, modifying, and deleting tables. See Create a table for valid options.
+
+When you add a new field to a table and specify NULL as the default type, the keyword value defaults to TIMESTAMP.
+
+
+
+## Delete a table
+To delete a table and all its records, use the HTTP DELETE method, and use the table name in the URL.
+
+Component	Description
+HTTP method
+DELETE
+URL
+https://host/fmi/odata/version/database-name/FileMaker_Tables/table-name
+host – FileMaker Cloud or FileMaker Server host name
+version – the OData version, always v4
+database-name – the name of the hosted database
+table-name - the name of the table or FileMaker Table ID (FMTID)
+Example: /fmi/odata/v4/ContactMgmt/FileMaker_Tables/Company
+FileMaker information
+
+FileMaker_Tables is a system table used for creating, modifying, and deleting tables.
+
+This operation deletes a table and all data in it without requiring confirmation. To prevent data loss, create an account with access privileges for deleting tables, and use that account exclusively for this operation.
+
+
+## Delete a field from a table
+To delete a field from a table, use the HTTP DELETE method with the field name appended to the table name in the URL.
+
+Component	Description
+HTTP method
+DELETE
+URL
+https://host/fmi/odata/version/database-name/FileMaker_Tables/table-name/field-name
+host – FileMaker Cloud or FileMaker Server host name
+version – the OData version, always v4
+database-name – the name of the hosted database
+table-name - the name of the table or FileMaker Table ID (FMTID)
+field-name - the name of the field or FileMaker Field ID (FMFID)
+Example: /fmi/odata/v4/ContactMgmt/FileMaker_Tables/Company/Notes
+
+
+
+## Create a field index
+To create a new index, send a POST request to the table name after the FileMaker_Indexes system table. The POST body must contain a single valid index representation, which is an identifier that is the field name.
+
+Component	Description
+HTTP method
+POST
+URL
+https://host/fmi/odata/version/database-name/FileMaker_Indexes/table-name
+host – FileMaker Cloud or FileMaker Server host name
+version – the OData version, always v4
+database-name – the name of the hosted database
+table-name - the name of the table or FileMaker Table ID (FMTID)
+Example: /fmi/odata/v4/ContactMgmt/FileMaker_Indexes/Company
+Parameters	
+JSON example:
+{
+  "indexName" : "State"
+}
+Atom example:
+<IndexDefinition indexName="State"/>
+FileMaker information
+
+FileMaker_Indexes is a system table used for creating and deleting indexes.
+
+
+## Delete an index
+To delete an index, send an HTTP DELETE request to the FileMaker_Indexes system table, followed by the table name and field name in the URL.
+
+Component	Description
+HTTP method
+DELETE
+URL
+https://host/fmi/odata/version/database-name/FileMaker_Indexes/table-name/field-name
+host – FileMaker Cloud or FileMaker Server host name
+version – the OData version, always v4
+database-name – the name of the hosted database
+table-name - the name of the table or FileMaker Table ID (FMTID)
+field-name - the name of the field or FileMaker Field ID (FMFID)
+Example:/fmi/odata/v4/ContactMgmt/FileMaker_Indexes/Company/State
+FileMaker information
+
+FileMaker_Indexes is a system table used for creating and deleting indexes in fields.
+
+To delete an index, the URL must specify the table name first, followed by the field name.
