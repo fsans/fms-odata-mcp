@@ -1,15 +1,26 @@
 import { odataTools, handleODataTool } from "./odata.js";
 import { connectionTools, handleConnectionTool } from "./connection.js";
 import { configurationTools, handleConfigurationTool } from "./configuration.js";
+import { schemaTools, handleSchemaTool, schemaEditsEnabled } from "./schema.js";
 
 /**
- * All tool definitions
+ * All tool definitions.
+ *
+ * Schema (DDL) tools are opt-in: they are only exposed when the environment
+ * variable FM_ALLOW_SCHEMA_EDITS is set to "true". Evaluated lazily so the
+ * env flag is honoured at request time (and testable without module reloads).
  */
-export const allTools = [
-  ...odataTools,
-  ...connectionTools,
-  ...configurationTools,
-];
+export function getAllTools() {
+  return [
+    ...odataTools,
+    ...connectionTools,
+    ...configurationTools,
+    ...(schemaEditsEnabled() ? schemaTools : []),
+  ];
+}
+
+/** @deprecated Use getAllTools() so the FM_ALLOW_SCHEMA_EDITS flag is honoured. */
+export const allTools = getAllTools();
 
 // Build exact-name lookup sets from the tool definitions themselves.
 // Using sets (rather than fragile name-prefix heuristics) ensures a tool like
@@ -25,6 +36,7 @@ const connectionToolNames = new Set([
   "fm_odata_get_server_version",
 ]);
 const configurationToolNames = new Set(configurationTools.map((t) => t.name));
+const schemaToolNames = new Set(schemaTools.map((t) => t.name));
 
 /**
  * Route tool calls to appropriate handler
@@ -44,6 +56,24 @@ export async function handleToolCall(name: string, args: any): Promise<any> {
   // OData tools
   if (odataToolNames.has(name)) {
     return await handleODataTool(name, args);
+  }
+
+  // Schema (DDL) tools — gated behind FM_ALLOW_SCHEMA_EDITS=true
+  if (schemaToolNames.has(name)) {
+    if (!schemaEditsEnabled()) {
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `Schema editing is disabled. Set the environment variable ` +
+              `FM_ALLOW_SCHEMA_EDITS=true on the MCP server to enable ${name}.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+    return await handleSchemaTool(name, args);
   }
 
   // Unknown tool
