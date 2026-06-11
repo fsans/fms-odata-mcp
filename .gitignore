@@ -35,6 +35,9 @@ coverage/
 # npm pack artifacts
 *.tgz
 
+# Private / working docs (not for publication)
+private/
+
 # Misc
 *.bak
 *.tmp

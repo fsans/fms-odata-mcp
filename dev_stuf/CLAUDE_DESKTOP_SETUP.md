@@ -40,7 +40,8 @@ Open the file in a text editor and add this configuration:
         "FM_DATABASE": "YourDatabase",
         "FM_USER": "your-username",
         "FM_PASSWORD": "your-password",
-        "FM_VERIFY_SSL": "false"
+        "FM_VERIFY_SSL": "false",
+        "FM_ALLOW_SCHEMA_EDITS": "false"
       }
     }
   }
@@ -62,7 +63,8 @@ Open the file in a text editor and add this configuration:
         "FM_DATABASE": "Production",
         "FM_USER": "api_user",
         "FM_PASSWORD": "secure_password",
-        "FM_VERIFY_SSL": "true"
+        "FM_VERIFY_SSL": "true",
+        "FM_ALLOW_SCHEMA_EDITS": "false"
       }
     }
   }
@@ -74,7 +76,8 @@ Open the file in a text editor and add this configuration:
 - Use HTTPS (not HTTP) for FileMaker Server URLs
 - Set `FM_VERIFY_SSL` to `"false"` only for development/testing with self-signed certificates
 - Set `FM_VERIFY_SSL` to `"true"` (or omit it) for production with valid SSL certificates
-- If you already have other MCP servers configured, just add the "filemaker-odata" section inside the existing "mcpServers" object
+- If you already have other MCP servers configured, just add the "filemaker-odata"
+  section inside the existing "mcpServers" object
 
 ### SSL Configuration Guide
 
@@ -88,7 +91,8 @@ Open the file in a text editor and add this configuration:
 - Public-facing servers
 - Any server with valid, trusted SSL certificates
 
-**Security Warning:** Disabling SSL verification (`"false"`) makes connections vulnerable to man-in-the-middle attacks. Only use this in trusted, isolated environments.
+**Security Warning:** Disabling SSL verification (`"false"`) makes connections vulnerable to
+man-in-the-middle attacks. Only use this in trusted, isolated environments.
 
 ### Step 3: Install Node.js (if not done)
 
@@ -175,9 +179,10 @@ npm run build
 
 If you prefer not to put credentials directly in the config, you can use a .env file:
 
-### 1. Create .env file (already created as .env.test)
+### 1. Create .env file
 ```bash
-cp .env.test .env
+cp .env.example .env
+# Edit .env with your FileMaker credentials
 ```
 
 ### 2. Update Claude config to NOT include env vars:
@@ -213,7 +218,7 @@ Should show:
 ```
 Starting filemaker-odata-mcp Server...
 Transport: stdio
-Registered 26 tools
+Registered 32 tools (26 standard + 6 schema editing when enabled)
 filemaker-odata-mcp Server running on stdio
 ```
 
@@ -275,7 +280,8 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
 }
 ```
 
-**Note:** The `DEBUG` line is optional but helpful for troubleshooting. The `FM_VERIFY_SSL` setting is critical - use `"false"` only for development/testing with self-signed certificates.
+**Note:** The `DEBUG` line is optional but helpful for troubleshooting. The `FM_VERIFY_SSL`
+setting is critical — use `"false"` only for development/testing with self-signed certificates.
 
 ## What to Tell Claude
 

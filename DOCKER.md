@@ -4,7 +4,8 @@ This guide covers deploying the FileMaker OData MCP server using Docker.
 
 ## Quick Start (Recommended)
 
-Use the included `start.sh` script — it handles BOM stripping from `.env`, TypeScript build, image build, and container lifecycle:
+Use the included `start.sh` script — it handles BOM stripping from `.env`, TypeScript build,
+image build, and container lifecycle:
 
 ```bash
 cp .env.example .env
@@ -28,7 +29,8 @@ docker run -d \
   ghcr.io/fsans/filemaker-odata-mcp:latest
 ```
 
-> **Important:** Always set `MCP_HOST=0.0.0.0` in Docker. The default `localhost` binds only to the container's loopback and makes the port unreachable via Docker port mapping.
+> **Important:** Always set `MCP_HOST=0.0.0.0` in Docker. The default `localhost` binds only to the
+> container's loopback and makes the port unreachable via Docker port mapping.
 
 ## Configuration
 
@@ -43,6 +45,7 @@ All environment variables from the main README are supported in Docker:
 | `FM_USER`     | Username                                       | `admin`                                         |
 | `FM_PASSWORD` | Password                                       | `secret`                                        |
 | `FM_VERIFY_SSL`| SSL verification                               | `false`                                         |
+| `FM_ALLOW_SCHEMA_EDITS`| Enable schema (DDL) tools            | `false`                                         |
 | `MCP_TRANSPORT`| Transport type                                 | `http`                                          |
 | `MCP_PORT`    | Server port                                    | `3333`                                          |
 | `MCP_HOST`    | Bind address                                   | `0.0.0.0`                                       |
@@ -270,7 +273,13 @@ services:
     volumes:
       - mcp-data:/home/mcp/.fms-odata-mcp
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3333/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test:
+        - "CMD"
+        - "node"
+        - "-e"
+        - >-
+          require('http').get('http://localhost:3333/health',
+          (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })
       interval: 30s
       timeout: 10s
       retries: 3

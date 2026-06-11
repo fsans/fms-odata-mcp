@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-FileMaker Server OData MCP is a Model Context Protocol (MCP) server that exposes FileMaker Server's OData 4.01 API as MCP tools for use by AI agents (Claude Desktop, Windsurf, Cursor, Cline). It is published as an npm package (`fms-odata-mcp`).
+FileMaker Server OData MCP is a Model Context Protocol (MCP) server that exposes FileMaker
+Server's OData 4.01 API as MCP tools for use by AI agents (Claude Desktop, Windsurf,
+Cursor, Cline). It is published as an npm package (`fms-odata-mcp`).
 
 ## Commands
 
@@ -62,13 +64,15 @@ FileMaker Server OData 4.01 API
 - `http` — binds on `MCP_PORT` (default 3333)
 - `https` — binds on `MCP_PORT` (default 3443); requires `MCP_CERT_PATH` / `MCP_KEY_PATH`
 
-**26 MCP tools** in three categories:
+**32 MCP tools** in four categories (26 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
 - `src/tools/odata.ts` — 14 tools for OData operations (list tables, query/get/create/update/delete records,
-  metadata, count, service doc, aggregate, cast, build_filter). All 11 connection-dependent tools accept an
+  metadata, count, service doc, aggregate, cast, build_filter). All connection-dependent tools accept an
   optional `connection` param for per-call session targeting without changing the active session.
 - `src/tools/connection.ts` — 8 tools: connect, connect_multi, set_connection, list_connections,
   get_current_connection, list_active_sessions, describe_sessions, get_server_version
 - `src/tools/configuration.ts` — 4 tools for persisted connections in `~/.fms-odata-mcp/config.json`
+- `src/tools/schema.ts` — 6 optional schema (DDL) tools: create_table, add_fields, delete_table,
+  delete_field, create_index, delete_index. Only registered when `FM_ALLOW_SCHEMA_EDITS=true`.
 
 **Configuration precedence:** Environment variables → config file (`~/.fms-odata-mcp/config.json`) → defaults.
 
@@ -82,6 +86,7 @@ FileMaker Server OData 4.01 API
 | `src/odata-client.ts` | Axios-based HTTP client; constructs URLs, handles Basic Auth, OData query params |
 | `src/odata-parser.ts` | Parses OData JSON responses |
 | `src/transport.ts` | Transport factory selecting stdio/http/https |
+| `src/tools/schema.ts` | Schema (DDL) editing tools (opt-in via `FM_ALLOW_SCHEMA_EDITS`) |
 | `src/tools/index.ts` | Tool registry and routing dispatcher |
 
 ## TypeScript Configuration
@@ -100,6 +105,7 @@ FM_USER            Username (required)
 FM_PASSWORD        Password (required)
 FM_VERIFY_SSL      Verify SSL cert (default: true)
 FM_TIMEOUT         Request timeout ms (default: 30000)
+FM_ALLOW_SCHEMA_EDITS  Enable schema (DDL) tools (default: false)
 MCP_TRANSPORT      stdio|http|https (default: stdio)
 MCP_PORT           HTTP/HTTPS port
 MCP_HOST           Bind host (default: localhost)
@@ -111,18 +117,30 @@ DEBUG              Debug namespace (e.g. fms-odata-mcp:*)
 
 ## Testing
 
-Tests live in `tests/unit/` (unit) and `tests/integration/tools/` (integration). The jest config uses `ts-jest` with ESM support. Only unit tests are included in the default `npm test` run (pattern: `**/tests/unit/**/*.test.ts`).
+Tests live in `tests/unit/` (unit) and `tests/integration/tools/` (integration). The jest
+config uses `ts-jest` with ESM support. Only unit tests are included in the default `npm test`
+run (pattern: `**/tests/unit/**/*.test.ts`).
 
 ## Known Gotchas
 
 ### Docker / HTTP transport
-- **`MCP_HOST` must be `0.0.0.0`** inside a container. `localhost` binds only to the container's loopback, making the port unreachable even with `-p` mapping.
-- **`.env` BOM**: if the `.env` file was created on Windows or with certain editors it may have a leading BOM (`\xc3\xa7` / `ç#`). `start.sh` strips it automatically. To fix permanently: `sed -i '' $'s/^\xc3\xa7//' .env`
-- **`fm_odata_connect` field names**: the tool uses `user` (not `username`) and `verifySsl` (not `verifySSL`). Wrong field names silently fall back to empty strings, causing a 401.
+- **`MCP_HOST` must be `0.0.0.0`** inside a container. `localhost` binds only to the
+  container's loopback, making the port unreachable even with `-p` mapping.
+- **`.env` BOM**: if the `.env` file was created on Windows or with certain editors it may
+  have a leading BOM (`\xc3\xa7` / `ç#`). `start.sh` strips it automatically. To fix permanently:
+  `sed -i '' $'s/^\xc3\xa7//' .env`
+- **`fm_odata_connect` field names**: the tool uses `user` (not `username`) and `verifySsl`
+  (not `verifySSL`). Wrong field names silently fall back to empty strings, causing a 401.
 
 ### HTTP transport notification bug (`working-http-transport.ts`)
-JSON-RPC notifications (e.g. `notifications/initialized`) have no `id` field and never generate a server response. The original `handleRequest` waited on a `responsePromise` that never resolved, causing any client that sends a notification before `tools/list` (Dify, standard MCP clients) to stall indefinitely. Fixed by detecting missing `id` and returning HTTP 204 immediately.
+JSON-RPC notifications (e.g. `notifications/initialized`) have no `id` field and never
+generate a server response. The original `handleRequest` waited on a `responsePromise` that
+never resolved, causing any client that sends a notification before `tools/list` (Dify,
+standard MCP clients) to stall indefinitely. Fixed by detecting missing `id` and returning
+HTTP 204 immediately.
 
 ### Dify integration
-- Dify's native MCP tool uses **Streamable HTTP** transport — configure the URL as `http://host.docker.internal:3333/mcp` (use `host.docker.internal`, not `localhost`, when Dify runs in Docker).
+- Dify's native MCP tool uses **Streamable HTTP** transport — configure the URL as
+  `http://host.docker.internal:3333/mcp` (use `host.docker.internal`, not `localhost`, when
+  Dify runs in Docker).
 - If Dify returns 403, check the SSRF proxy (Squid): port 3333 must be in the `Safe_ports` ACL in `squid.conf`.

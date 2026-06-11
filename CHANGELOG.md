@@ -7,6 +7,27 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.8.0] - 2026-06-11
+
+Documentation overhaul, project reorganization, and roadmap updates.
+No functional code changes.
+
+### Changed
+
+- **Documentation reorganization** — Moved working/development docs (`ARCHITECTURE.md`,
+  `TESTING_GUIDE.md`, `PROJECT_STRUCTURE.md`, etc.) from `dev_stuf/` to new `private/` folder.
+  Added `private/` to `.gitignore` so internal working documents are excluded from publication.
+
+- **All public documentation reviewed and updated** — `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
+  `DOCKER.md`, `dev_stuf/*.md`: updated tool counts (32 total), `FM_ALLOW_SCHEMA_EDITS` references,
+  MCP server key (`filemaker-odata`), broken link removals, and schema editing documentation.
+
+- **ROADMAP.md** — Moved to repository root. Added v0.6.x/v0.7.0 history. Added 3 new planned
+  features with confirmed FileMaker support: script execution, container upload, and batch requests.
+  Assigned target versions: v0.8.1 (scripts), v0.8.3 (containers), v0.8.5 (batch), v0.9.0 (performance).
+
+---
+
 ## [0.7.0] - 2026-06-11
 
 FileMaker OData schema (DDL) editing support. Tool count: 26 by default,

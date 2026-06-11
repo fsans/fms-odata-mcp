@@ -1,6 +1,7 @@
 # Contributing to FMS-ODATA-MCP
 
-Thank you for your interest in contributing! This guide will help you set up your development environment and understand the project structure.
+Thank you for your interest in contributing! This guide will help you set up your
+development environment and understand the project structure.
 
 ## Development Setup
 
@@ -47,14 +48,19 @@ FMS-ODATA-MCP/
 │       ├── index.ts       # Tool registry
 │       ├── connection.ts  # Connection tools
 │       ├── configuration.ts # Config tools
-│       └── odata.ts       # OData operation tools
+│       ├── odata.ts       # OData operation tools
+│       └── schema.ts      # Schema (DDL) editing tools
 ├── tests/
 │   ├── unit/              # Unit tests (run by default)
 │   └── integration/       # Integration tests (require live server)
 ├── dev_stuf/              # Detailed documentation
-│   ├── ARCHITECTURE.md
-│   ├── TESTING_GUIDE.md
+│   ├── QUICK_REFERENCE.md
+│   ├── CLAUDE_DESKTOP_SETUP.md
+│   ├── CLAUDE_DESKTOP_PROMPTS.md
 │   ├── NPM_PUBLISHING.md
+│   ├── DEPLOYMENT_SCENARIOS.md
+│   └── ...
+├── private/               # Working docs (git-ignored)
 │   └── ...
 └── dist/                  # Compiled JavaScript (git-ignored)
 ```
@@ -276,24 +282,22 @@ DEBUG=* node dist/index.js
 
 ### Developer Documentation
 
-- Update `dev_stuf/ARCHITECTURE.md` for architectural changes
-- Update `dev_stuf/TESTING_GUIDE.md` for test changes
-- Document breaking changes in `dev_stuf/VERSIONING.md`
+- Update `ROADMAP.md` for new features and completed work
+- Update `CHANGELOG.md` for release notes
+- Update `README.md` for user-facing changes
 
 ## Detailed Guides
 
 For more detailed information, see:
 
-- **[Architecture](./dev_stuf/ARCHITECTURE.md)** - System architecture and design
-- **[Testing Guide](./dev_stuf/TESTING_GUIDE.md)** - Comprehensive testing documentation
 - **[NPM Publishing](./dev_stuf/NPM_PUBLISHING.md)** - How to publish new versions
-- **[Project Structure](./dev_stuf/PROJECT_STRUCTURE.md)** - Detailed file structure
-- **[Implementation Plan](./dev_stuf/IMPLEMENTATION_PLAN.md)** - Development roadmap
+- **[Roadmap](../ROADMAP.md)** - Completed and planned features
+- **[Implementation Plans](../private/IMPLEMENTATION_PLANS.md)** - Phase-by-phase feature breakdowns (private)
 
 ## Release Process
 
 1. Update version in `package.json`
-2. Update `dev_stuf/VERSIONING.md`
+2. Update `CHANGELOG.md`
 3. Run all tests: `npm test && npm run test:coverage`
 4. Build: `npm run build`
 5. Test package: `npm pack` and inspect contents

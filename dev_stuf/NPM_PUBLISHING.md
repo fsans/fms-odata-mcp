@@ -44,7 +44,7 @@ ls -la dist/
 
 ### 2. Update Version Number
 
-The current version is `0.5.1`. To bump the version:
+The current version is `0.7.0`. To bump the version:
 
 ```bash
 # For a patch release (bug fixes)
@@ -64,7 +64,7 @@ Ensure these fields are correct:
 ```json
 {
   "name": "filemaker-odata-mcp",
-  "version": "0.5.1",
+  "version": "0.7.0",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration",
   "author": "Francesc Sans <fsans@ntwk.es>",
   "license": "MIT",
@@ -204,7 +204,8 @@ Once the GitHub repository is created:
 ```markdown
 ## Features
 - MCP server for FileMaker Server OData 4.01 API
-- 26 tools for database introspection, CRUD operations, multi-session support, and FileMaker 2025 OData features
+- 32 tools for database introspection, CRUD operations, multi-session support, schema editing,
+  and FileMaker 2025/2026 OData features
 - HTTP/HTTPS transport for standalone server mode
 - Docker deployment support
 - Connection management with saved/default connections
@@ -218,7 +219,7 @@ npx filemaker-odata-mcp
 \`\`\`
 
 ## Documentation
-- [Quick Start](./dev_stuf/QUICK_START_TEST.md)
+- [Quick Reference](./dev_stuf/QUICK_REFERENCE.md)
 - [Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)
 - [Prompt Reference](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)
 ```
