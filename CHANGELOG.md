@@ -7,9 +7,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [0.6.0] - 2026-06-10
+## [0.6.1] - 2026-06-10
 
 FileMaker Server 2026 (v26) OData metadata enhancement support. Tool count stays 26.
+
+(Iterative build 0.6.1 — replaces 0.6.0 for easier testing tracking.)
 
 ### Added
 
