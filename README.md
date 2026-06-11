@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- **26+ MCP Tools** for FileMaker database operations (32 with schema editing enabled)
+- **32 MCP Tools** for FileMaker database operations (26 standard + 6 optional schema editing)
 - **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
 - **Session Management** - List and target active sessions per call
   (`fm_odata_list_active_sessions`, per-call `connection` param)
@@ -203,7 +203,8 @@ cp .env.example .env
 ./start.sh
 ```
 
-The script will build TypeScript, build the Docker image, remove any existing container, and start a fresh one. Logs are tailed automatically.
+The script will build TypeScript, build the Docker image, remove any existing container,
+and start a fresh one. Logs are tailed automatically.
 
 #### Option B: Using Docker Run
 
@@ -314,11 +315,10 @@ Create a new contact with name "John Doe" and email "john@example.com"
 ## Documentation
 
 - **[Quick Reference](./dev_stuf/QUICK_REFERENCE.md)** - One-page setup guide
-- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference  
+- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference
 - **[Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)** - Detailed configuration
-- **[Windsurf Setup](./dev_stuf/WINDSURF_SETUP.md)** - IDE integration guide
 - **[Docker Deployment](./DOCKER.md)** - Complete Docker guide with production examples
-- **[Roadmap](./dev_stuf/ROADMAP.md)** - Planned features and version history
+- **[Roadmap](./ROADMAP.md)** - Planned features and version history
 - **[Changelog](./CHANGELOG.md)** - Detailed release notes
 
 ## Available Tools
@@ -339,8 +339,9 @@ Create a new contact with name "John Doe" and email "john@example.com"
 > `fm_odata_build_filter` require FileMaker Server v21.1+ (FileMaker 2024); `fm_odata_aggregate`
 > requires FileMaker Server v22.0.1+ (FileMaker 2025).
 >
-> All 11 connection-dependent OData tools accept an optional `connection` parameter to target
-> a specific session without changing the active connection. Useful in multi-file solutions.
+> All connection-dependent OData tools (including the 6 schema DDL tools when enabled) accept
+> an optional `connection` parameter to target a specific session without changing the active
+> connection. Useful in multi-file solutions.
 >
 > `fm_odata_get_server_version` detects the connected FileMaker Server version from `$metadata`
 > (cached per session) and returns a feature-compatibility report covering `basic_odata`,

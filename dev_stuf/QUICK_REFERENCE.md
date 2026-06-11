@@ -87,7 +87,7 @@ npm run build
 
 **Restart:** Completely quit and restart Windsurf
 
-**Detailed Guide:** See `WINDSURF_SETUP.md`
+**Detailed Guide:** See Windsurf/Cursor documentation in your IDE settings
 
 ---
 
@@ -166,7 +166,7 @@ Find all contacts where LastName is 'Smith'
 ### Connection Failed
 1. Verify FileMaker Server is running
 2. Check credentials are correct
-3. Test with: `node test-connection.js`
+3. Test with: `curl -k -u user:pass https://server/fmi/odata/v4/database`
 4. For self-signed certs: Use `FM_VERIFY_SSL: "false"`
 
 ### SSL Certificate Error
@@ -185,13 +185,14 @@ Find all contacts where LastName is 'Smith'
 | `FM_PASSWORD` | Yes | `your-password` | Password |
 | `FM_VERIFY_SSL` | No | `false` or `true` | Verify SSL (default: `true`) |
 | `FM_TIMEOUT` | No | `30000` | Request timeout in ms |
+| `FM_ALLOW_SCHEMA_EDITS` | No | `true` or `false` | Enable schema (DDL) tools (default: `false`) |
 | `MCP_TRANSPORT` | No | `stdio`, `http`, `https` | Transport mode (default: `stdio`) |
 | `MCP_PORT` | No | `3333` | Port for HTTP/HTTPS mode |
 | `DEBUG` | No | `fms-odata-mcp:*` | Enable debug logging |
 
 ---
 
-## AVAILABLE TOOLS (26 Total)
+## AVAILABLE TOOLS (32 Total — 26 standard + 6 optional schema editing)
 
 **Data Operations:**
 - List tables, Get metadata, Get service document
@@ -217,12 +218,20 @@ Find all contacts where LastName is 'Smith'
 - `fm_odata_describe_sessions` — merged schema across all sessions (table → connection map)
 - `fm_odata_get_server_version` — detect FM Server version + feature-compatibility report
 
-All 11 connection-dependent OData tools accept an optional `connection` param to target
+All connection-dependent OData tools accept an optional `connection` param to target
 a specific session per call without changing the active connection.
 
 **Configuration:**
 - Add/Remove/Get/List saved connections
 - Set default connection
+
+**Schema Editing (DDL)** — only available when `FM_ALLOW_SCHEMA_EDITS=true`:
+- `fm_odata_create_table` — create a table with field definitions
+- `fm_odata_add_fields` — add fields to an existing table
+- `fm_odata_delete_table` — delete a table (destructive, requires `confirm: true`)
+- `fm_odata_delete_field` — delete a field (destructive, requires `confirm: true`)
+- `fm_odata_create_index` — create an index on a field
+- `fm_odata_delete_index` — delete a field index
 
 **Full tool reference:** See `CLAUDE_DESKTOP_PROMPTS.md`
 
@@ -234,11 +243,10 @@ a specific session per call without changing the active connection.
 
 - **QUICK_REFERENCE.md** - You are here (start here!)
 - **CLAUDE_DESKTOP_SETUP.md** - Detailed Claude Desktop setup
-- **WINDSURF_SETUP.md** - Detailed Windsurf setup
 - **CLAUDE_DESKTOP_PROMPTS.md** - Complete prompt examples & usage guide
 - **README.md** - Project overview
 - **DOCKER.md** - Docker and HTTP server deployment
-- **TESTING_GUIDE.md** - Testing procedures
+- **ROADMAP.md** - Completed and planned features
 
 ---
 
