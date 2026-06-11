@@ -12,7 +12,7 @@ import {
 import { setupTransport, getTransportConfig } from "./transport.js";
 import { getConfig, validateConfig } from "./config.js";
 import { logger } from "./logger.js";
-import { allTools, handleToolCall } from "./tools/index.js";
+import { getAllTools, handleToolCall } from "./tools/index.js";
 import { PACKAGE_VERSION } from "./version.js";
 
 /**
@@ -61,7 +61,7 @@ export class FileMakerODataServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       logger.debug("Listing tools");
       return {
-        tools: allTools,
+        tools: getAllTools(),
       };
     });
 
@@ -89,7 +89,7 @@ export class FileMakerODataServer {
       }
     });
 
-    logger.info(`Registered ${allTools.length} tools`);
+    logger.info(`Registered ${getAllTools().length} tools`);
   }
 
   async run(): Promise<void> {
