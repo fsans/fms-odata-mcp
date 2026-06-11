@@ -7,6 +7,57 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.6.1] - 2026-06-10
+
+FileMaker Server 2026 (v26) OData metadata enhancement support. Tool count stays 26.
+
+(Iterative build 0.6.1 — replaces 0.6.0 for easier testing tracking.)
+
+### Added
+
+- **`metadata_comments` feature flag** — added to `FM_FEATURE_MATRIX` in `src/fm-version.ts`.
+  Gated at FM Server `26.0.0` (FileMaker 2026). Exposed in `fm_odata_get_server_version`
+  feature-compatibility report.
+
+- **Version-gated metadata comment extraction** — `ODataParser.parseMetadataForTables` and
+  `parseMetadataForFields` now accept an optional `serverVersion` parameter. When the
+  connected server is v26+, table comments and AI annotations are extracted from
+  OData `$metadata` XML annotations and surfaced in tool output. On v25 and older
+  (or when version is unknown) the parser skips these elements entirely to avoid
+  false positives.
+
+- **`fm_odata_list_tables` — optional `includeDetails` parameter** — when set to `true`
+  and the server is v26+, table names are returned with their user-provided comments
+  (e.g. `contact — Contact table`). Defaults to `false` for backwards compatibility.
+
+- **`fm_odata_describe_sessions` — enriched field metadata** — when connected to a v26+
+  server, the merged schema output now includes `comment` on tables and both `comment`
+  and `aiAnnotation` on fields.
+
+### Server-side fixes (no MCP code changes required)
+
+FileMaker Server v26 fixed the following OData issues; MCP clients benefit automatically:
+
+- Value-list metadata crash (8309 / "FirstValues" column reference) — metadata requests
+  for files with field-based value lists no longer fail.
+- Text resembling timestamps no longer misinterpreted as timestamps.
+- OData log file 35 MB hang resolved.
+- Negative decimal values between -1 and 0 (e.g. `-0.25`) now emitted as valid JSON.
+- Webhooks now fire on Delete All Records / Truncate Table, returning `ROWID -1`.
+- `?` values in number fields now returned as `null` (valid JSON) instead of literal `?`.
+- Null bytes in text fields are now escaped/omitted in JSON, XML, and HTML responses.
+- Excel OData connection failure due to missing `ROWID` property is fixed.
+
+### Tests
+
+- New: v26 metadata parser tests — comment extraction gated by server version,
+  AI annotation parsing, backwards-compatibility for v25 and unknown servers.
+- New: `metadata_comments` feature-matrix assertions in `fm-version.test.ts`.
+- Updated: `parseMetadataForTables` tests now expect `TableInfo[]` instead of `string[]`.
+- Total: 199 tests across 7 suites (up from 191).
+
+---
+
 ## [0.5.1] - 2026-06-02
 
 Server version detection, feature compatibility matrix, and smart fallbacks.

@@ -34,8 +34,8 @@ describe('ODataParser', () => {
       const tables = ODataParser.parseMetadataForTables(metadata);
       
       expect(tables).toHaveLength(2);
-      expect(tables).toContain('contact');
-      expect(tables).toContain('address');
+      expect(tables.map((t) => t.name)).toContain('contact');
+      expect(tables.map((t) => t.name)).toContain('address');
     });
 
     test('should return empty array for empty metadata', () => {
@@ -94,7 +94,7 @@ describe('ODataParser', () => {
       const tables = ODataParser.parseMetadataForTables(metadata);
       
       expect(tables).toHaveLength(4);
-      expect(tables).toEqual(['users', 'orders', 'products', 'categories']);
+      expect(tables.map((t) => t.name)).toEqual(['users', 'orders', 'products', 'categories']);
     });
 
     test('should handle FileMaker Server metadata format', () => {
@@ -122,7 +122,65 @@ describe('ODataParser', () => {
 
       const tables = ODataParser.parseMetadataForTables(metadata);
       
-      expect(tables).toContain('contact');
+      expect(tables.map((t) => t.name)).toContain('contact');
+    });
+
+    test('should NOT extract comments when serverVersion is omitted', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityContainer Name="Container">
+        <EntitySet Name="contact" EntityType="FMS.contact" Description="Contact table"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const tables = ODataParser.parseMetadataForTables(metadata);
+      expect(tables).toHaveLength(1);
+      expect(tables[0].name).toBe('contact');
+      expect(tables[0].comment).toBeUndefined();
+    });
+
+    test('should NOT extract comments when serverVersion is below v26', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityContainer Name="Container">
+        <EntitySet Name="contact" EntityType="FMS.contact" Description="Contact table"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v25 = { major: 25, minor: 0, patch: 0, raw: "25.0.0" };
+      const tables = ODataParser.parseMetadataForTables(metadata, v25);
+      expect(tables).toHaveLength(1);
+      expect(tables[0].comment).toBeUndefined();
+    });
+
+    test('should extract comments when serverVersion is v26+', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityContainer Name="Container">
+        <EntitySet Name="contact" EntityType="FMS.contact" Description="Contact table"/>
+        <EntitySet Name="address" EntityType="FMS.address"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v26 = { major: 26, minor: 0, patch: 0, raw: "26.0.0" };
+      const tables = ODataParser.parseMetadataForTables(metadata, v26);
+      expect(tables).toHaveLength(2);
+      expect(tables[0].name).toBe('contact');
+      expect(tables[0].comment).toBe('Contact table');
+      expect(tables[1].name).toBe('address');
+      expect(tables[1].comment).toBeUndefined();
     });
   });
 
@@ -287,6 +345,70 @@ describe('ODataParser', () => {
       // fix must treat it as a literal name and find nothing.
       const fields = ODataParser.parseMetadataForFields(metadata, 'O.herTable');
       expect(fields).toHaveLength(0);
+    });
+
+    test('should NOT extract comments/annotations when serverVersion is omitted', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Property Name="recordId" Type="Edm.String"/>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact');
+      expect(fields).toHaveLength(1);
+      expect(fields[0].comment).toBeUndefined();
+      expect(fields[0].aiAnnotation).toBeUndefined();
+    });
+
+    test('should NOT extract comments/annotations when serverVersion is below v26', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Annotation Term="Org.OData.Core.V1.Description"><String>record ID field</String></Annotation>
+        <Property Name="recordId" Type="Edm.String"/>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v25 = { major: 25, minor: 0, patch: 0, raw: "25.0.0" };
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact', v25);
+      expect(fields).toHaveLength(1);
+      expect(fields[0].comment).toBeUndefined();
+      expect(fields[0].aiAnnotation).toBeUndefined();
+    });
+
+    test('should extract comments and AI annotations when serverVersion is v26+', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Annotation Term="Org.OData.Core.V1.Description"><String>record ID field</String></Annotation>
+        <Property Name="recordId" Type="Edm.String"/>
+        <Annotation Term="Claris.AI.V1.Description"><String>AI hint for name</String></Annotation>
+        <Property Name="firstName" Type="Edm.String"/>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v26 = { major: 26, minor: 0, patch: 0, raw: "26.0.0" };
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact', v26);
+      expect(fields).toHaveLength(2);
+      expect(fields[0].name).toBe('recordId');
+      expect(fields[0].comment).toBe('record ID field');
+      expect(fields[0].aiAnnotation).toBeUndefined();
+      expect(fields[1].name).toBe('firstName');
+      expect(fields[1].comment).toBeUndefined();
+      expect(fields[1].aiAnnotation).toBe('AI hint for name');
     });
   });
 
