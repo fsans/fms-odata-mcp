@@ -32,6 +32,9 @@ coverage/
 # MCP configuration (contains credentials)
 .filemaker-mcp/
 
+# npm pack artifacts
+*.tgz
+
 # Misc
 *.bak
 *.tmp
