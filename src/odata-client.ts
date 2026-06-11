@@ -38,6 +38,27 @@ export interface ODataError {
 }
 
 /**
+ * Field definition for FileMaker schema operations (FileMaker_Tables endpoint).
+ * `type` is a SQL-style type string: NUMERIC, DECIMAL, INT, DATE, TIME, TIMESTAMP,
+ * VARCHAR(n), BLOB, etc. Repetitions are specified in brackets (e.g. "INT[4]").
+ */
+export interface FMFieldDefinition {
+  name: string;
+  type: string;
+  primary?: boolean;
+  unique?: boolean;
+  nullable?: boolean;
+  global?: boolean;
+  default?: string;
+  externalSecurePath?: string;
+}
+
+export interface FMTableDefinition {
+  tableName: string;
+  fields: FMFieldDefinition[];
+}
+
+/**
  * OData Client for FileMaker Server
  * Implements Basic Authentication and OData 4.01 operations
  */
@@ -369,6 +390,66 @@ export class ODataClient {
     }
     
     return results;
+  }
+
+  /**
+   * Create a new table via the FileMaker_Tables system endpoint.
+   * Proprietary FileMaker OData schema extension (DDL).
+   */
+  async createTable(definition: FMTableDefinition): Promise<any> {
+    const url = `${this.baseUrl}/FileMaker_Tables`;
+    logger.debug(`Creating table: ${definition.tableName}`);
+    const response = await this.axiosInstance.post(url, definition);
+    return response.data;
+  }
+
+  /**
+   * Add fields to an existing table via PATCH on FileMaker_Tables/{table}.
+   */
+  async addFields(table: string, fields: FMFieldDefinition[]): Promise<any> {
+    const url = `${this.baseUrl}/FileMaker_Tables/${encodeURIComponent(table)}`;
+    logger.debug(`Adding ${fields.length} field(s) to table: ${table}`);
+    const response = await this.axiosInstance.patch(url, { fields });
+    return response.data;
+  }
+
+  /**
+   * Delete a table and ALL its records via DELETE on FileMaker_Tables/{table}.
+   * Destructive and irreversible — callers must guard with explicit confirmation.
+   */
+  async deleteTable(table: string): Promise<void> {
+    const url = `${this.baseUrl}/FileMaker_Tables/${encodeURIComponent(table)}`;
+    logger.debug(`Deleting table: ${table}`);
+    await this.axiosInstance.delete(url);
+  }
+
+  /**
+   * Delete a field from a table via DELETE on FileMaker_Tables/{table}/{field}.
+   * Destructive and irreversible — callers must guard with explicit confirmation.
+   */
+  async deleteField(table: string, field: string): Promise<void> {
+    const url = `${this.baseUrl}/FileMaker_Tables/${encodeURIComponent(table)}/${encodeURIComponent(field)}`;
+    logger.debug(`Deleting field: ${table}/${field}`);
+    await this.axiosInstance.delete(url);
+  }
+
+  /**
+   * Create an index on a field via POST on FileMaker_Indexes/{table}.
+   */
+  async createIndex(table: string, fieldName: string): Promise<any> {
+    const url = `${this.baseUrl}/FileMaker_Indexes/${encodeURIComponent(table)}`;
+    logger.debug(`Creating index on ${table}.${fieldName}`);
+    const response = await this.axiosInstance.post(url, { indexName: fieldName });
+    return response.data;
+  }
+
+  /**
+   * Delete an index via DELETE on FileMaker_Indexes/{table}/{field}.
+   */
+  async deleteIndex(table: string, field: string): Promise<void> {
+    const url = `${this.baseUrl}/FileMaker_Indexes/${encodeURIComponent(table)}/${encodeURIComponent(field)}`;
+    logger.debug(`Deleting index: ${table}/${field}`);
+    await this.axiosInstance.delete(url);
   }
 
   /**
