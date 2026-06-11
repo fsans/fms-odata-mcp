@@ -61,7 +61,7 @@ For use with AI assistants that support MCP (Claude Desktop, Windsurf, Cursor, C
 ```json
 {
   "mcpServers": {
-    "filemaker": {
+    "filemaker-odata": {
       "command": "npx",
       "args": ["-y", "filemaker-odata-mcp"],
       "env": {
@@ -69,12 +69,19 @@ For use with AI assistants that support MCP (Claude Desktop, Windsurf, Cursor, C
         "FM_DATABASE": "YourDatabase",
         "FM_USER": "your-username",
         "FM_PASSWORD": "your-password",
-        "FM_VERIFY_SSL": "true"
+        "FM_VERIFY_SSL": "true",
+        "FM_ALLOW_SCHEMA_EDITS": "false"
       }
     }
   }
 }
 ```
+
+> **Schema editing is disabled by default.** The 6 schema (DDL) tools (`fm_odata_create_table`,
+> `fm_odata_add_fields`, `fm_odata_delete_table`, `fm_odata_delete_field`, `fm_odata_create_index`,
+> `fm_odata_delete_index`) are **not registered** unless `FM_ALLOW_SCHEMA_EDITS` is set to `"true"`.
+> When `"false"` (default), these tools are completely absent from the tool list and cannot be called.
+> Set to `"true"` only if your FileMaker account has full-access (schema modification) privileges.
 
 3. **For self-signed SSL certificates**, set `FM_VERIFY_SSL` to `"false"`
 
