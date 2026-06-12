@@ -15,6 +15,8 @@
 - **v0.6.0 / v0.6.1** — FileMaker Server 2026 (v26) metadata comment/annotation extraction. 26 tools.
 - **v0.7.0** — Schema (DDL) editing tools: create/alter/delete tables, fields, and indexes via
   `FileMaker_Tables` / `FileMaker_Indexes`. 32 tools total (26 standard + 6 opt-in schema editing).
+- **v0.8.0** — Documentation overhaul and project reorganization. Working docs moved to `private/`,
+  all public docs reviewed and updated, ROADMAP restructured with confirmed planned features.
 
 ---
 
@@ -232,6 +234,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 | v0.5.1 | Released | Server version detection, feature matrix |
 | v0.6.1 | Released | v26 metadata comments |
 | v0.7.0 | Released | Schema DDL editing (opt-in) |
+| v0.8.0 | Released | Documentation overhaul, project reorganization |
 | v0.8.1 | Planned | Script execution (`fm_odata_run_script`) |
 | v0.8.3 | Planned | Container upload (`fm_odata_upload_container`) |
 | v0.8.5 | Planned | OData batch requests (`multipart/mixed`) |
