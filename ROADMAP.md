@@ -55,11 +55,17 @@
 - **`fm_odata_get_server_version`** — Version detection + feature-compatibility matrix
 - **Version-gated fallbacks** — `aggregate` falls back to client-side on older servers
 
-### v0.6.x — FileMaker 2026 Metadata Comments
+### v0.6.x — FileMaker 2026 Metadata Comments (partial)
 
 - **`metadata_comments` feature flag** — Gated at FM Server `26.0.0`
 - **`fm_odata_list_tables` — `includeDetails`** — Returns table comments on v26+
 - **`fm_odata_describe_sessions`** — Enriched with `comment` and `aiAnnotation`
+
+> **Note (v26 metadata gap):** The v0.6.x implementation only parses `comment` and
+> `aiAnnotation`. FileMaker Server 26 exposes significantly richer field metadata
+> as child `<Annotation>` elements inside `<Property>` tags. See "Enhanced v26
+> Metadata Parsing" in the Planned section below for the full list of annotations
+> to be added.
 
 ### v0.7.0 — Schema Editing (DDL)
 
@@ -115,6 +121,7 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 - **Script metadata in `$metadata`** — FM Server 26 exposes available scripts (name, parameter
   type, return type, and internal FMSID) as `<Action>` elements in the metadata response.
   Example:
+
   ```xml
   <Action Name="Script.OData Test">
     <Parameter Name="scriptParameterValue" Type="Edm.String" />
@@ -138,7 +145,8 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 **Implementation Tasks**:
 - [ ] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
 - [ ] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
-- [ ] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive), optional `scriptParam`, optional `connection`
+- [ ] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive),
+  optional `scriptParam`, optional `connection`
 - [ ] Parse `{ scriptResult: { code, resultParameter } }` from response
 - [ ] Handle script errors (non-zero `code`, timeout, privilege failures)
 - [ ] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
@@ -179,7 +187,74 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 4. Enhanced Error Handling
+### 4. Enhanced v26 Metadata Parsing (v0.8.2)
+
+**Status**: 📋 Planned
+**Priority**: High
+**Estimated Effort**: 2-3 days
+**FileMaker Support**: Yes — FM Server 26 returns rich field-level annotations as child
+elements inside `<Property>` tags in `$metadata`. FM Server 22.0.4+ also supports
+referencing fields by internal ID (`FMFID`).
+
+**Context**: The v0.6.x implementation only extracts `comment` and `aiAnnotation` from
+metadata, and uses a regex that looks for annotations _before_ the `<Property>` tag.
+FM Server 26 actually places annotations as _children inside_ `<Property>` elements,
+making the current parser fragile. The full set of v26 annotations provides valuable
+schema intelligence for AI agents.
+
+**New v26 `<Property>` child annotations to parse**:
+
+```xml
+<Property Name="My Calc Field" Type="Edm.Decimal">
+  <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:60130607233" />
+  <Annotation Term="Org.OData.Core.V1.Computed" Bool="true" />
+  <Annotation Term="com.filemaker.odata.Index" Bool="true" />
+  <Annotation Term="com.filemaker.odata.Calculation" Bool="true" />
+  <Annotation Term="Org.OData.Core.V1.Permissions">
+    <EnumMember>Org.OData.Core.V1.Permission/Read</EnumMember>
+  </Annotation>
+  <Annotation Term="com.filemaker.odata.FMComment"
+    String="This is a sample comment" />
+  <Annotation Term="com.filemaker.odata.AIAnnotation"
+    String="This is the AI annotation" />
+</Property>
+```
+
+| Annotation Term | Value | Description |
+|-----------------|-------|-------------|
+| `com.filemaker.odata.FieldID` | `FMFID:<int>` | Internal field ID (stable across renames) |
+| `Org.OData.Core.V1.Computed` | `Bool` | `true` if field is a calculation |
+| `com.filemaker.odata.Index` | `Bool` | `true` if field is indexed |
+| `com.filemaker.odata.Calculation` | `Bool` | `true` if field is a calculation |
+| `Org.OData.Core.V1.Permissions` | `EnumMember` | Read/Write permissions |
+| `com.filemaker.odata.FMComment` | `String` | Field comment (user-facing) |
+| `com.filemaker.odata.AIAnnotation` | `String` | AI-specific annotation (v26+) |
+
+**Design notes**:
+- Field IDs (`FMFID`) can be used to reference fields in queries on FM 22.0.4+.
+  This provides an alternative workaround for non-ASCII field names: query by ID
+  instead of by name.
+- The permissions annotation tells agents whether a field is writable, avoiding
+  failed update attempts on calculated or read-only fields.
+- The `Computed` and `Calculation` flags help agents understand which fields can
+  be set in create/update operations.
+
+**Implementation Tasks**:
+- [ ] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
+  annotations (not self-closing `/>`) in addition to the existing self-closing format
+- [ ] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
+- [ ] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
+  Description matching)
+- [ ] Surface enriched field metadata in `fm_odata_describe_sessions` and
+  `fm_odata_list_tables` (with `includeDetails`)
+- [ ] Consider a `fm_odata_describe_table` tool that returns full field metadata
+  for a single table (field types, IDs, options, comments, permissions)
+- [ ] Unit tests with real v26 metadata XML fixtures
+- [ ] Backward compatibility: ensure v22/v25 metadata still parses correctly
+
+---
+
+### 5. Enhanced Error Handling (v0.8.4)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -194,7 +269,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 5. Performance Optimization (v0.9.0)
+### 6. Performance Optimization (v0.9.0)
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -209,7 +284,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 6. Integration Testing with Live Servers
+### 7. Integration Testing with Live Servers
 
 **Status**: � Planned  
 **Priority**: High  
@@ -225,7 +300,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 7. Documentation & Examples
+### 8. Documentation & Examples
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -262,6 +337,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 | v0.7.0 | Released | Schema DDL editing (opt-in) |
 | v0.8.0 | Released | Documentation overhaul, project reorganization |
 | v0.8.1 | Planned | Script execution (`fm_odata_run_script`) |
+| v0.8.2 | Planned | Enhanced v26 metadata (field IDs, options, permissions) |
 | v0.8.3 | Planned | Container upload (`fm_odata_upload_container`) |
 | v0.8.5 | Planned | OData batch requests (`multipart/mixed`) |
 | v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive, compression) |
