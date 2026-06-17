@@ -231,13 +231,31 @@ schema intelligence for AI agents.
 | `com.filemaker.odata.AIAnnotation` | `String` | AI-specific annotation (v26+) |
 
 **Design notes**:
-- Field IDs (`FMFID`) can be used to reference fields in queries on FM 22.0.4+.
-  This provides an alternative workaround for non-ASCII field names: query by ID
-  instead of by name.
 - The permissions annotation tells agents whether a field is writable, avoiding
   failed update attempts on calculated or read-only fields.
 - The `Computed` and `Calculation` flags help agents understand which fields can
   be set in create/update operations.
+
+**Non-ASCII field name strategy (version-gated)**:
+
+The `normalizeFilter()` auto-quoting introduced in v0.8.x is the universal baseline
+and must remain as the default strategy for all FM Server versions. It handles
+non-ASCII identifiers transparently by wrapping them in double-quotes per the
+OData 4.01 spec.
+
+On FM Server 22.0.4+ (when field IDs are available in metadata), and especially
+on v26+ (where `FMFID` annotations are exposed in `$metadata`), the server can
+additionally resolve field names to their internal IDs and use ID-based references
+in queries. This is inherently more robust: no quoting edge cases, no breakage on
+field renames, and no dependency on the OData parser accepting quoted identifiers.
+
+The version-gated approach follows the existing pattern (e.g. `aggregate` falling
+back to client-side on older servers):
+- **v26+**: resolve field names to `FMFID` from cached metadata when available;
+  fall back to auto-quoting if the field is not found in the cache
+- **v22.0.4 -- v25**: auto-quoting only (field IDs exist but are not exposed in
+  `$metadata`; could be obtained via other means in future)
+- **< v22.0.4**: auto-quoting only
 
 **Implementation Tasks**:
 - [ ] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
@@ -245,6 +263,9 @@ schema intelligence for AI agents.
 - [ ] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
 - [ ] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
   Description matching)
+- [ ] Build a field name-to-FMFID lookup map from cached metadata (v26+)
+- [ ] Version-gated field resolution in `normalizeFilter()`: on v26+ substitute
+  non-ASCII field names with their FMFID when available, otherwise auto-quote
 - [ ] Surface enriched field metadata in `fm_odata_describe_sessions` and
   `fm_odata_list_tables` (with `includeDetails`)
 - [ ] Consider a `fm_odata_describe_table` tool that returns full field metadata
@@ -300,7 +321,7 @@ schema intelligence for AI agents.
 
 ---
 
-### 8. Documentation & Examples
+### 7. Documentation & Examples
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
