@@ -80,28 +80,7 @@
 
 ## 🔧 In Progress / Planned
 
-### 1. OData Batch Requests (v0.8.5)
-
-**Status**: 📋 Planned  
-**Priority**: High  
-**Estimated Effort**: 3-4 days  
-**FileMaker Support**: Yes — FileMaker Server supports OData `$batch` via `multipart/mixed`
-(see [Claris docs](https://help.claris.com/en/odata-guide/content/batch-requests.html))
-
-**Current State**: A stub `batch()` method exists in `ODataClient` but executes requests
-sequentially instead of using true OData batch format.
-
-**Implementation Tasks**:
-- [ ] Build proper `multipart/mixed` batch request body per OData 4.01 spec
-- [ ] Add `Content-ID` correlation for change sets (atomic operations)
-- [ ] Parse `multipart/mixed` response boundaries
-- [ ] New tool: `fm_odata_batch` — accept array of operations, return correlated results
-- [ ] Handle batch-level vs operation-level errors
-- [ ] Unit tests for request construction and response parsing
-
----
-
-### 2. Run FileMaker Scripts (v0.8.1)
+### 1. Run FileMaker Scripts (v0.8.1)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -155,39 +134,7 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 
 ---
 
-### 3. Upload Container Data (v0.8.3)
-
-**Status**: 📋 Planned  
-**Priority**: Medium  
-**Estimated Effort**: 2-3 days  
-**FileMaker Support**: Yes — confirmed via Claris docs. Two methods available:
-- **Base64 inline** — include base64 string + `@com.filemaker.odata.Filename` /
-  `@com.filemaker.odata.ContentType` annotation properties in POST (create) or PATCH
-  (update record) JSON body
-- **Binary upload** — `PATCH /{table}({id})/{containerField}` with raw binary body,
-  `Content-Type` header, and `Content-Disposition: inline; filename=...` header
-
-**Description**: Upload files into FileMaker container fields via OData. Supports both
-base64-encoded data (simpler, works with MCP text-only protocol) and direct binary upload
-(for larger files when using HTTP transport).
-
-**Implementation Tasks**:
-- [ ] Add `uploadContainerBase64(table, recordId, field, base64Data, filename, contentType)`
-  to `ODataClient` — PATCH JSON body with base64 value + annotation properties
-- [ ] Add `uploadContainerBinary(table, recordId, field, binaryData, filename, contentType)`
-  to `ODataClient` — PATCH binary body to `/{table}({id})/{field}` with proper headers
-- [ ] New tool: `fm_odata_upload_container` — accepts `table`, `recordId`, `field`,
-  `base64Data` (string), `filename`, `contentType`. Uses base64 path by default.
-- [ ] New tool: `fm_odata_create_record_with_container` — extends `create_record` to accept
-  container fields as base64 + metadata
-- [ ] Validate base64 input; reject if not valid base64 string
-- [ ] Handle media type inference failures (FileMaker infers from first bytes; misidentification
-  can occur with base64)
-- [ ] Unit tests for base64 construction, binary path (mocked), error handling
-
----
-
-### 4. Enhanced v26 Metadata Parsing (v0.8.2)
+### 2. Enhanced v26 Metadata Parsing (v0.8.2)
 
 **Status**: 📋 Planned
 **Priority**: High
@@ -275,7 +222,39 @@ back to client-side on older servers):
 
 ---
 
-### 5. Enhanced Error Handling (v0.8.4)
+### 3. Upload Container Data (v0.8.3)
+
+**Status**: 📋 Planned  
+**Priority**: Medium  
+**Estimated Effort**: 2-3 days  
+**FileMaker Support**: Yes — confirmed via Claris docs. Two methods available:
+- **Base64 inline** — include base64 string + `@com.filemaker.odata.Filename` /
+  `@com.filemaker.odata.ContentType` annotation properties in POST (create) or PATCH
+  (update record) JSON body
+- **Binary upload** — `PATCH /{table}({id})/{containerField}` with raw binary body,
+  `Content-Type` header, and `Content-Disposition: inline; filename=...` header
+
+**Description**: Upload files into FileMaker container fields via OData. Supports both
+base64-encoded data (simpler, works with MCP text-only protocol) and direct binary upload
+(for larger files when using HTTP transport).
+
+**Implementation Tasks**:
+- [ ] Add `uploadContainerBase64(table, recordId, field, base64Data, filename, contentType)`
+  to `ODataClient` — PATCH JSON body with base64 value + annotation properties
+- [ ] Add `uploadContainerBinary(table, recordId, field, binaryData, filename, contentType)`
+  to `ODataClient` — PATCH binary body to `/{table}({id})/{field}` with proper headers
+- [ ] New tool: `fm_odata_upload_container` — accepts `table`, `recordId`, `field`,
+  `base64Data` (string), `filename`, `contentType`. Uses base64 path by default.
+- [ ] New tool: `fm_odata_create_record_with_container` — extends `create_record` to accept
+  container fields as base64 + metadata
+- [ ] Validate base64 input; reject if not valid base64 string
+- [ ] Handle media type inference failures (FileMaker infers from first bytes;
+  misidentification can occur with base64)
+- [ ] Unit tests for base64 construction, binary path (mocked), error handling
+
+---
+
+### 4. Enhanced Error Handling (v0.8.4)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -287,6 +266,27 @@ back to client-side on older servers):
 - [ ] Connection retry logic for network timeouts
 - [ ] Better timeout handling (distinguish connect vs read timeouts)
 - [ ] User-friendly error formatting for MCP tool responses
+
+---
+
+### 5. OData Batch Requests (v0.8.5)
+
+**Status**: 📋 Planned  
+**Priority**: High  
+**Estimated Effort**: 3-4 days  
+**FileMaker Support**: Yes — FileMaker Server supports OData `$batch` via `multipart/mixed`
+(see [Claris docs](https://help.claris.com/en/odata-guide/content/batch-requests.html))
+
+**Current State**: A stub `batch()` method exists in `ODataClient` but executes requests
+sequentially instead of using true OData batch format.
+
+**Implementation Tasks**:
+- [ ] Build proper `multipart/mixed` batch request body per OData 4.01 spec
+- [ ] Add `Content-ID` correlation for change sets (atomic operations)
+- [ ] Parse `multipart/mixed` response boundaries
+- [ ] New tool: `fm_odata_batch` — accept array of operations, return correlated results
+- [ ] Handle batch-level vs operation-level errors
+- [ ] Unit tests for request construction and response parsing
 
 ---
 
@@ -321,7 +321,7 @@ back to client-side on older servers):
 
 ---
 
-### 7. Documentation & Examples
+### 8. Documentation & Examples
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -357,11 +357,12 @@ back to client-side on older servers):
 | v0.6.1 | Released | v26 metadata comments |
 | v0.7.0 | Released | Schema DDL editing (opt-in) |
 | v0.8.0 | Released | Documentation overhaul, project reorganization |
-| v0.8.1 | Planned | Script execution (`fm_odata_run_script`) |
-| v0.8.2 | Planned | Enhanced v26 metadata (field IDs, options, permissions) |
+| v0.8.1 | Planned | Script execution (`fm_odata_run_script`, call-by-ID on v26+) |
+| v0.8.2 | Planned | Enhanced v26 metadata (field IDs, options, permissions, FMFID) |
 | v0.8.3 | Planned | Container upload (`fm_odata_upload_container`) |
+| v0.8.4 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
 | v0.8.5 | Planned | OData batch requests (`multipart/mixed`) |
-| v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive, compression) |
+| v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive) |
 | v1.0.0 | Future | To be disclosed |
 
 ---
@@ -388,4 +389,4 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: June 2026 (v0.7.0 released)
+**Last Updated**: June 2026 (v0.8.0 released, v0.8.x planned)
