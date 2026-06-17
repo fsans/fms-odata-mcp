@@ -109,15 +109,41 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 - Script names cannot contain `@`, `&`, `/` or start with a number
 - Only scripts with web-compatible script steps run successfully
 - Scripts that modify data must include `Commit Records/Requests` step
-- Use `Script.FMSID:#` endpoint variant for scripts with problematic names
+
+**FileMaker Server 2026 (v26) enhancements** — must be incorporated into the implementation:
+
+- **Script metadata in `$metadata`** — FM Server 26 exposes available scripts (name, parameter
+  type, return type, and internal FMSID) as `<Action>` elements in the metadata response.
+  Example:
+  ```xml
+  <Action Name="Script.OData Test">
+    <Parameter Name="scriptParameterValue" Type="Edm.String" />
+    <ReturnType Type="Edm.String" />
+    <Annotation Term="com.filemaker.odata.ScriptID" String="FMSID:72" />
+  </Action>
+  ```
+
+- **Call scripts by internal ID** — new endpoint variant:
+  `POST /database-name/Script.FMSID:<script-id>` where `script-id` is an integer.
+  Calling by ID avoids breakage when scripts are renamed in FileMaker. IDs are sequential
+  (first script in a blank file = 1). Everything else (parameters, response format) is
+  identical to calling by name.
+
+- **Design considerations**: the tool should support both `scriptName` and `scriptId` as
+  mutually exclusive arguments. On v26+ servers, a `fm_odata_list_scripts` tool (or an
+  option in an existing metadata tool) could parse `<Action>` elements from `$metadata` to
+  list available scripts with their names and FMSIDs. On older servers, only call-by-name
+  is available.
 
 **Implementation Tasks**:
 - [ ] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
-- [ ] New tool: `fm_odata_run_script` — `scriptName`, optional `scriptParam`, optional `connection`
+- [ ] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
+- [ ] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive), optional `scriptParam`, optional `connection`
 - [ ] Parse `{ scriptResult: { code, resultParameter } }` from response
 - [ ] Handle script errors (non-zero `code`, timeout, privilege failures)
+- [ ] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
 - [ ] Document privilege requirements and web-compatible script step constraints
-- [ ] Unit tests with mocked script responses (success, error, param passing)
+- [ ] Unit tests with mocked script responses (success, error, param passing, call-by-ID)
 
 ---
 
