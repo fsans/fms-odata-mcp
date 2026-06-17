@@ -114,6 +114,13 @@
 (accepts string, number, or JSON object). Scripts run server-side with no user interaction.
 Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 
+> **Important notice: Call scripts by stable internal FMSID (v26+)**
+> Starting with v0.8.1, when connected to FileMaker Server 2026 (v26+), you can run
+> scripts by their internal `FMSID` instead of the script name. This prevents
+> integration breakage when scripts are renamed in FileMaker Pro. The
+> `fm_odata_list_scripts` tool exposes each script's FMSID so agents can prefer
+> ID-based calls. On older servers only call-by-name is available.
+
 **Limitations**:
 - Script names cannot contain `@`, `&`, `/` or start with a number
 - Only scripts with web-compatible script steps run successfully
@@ -146,15 +153,15 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
   is available.
 
 **Implementation Tasks**:
-- [ ] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
-- [ ] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
-- [ ] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive),
+- [x] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
+- [x] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
+- [x] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive),
   optional `scriptParam`, optional `connection`
-- [ ] Parse `{ scriptResult: { code, resultParameter } }` from response
-- [ ] Handle script errors (non-zero `code`, timeout, privilege failures)
-- [ ] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
-- [ ] Document privilege requirements and web-compatible script step constraints
-- [ ] Unit tests with mocked script responses (success, error, param passing, call-by-ID)
+- [x] Parse `{ scriptResult: { code, resultParameter } }` from response
+- [x] Handle script errors (non-zero `code`, timeout, privilege failures)
+- [x] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
+- [x] Document privilege requirements and web-compatible script step constraints
+- [x] Unit tests with mocked script responses (success, error, param passing, call-by-ID)
 
 ---
 
@@ -166,6 +173,14 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 **FileMaker Support**: Yes — FM Server 26 returns rich field-level annotations as child
 elements inside `<Property>` tags in `$metadata`. FM Server 22.0.4+ also supports
 referencing fields by internal ID (`FMFID`).
+
+> **Important notice: Automatic FMFID Resolution for non-ASCII field names**
+> Starting with v0.8.2, when connected to FileMaker Server 2026 (v26+), the MCP
+> server **automatically resolves non-ASCII field names to their internal `FMFID`
+> IDs** in `$filter` expressions. This eliminates the need for double-quote escaping
+> and prevents query breakage when fields are renamed. On v25 and older servers,
+> the previous auto-quoting strategy remains as the fallback. This is a major
+> reliability improvement for international FileMaker solutions.
 
 **Context**: The v0.6.x implementation only extracts `comment` and `aiAnnotation` from
 metadata, and uses a regex that looks for annotations _before_ the `<Property>` tag.
@@ -229,20 +244,20 @@ back to client-side on older servers):
 - **< v22.0.4**: auto-quoting only
 
 **Implementation Tasks**:
-- [ ] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
+- [x] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
   annotations (not self-closing `/>`) in addition to the existing self-closing format
-- [ ] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
-- [ ] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
+- [x] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
+- [x] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
   Description matching)
-- [ ] Build a field name-to-FMFID lookup map from cached metadata (v26+)
-- [ ] Version-gated field resolution in `normalizeFilter()`: on v26+ substitute
+- [x] Build a field name-to-FMFID lookup map from cached metadata (v26+)
+- [x] Version-gated field resolution in `normalizeFilter()`: on v26+ substitute
   non-ASCII field names with their FMFID when available, otherwise auto-quote
-- [ ] Surface enriched field metadata in `fm_odata_describe_sessions` and
+- [x] Surface enriched field metadata in `fm_odata_describe_sessions` and
   `fm_odata_list_tables` (with `includeDetails`)
-- [ ] Consider a `fm_odata_describe_table` tool that returns full field metadata
-  for a single table (field types, IDs, options, comments, permissions)
-- [ ] Unit tests with real v26 metadata XML fixtures
-- [ ] Backward compatibility: ensure v22/v25 metadata still parses correctly
+- [x] New tool: `fm_odata_describe_table` returns full field metadata for a single table
+  (field types, IDs, options, comments, permissions)
+- [x] Unit tests with real v26 metadata XML fixtures
+- [x] Backward compatibility: ensure v22/v25 metadata still parses correctly
 
 ---
 
