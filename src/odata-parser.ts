@@ -194,6 +194,58 @@ export class ODataParser {
   }
 
   /**
+   * Parse OData $metadata XML to extract available scripts.
+   *
+   * FileMaker Server 2026 (v26+) exposes scripts as `<Action>` elements inside
+   * `<EntityContainer>` with names prefixed `Script.`. Each Action contains
+   * a parameter definition, return type, and an annotation with the internal
+   * FMSID.
+   *
+   * Example:
+   *   <Action Name="Script.HelloScript">
+   *     <Parameter Name="scriptParameterValue" Type="Edm.String" />
+   *     <ReturnType Type="Edm.String" />
+   *     <Annotation Term="com.filemaker.odata.ScriptID" String="FMSID:72" />
+   *   </Action>
+   */
+  static parseMetadataForScripts(metadataXml: string): ScriptInfo[] {
+    const scripts: ScriptInfo[] = [];
+
+    // Match Action elements whose Name starts with "Script."
+    const actionRegex = /<Action\s+Name="Script\.([^"]+)"[^>]*>([\s\S]*?)<\/Action>/g;
+    let match;
+
+    while ((match = actionRegex.exec(metadataXml)) !== null) {
+      const name = match[1];
+      const body = match[2];
+
+      const script: ScriptInfo = { name };
+
+      // Parameter type (e.g. Edm.String, Edm.Int32)
+      const paramTypeMatch = body.match(/<Parameter\s+Name="scriptParameterValue"\s+Type="([^"]+)"\s*\/?>/);
+      if (paramTypeMatch) {
+        script.parameterType = paramTypeMatch[1];
+      }
+
+      // Return type
+      const returnTypeMatch = body.match(/<ReturnType\s+Type="([^"]+)"\s*\/?>/);
+      if (returnTypeMatch) {
+        script.returnType = returnTypeMatch[1];
+      }
+
+      // Internal FMSID
+      const idMatch = body.match(/Term="com\.filemaker\.odata\.ScriptID"\s+String="FMSID:(\d+)"/);
+      if (idMatch) {
+        script.scriptId = parseInt(idMatch[1], 10);
+      }
+
+      scripts.push(script);
+    }
+
+    return scripts;
+  }
+
+  /**
    * Create a summary of query results
    *
    * Tolerates collection (`{ value: [...] }`) and single-entity response shapes.
@@ -434,6 +486,17 @@ export interface FieldInfo {
   maxLength?: number;
   comment?: string;
   aiAnnotation?: string;
+}
+
+export interface ScriptInfo {
+  /** Script name (without the "Script." prefix). */
+  name: string;
+  /** Internal FileMaker script ID (FMSID), available on v26+. */
+  scriptId?: number;
+  /** OData parameter type (e.g. Edm.String). */
+  parameterType?: string;
+  /** OData return type (e.g. Edm.String). */
+  returnType?: string;
 }
 
 export interface BatchResult {

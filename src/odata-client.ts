@@ -38,6 +38,16 @@ export interface ODataError {
 }
 
 /**
+ * Result returned by a FileMaker script executed via OData.
+ */
+export interface ScriptResult {
+  /** FileMaker script error code; 0 means success. */
+  code: number;
+  /** Value passed to Exit Script script step, or null if none. */
+  resultParameter: string | null;
+}
+
+/**
  * Field definition for FileMaker schema operations (FileMaker_Tables endpoint).
  * `type` is a SQL-style type string: NUMERIC, DECIMAL, INT, DATE, TIME, TIMESTAMP,
  * VARCHAR(n), BLOB, etc. Repetitions are specified in brackets (e.g. "INT[4]").
@@ -524,6 +534,52 @@ export class ODataClient {
     const url = `${this.baseUrl}/FileMaker_Indexes/${encodeURIComponent(table)}/${encodeURIComponent(field)}`;
     logger.debug(`Deleting index: ${table}/${field}`);
     await this.axiosInstance.delete(url);
+  }
+
+  /**
+   * Run a FileMaker script by name.
+   *
+   * Endpoint: POST /database/Script.{scriptName}
+   * Body: { "scriptParameterValue": ... }  (omit if no parameter)
+   * Response: { "scriptResult": { "code": 0, "resultParameter": "..." } }
+   *
+   * Script names cannot contain @, &, /, or start with a number.
+   */
+  async runScript(scriptName: string, scriptParam?: any): Promise<ScriptResult> {
+    const url = `${this.baseUrl}/Script.${scriptName}`;
+    const body = scriptParam !== undefined ? { scriptParameterValue: scriptParam } : undefined;
+    logger.debug(`Running script by name: ${scriptName}`);
+    const response = await this.axiosInstance.post(url, body);
+    return this.parseScriptResponse(response.data);
+  }
+
+  /**
+   * Run a FileMaker script by its internal FMSID.
+   *
+   * Endpoint: POST /database/Script.FMSID:{scriptId}
+   * Available on FileMaker Server 2026 (v26+) and some earlier versions.
+   * Calling by ID avoids breakage when scripts are renamed.
+   */
+  async runScriptById(scriptId: number | string, scriptParam?: any): Promise<ScriptResult> {
+    const url = `${this.baseUrl}/Script.FMSID:${scriptId}`;
+    const body = scriptParam !== undefined ? { scriptParameterValue: scriptParam } : undefined;
+    logger.debug(`Running script by ID: ${scriptId}`);
+    const response = await this.axiosInstance.post(url, body);
+    return this.parseScriptResponse(response.data);
+  }
+
+  /**
+   * Extract scriptResult from the OData response payload.
+   */
+  private parseScriptResponse(data: any): ScriptResult {
+    const result = data?.scriptResult;
+    if (!result || typeof result.code !== "number") {
+      throw new Error("Invalid script response format from server");
+    }
+    return {
+      code: result.code,
+      resultParameter: result.resultParameter ?? null,
+    };
   }
 
   /**
