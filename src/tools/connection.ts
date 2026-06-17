@@ -1,7 +1,7 @@
 import { connectionManager } from "../connection.js";
 import { Connection } from "../config.js";
 import { logger } from "../logger.js";
-import { buildFeatureReport, featureWarning } from "../fm-version.js";
+import { buildFeatureReport, featureWarning, isFeatureSupported } from "../fm-version.js";
 
 /**
  * Connection Tool Definitions
@@ -159,9 +159,11 @@ export const connectionTools = [
       "Fetch and merge the OData schema ($metadata) from every active session. " +
       "Returns a flat list of all EntitySets (tables) across all connected databases, " +
       "each annotated with the session alias that owns it. " +
+      "On FileMaker Server v26+ table and field comments / AI annotations are included. " +
       "Flags any table names that appear in more than one session (collision). " +
       "Use this to understand the full schema of a multi-file FileMaker solution " +
-      "and to know which 'connection' alias to pass when querying a specific table.",
+      "and to know which 'connection' alias to pass when querying a specific table. " +
+      "Call fm_odata_get_server_version first to know whether enriched metadata (comments) will be available.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -171,11 +173,14 @@ export const connectionTools = [
   {
     name: "fm_odata_get_server_version",
     description:
-      "Detect the FileMaker Server version for the active (or named) session by reading " +
-      "the OData $metadata document. Returns the version number and a feature-compatibility " +
-      "report showing which version-gated tools (aggregate, cast, build_filter) are supported. " +
+      "Detect the FileMaker Server version and feature capabilities for the active (or named) session. " +
+      "Reads the OData $metadata document and returns the version number plus a compatibility report " +
+      "showing which advanced features are supported: aggregate (v22.0.1+), cast (v21.1+), " +
+      "build_filter (v21.1+), and metadata_comments (v26+). " +
       "The result is cached for the session lifetime — subsequent calls are instant. " +
-      "Use this to understand what your server supports before using advanced tools.",
+      "ALWAYS call this first after connecting to understand what the server can do before using " +
+      "version-gated tools such as fm_odata_aggregate, fm_odata_cast, fm_odata_build_filter, " +
+      "or fm_odata_list_tables with includeDetails.",
     inputSchema: {
       type: "object",
       properties: {
@@ -542,24 +547,35 @@ async function handleDescribeSessions() {
       }
       try {
         const metadataXml = await client.getMetadata();
-        const tableNames = ODataParser.parseMetadataForTables(metadataXml);
-        const tables = tableNames.map((tableName) => ({
-          table: tableName,
-          fields: ODataParser.parseMetadataForFields(metadataXml, tableName),
+        const version = await client.getServerVersion();
+        const enriched = !!version && isFeatureSupported(version, "metadata_comments");
+        const tableInfos = ODataParser.parseMetadataForTables(metadataXml, version ?? undefined);
+        const tables = tableInfos.map((tableInfo) => ({
+          table: tableInfo.name,
+          comment: enriched ? tableInfo.comment : undefined,
+          fields: ODataParser.parseMetadataForFields(metadataXml, tableInfo.name, version ?? undefined),
         }));
-        return { session, tables, error: null };
+        return { session, tables, enriched, error: null };
       } catch (err: any) {
-        return { session, tables: [], error: err.message };
+        return { session, tables: [], enriched: false, error: err.message };
       }
     })
   );
 
   // Build flat table list annotated with connection alias
+  type FieldEntry = {
+    name: string;
+    type: string;
+    comment?: string;
+    aiAnnotation?: string;
+  };
+
   type TableEntry = {
     table: string;
     connection: string;
     fieldCount: number;
-    fields: Array<{ name: string; type: string }>;
+    fields: FieldEntry[];
+    comment?: string;
   };
 
   const flatTables: TableEntry[] = [];
@@ -567,13 +583,20 @@ async function handleDescribeSessions() {
 
   for (const { session, tables, error } of sessionSchemas) {
     if (error) continue;
-    for (const { table, fields } of tables) {
-      flatTables.push({
+    for (const { table, comment, fields } of tables) {
+      const entry: TableEntry = {
         table,
         connection: session.name,
         fieldCount: fields.length,
-        fields: fields.map((f) => ({ name: f.name, type: f.type })),
-      });
+        fields: fields.map((f) => ({
+          name: f.name,
+          type: f.type,
+          comment: f.comment,
+          aiAnnotation: f.aiAnnotation,
+        })),
+      };
+      if (comment) entry.comment = comment;
+      flatTables.push(entry);
       tableNameCount[table] = (tableNameCount[table] ?? 0) + 1;
     }
   }

@@ -42,10 +42,22 @@ export const odataTools = [
   },
   {
     name: "fm_odata_list_tables",
-    description: "List all tables/entity sets available in the database (parsed from metadata)",
+    description:
+      "List all tables/entity sets available in the database (parsed from metadata). " +
+      "On FileMaker Server 2026 (v26+) set includeDetails to true to also receive " +
+      "table comments when they are present in the metadata. " +
+      "Call fm_odata_get_server_version first to know whether includeDetails will have any effect.",
     inputSchema: {
       type: "object",
-      properties: { ...connectionParam },
+      properties: {
+        includeDetails: {
+          type: "boolean",
+          description:
+            "When true and the server is v26+, returns table names with their comments. " +
+            "Defaults to false for backwards compatibility.",
+        },
+        ...connectionParam,
+      },
       required: [],
     },
   },
@@ -173,6 +185,7 @@ export const odataTools = [
       "Returns the cast expression(s) ready to use in $select or $filter of fm_odata_query_records. " +
       "Casting tells the server to return a field value in a specific EDM primitive type, " +
       "avoiding the need for client-side conversion. " +
+      "Call fm_odata_get_server_version first to verify your server supports this feature. " +
       "Example: cast 'StartDate' to Int64 for numeric date math, or 'Amount' to String for text comparison.",
     inputSchema: {
       type: "object",
@@ -233,6 +246,7 @@ export const odataTools = [
       "In 'raw' mode the OData parameter alias query string is returned instead, " +
       "useful for constructing URLs manually. " +
       "String values are automatically single-quoted; numbers/booleans are passed through as-is. " +
+      "Call fm_odata_get_server_version first to verify your server supports this feature. " +
       "Example: template 'Title eq @title and Status eq @status', " +
       "params { '@title': 'Wizard of Oz', '@status': 'Active' }.",
     inputSchema: {
@@ -278,6 +292,8 @@ export const odataTools = [
       "Aggregate records server-side using OData $apply (requires FileMaker Server v22.0.1 / FileMaker 2025 or later). " +
       "Groups records by one or more fields and computes sum, average, min, max, or count. " +
       "Returns only the summary rows — no need to fetch all records and compute client-side. " +
+      "Call fm_odata_get_server_version first to verify your server supports this feature; " +
+      "on older servers the tool falls back to client-side computation. " +
       "Example: sum of invoice amounts grouped by customer, or count of open cases per user.",
     inputSchema: {
       type: "object",
@@ -445,7 +461,7 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
         return await handleGetMetadata(client);
 
       case "fm_odata_list_tables":
-        return await handleListTables(client);
+        return await handleListTables(client, args);
 
       // Query Tools
       case "fm_odata_query_records":
@@ -506,11 +522,21 @@ async function handleGetMetadata(client: any) {
   };
 }
 
-async function handleListTables(client: any) {
+async function handleListTables(client: any, args: any) {
   const metadata = await client.getMetadata();
-  const tables = ODataParser.parseMetadataForTables(metadata);
+  const version = await client.getServerVersion();
+  const tables = ODataParser.parseMetadataForTables(metadata, version ?? undefined);
+
+  const includeDetails = args?.includeDetails === true;
+  const lines = tables.map((t: { name: string; comment?: string }) => {
+    if (includeDetails && t.comment) {
+      return `${t.name} — ${t.comment}`;
+    }
+    return t.name;
+  });
+
   return {
-    content: [{ type: "text", text: `Available tables:\n${tables.join("\n")}` }],
+    content: [{ type: "text", text: `Available tables:\n${lines.join("\n")}` }],
   };
 }
 

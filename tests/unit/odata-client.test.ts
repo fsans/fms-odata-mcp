@@ -380,6 +380,88 @@ describe('ODataClient', () => {
     });
   });
 
+  describe('Non-ASCII identifier quoting (normalizeFilter)', () => {
+    test('Chinese field name gets auto-quoted in $filter', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('orders', { filter: "位置 eq '主线'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      // The field name 位置 should be wrapped in double-quotes
+      // After encodeURIComponent: %22%E4%BD%8D%E7%BD%AE%22 (quoted) vs %E4%BD%8D%E7%BD%AE (unquoted)
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("\"位置\" eq '主线'");
+    });
+
+    test('already double-quoted non-ASCII field name is not double-quoted again', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('orders', { filter: "\"位置\" eq '主线'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("\"位置\" eq '主线'");
+    });
+
+    test('ASCII-only field names without spaces remain unchanged', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "FirstName eq 'John'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("FirstName eq 'John'");
+    });
+
+    test('string literal values containing non-ASCII are NOT quoted', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('orders', { filter: "\"位置\" eq '主线'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      // '主线' should stay as a string literal, not get double-quoted
+      expect(decoded).toContain("'主线'");
+      expect(decoded).not.toContain("\"主线\"");
+    });
+
+    test('mixed ASCII and non-ASCII fields in compound filter', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('orders', {
+        filter: "Status eq 'Active' and 位置 eq '主线' and 数量 gt 10",
+      });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("Status eq 'Active' and \"位置\" eq '主线' and \"数量\" gt 10");
+    });
+
+    test('non-ASCII field name in countRecords is auto-quoted', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: 4632 });
+      await client.countRecords('orders', "位置 eq '主线'");
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("\"位置\" eq '主线'");
+    });
+
+    test('Japanese field names get auto-quoted', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('products', { filter: "製品名 eq '東京タワー'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("\"製品名\" eq '東京タワー'");
+    });
+
+    test('field names with accented characters get auto-quoted', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "prénom eq 'André'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      expect(decoded).toBe("\"prénom\" eq 'André'");
+    });
+
+    test('non-ASCII field with cast path (slash) is quoted correctly', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      // Field/Edm.Type cast path — the field part contains non-ASCII
+      await client.queryRecords('orders', { filter: "\"位置\"/Edm.String eq '主线'" });
+      const url = mockAxiosInstance.get.mock.calls[0][0];
+      const decoded = decodeURIComponent(url.split('$filter=')[1]);
+      // Already-quoted identifier with cast path should pass through
+      expect(decoded).toBe("\"位置\"/Edm.String eq '主线'");
+    });
+  });
+
   describe('testConnection', () => {
     test('should return true on successful connection', async () => {
       mockAxiosInstance.get.mockResolvedValue({ data: {} });

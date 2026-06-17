@@ -7,6 +7,117 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.8.0] - 2026-06-11
+
+Documentation overhaul, project reorganization, and roadmap updates.
+No functional code changes.
+
+### Changed
+
+- **Documentation reorganization** — Moved working/development docs (`ARCHITECTURE.md`,
+  `TESTING_GUIDE.md`, `PROJECT_STRUCTURE.md`, etc.) from `dev_stuf/` to new `private/` folder.
+  Added `private/` to `.gitignore` so internal working documents are excluded from publication.
+
+- **All public documentation reviewed and updated** — `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
+  `DOCKER.md`, `dev_stuf/*.md`: updated tool counts (32 total), `FM_ALLOW_SCHEMA_EDITS` references,
+  MCP server key (`filemaker-odata`), broken link removals, and schema editing documentation.
+
+- **ROADMAP.md** — Moved to repository root. Added v0.6.x/v0.7.0 history. Added 3 new planned
+  features with confirmed FileMaker support: script execution, container upload, and batch requests.
+  Assigned target versions: v0.8.1 (scripts), v0.8.3 (containers), v0.8.5 (batch), v0.9.0 (performance).
+
+---
+
+## [0.7.0] - 2026-06-11
+
+FileMaker OData schema (DDL) editing support. Tool count: 26 by default,
+32 when schema editing is enabled.
+
+### Added
+
+- **6 schema (DDL) tools** wrapping FileMaker's proprietary OData schema extension
+  (`FileMaker_Tables` / `FileMaker_Indexes` system endpoints):
+  - `fm_odata_create_table` — `POST /FileMaker_Tables` with table name and field definitions
+  - `fm_odata_add_fields` — `PATCH /FileMaker_Tables/{table}` with a fields array
+  - `fm_odata_delete_table` — `DELETE /FileMaker_Tables/{table}` (destructive)
+  - `fm_odata_delete_field` — `DELETE /FileMaker_Tables/{table}/{field}` (destructive)
+  - `fm_odata_create_index` — `POST /FileMaker_Indexes/{table}` with `{indexName}`
+  - `fm_odata_delete_index` — `DELETE /FileMaker_Indexes/{table}/{field}`
+
+- **`FM_ALLOW_SCHEMA_EDITS` environment flag** — schema tools are only registered when
+  set to `true`. Disabled tools return a clear "schema editing is disabled" error if
+  called anyway. New `getAllTools()` export evaluates the flag at request time.
+
+- **`confirm: true` guard** — `fm_odata_delete_table` and `fm_odata_delete_field`
+  refuse to execute without an explicit `confirm: true` argument, returning a warning
+  describing the data that would be destroyed.
+
+- **`ODataClient` DDL methods** — `createTable`, `addFields`, `deleteTable`,
+  `deleteField`, `createIndex`, `deleteIndex` with URL-encoded path segments.
+  New exported interfaces `FMFieldDefinition` and `FMTableDefinition`.
+
+- All 6 tools accept the optional per-call `connection` parameter (multi-session).
+
+### Tests
+
+- New: `tests/unit/schema-tools.test.ts` — 23 tests covering env gating, routing,
+  confirm-flag refusal, URL/body construction, special-character encoding, and
+  error surfacing.
+- Total: 223 tests across 8 suites (up from 200 across 7).
+
+---
+
+## [0.6.1] - 2026-06-10
+
+FileMaker Server 2026 (v26) OData metadata enhancement support. Tool count stays 26.
+
+(Iterative build 0.6.1 — replaces 0.6.0 for easier testing tracking.)
+
+### Added
+
+- **`metadata_comments` feature flag** — added to `FM_FEATURE_MATRIX` in `src/fm-version.ts`.
+  Gated at FM Server `26.0.0` (FileMaker 2026). Exposed in `fm_odata_get_server_version`
+  feature-compatibility report.
+
+- **Version-gated metadata comment extraction** — `ODataParser.parseMetadataForTables` and
+  `parseMetadataForFields` now accept an optional `serverVersion` parameter. When the
+  connected server is v26+, table comments and AI annotations are extracted from
+  OData `$metadata` XML annotations and surfaced in tool output. On v25 and older
+  (or when version is unknown) the parser skips these elements entirely to avoid
+  false positives.
+
+- **`fm_odata_list_tables` — optional `includeDetails` parameter** — when set to `true`
+  and the server is v26+, table names are returned with their user-provided comments
+  (e.g. `contact — Contact table`). Defaults to `false` for backwards compatibility.
+
+- **`fm_odata_describe_sessions` — enriched field metadata** — when connected to a v26+
+  server, the merged schema output now includes `comment` on tables and both `comment`
+  and `aiAnnotation` on fields.
+
+### Server-side fixes (no MCP code changes required)
+
+FileMaker Server v26 fixed the following OData issues; MCP clients benefit automatically:
+
+- Value-list metadata crash (8309 / "FirstValues" column reference) — metadata requests
+  for files with field-based value lists no longer fail.
+- Text resembling timestamps no longer misinterpreted as timestamps.
+- OData log file 35 MB hang resolved.
+- Negative decimal values between -1 and 0 (e.g. `-0.25`) now emitted as valid JSON.
+- Webhooks now fire on Delete All Records / Truncate Table, returning `ROWID -1`.
+- `?` values in number fields now returned as `null` (valid JSON) instead of literal `?`.
+- Null bytes in text fields are now escaped/omitted in JSON, XML, and HTML responses.
+- Excel OData connection failure due to missing `ROWID` property is fixed.
+
+### Tests
+
+- New: v26 metadata parser tests — comment extraction gated by server version,
+  AI annotation parsing, backwards-compatibility for v25 and unknown servers.
+- New: `metadata_comments` feature-matrix assertions in `fm-version.test.ts`.
+- Updated: `parseMetadataForTables` tests now expect `TableInfo[]` instead of `string[]`.
+- Total: 199 tests across 7 suites (up from 191).
+
+---
+
 ## [0.5.1] - 2026-06-02
 
 Server version detection, feature compatibility matrix, and smart fallbacks.

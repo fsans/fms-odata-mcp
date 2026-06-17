@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- **26 MCP Tools** for FileMaker database operations
+- **32 MCP Tools** for FileMaker database operations (26 standard + 6 optional schema editing)
 - **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
 - **Session Management** - List and target active sessions per call
   (`fm_odata_list_active_sessions`, per-call `connection` param)
@@ -21,6 +21,13 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 - **Password Redaction** - Credentials are scrubbed from debug logs
 - **FileMaker 2025 Aggregation** - Server-side `$apply` via `fm_odata_aggregate` (v22.0.1+)
 - **Type Casting & Parameterized Filters** - `fm_odata_cast` and `fm_odata_build_filter` (v21.1+)
+- **Server Version Detection** - `fm_odata_get_server_version` reports the FM Server version
+  and a feature-compatibility map; version-gated tools fall back gracefully on older servers
+- **FileMaker 2026 Metadata Comments** - Table/field comments and AI annotations extracted
+  from `$metadata` on v26+ servers (`fm_odata_list_tables` with `includeDetails`,
+  enriched `fm_odata_describe_sessions` output)
+- **Schema Editing (DDL)** - Create/alter/delete tables, fields, and indexes via
+  FileMaker's OData schema endpoints (opt-in with `FM_ALLOW_SCHEMA_EDITS=true`)
 
 ## Quick Start
 
@@ -54,7 +61,7 @@ For use with AI assistants that support MCP (Claude Desktop, Windsurf, Cursor, C
 ```json
 {
   "mcpServers": {
-    "filemaker": {
+    "filemaker-odata": {
       "command": "npx",
       "args": ["-y", "filemaker-odata-mcp"],
       "env": {
@@ -62,12 +69,19 @@ For use with AI assistants that support MCP (Claude Desktop, Windsurf, Cursor, C
         "FM_DATABASE": "YourDatabase",
         "FM_USER": "your-username",
         "FM_PASSWORD": "your-password",
-        "FM_VERIFY_SSL": "true"
+        "FM_VERIFY_SSL": "true",
+        "FM_ALLOW_SCHEMA_EDITS": "false"
       }
     }
   }
 }
 ```
+
+> **Schema editing is disabled by default.** The 6 schema (DDL) tools (`fm_odata_create_table`,
+> `fm_odata_add_fields`, `fm_odata_delete_table`, `fm_odata_delete_field`, `fm_odata_create_index`,
+> `fm_odata_delete_index`) are **not registered** unless `FM_ALLOW_SCHEMA_EDITS` is set to `"true"`.
+> When `"false"` (default), these tools are completely absent from the tool list and cannot be called.
+> Set to `"true"` only if your FileMaker account has full-access (schema modification) privileges.
 
 3. **For self-signed SSL certificates**, set `FM_VERIFY_SSL` to `"false"`
 
@@ -189,7 +203,8 @@ cp .env.example .env
 ./start.sh
 ```
 
-The script will build TypeScript, build the Docker image, remove any existing container, and start a fresh one. Logs are tailed automatically.
+The script will build TypeScript, build the Docker image, remove any existing container,
+and start a fresh one. Logs are tailed automatically.
 
 #### Option B: Using Docker Run
 
@@ -300,11 +315,10 @@ Create a new contact with name "John Doe" and email "john@example.com"
 ## Documentation
 
 - **[Quick Reference](./dev_stuf/QUICK_REFERENCE.md)** - One-page setup guide
-- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference  
+- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference
 - **[Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)** - Detailed configuration
-- **[Windsurf Setup](./dev_stuf/WINDSURF_SETUP.md)** - IDE integration guide
 - **[Docker Deployment](./DOCKER.md)** - Complete Docker guide with production examples
-- **[Roadmap](./dev_stuf/ROADMAP.md)** - Planned features and version history
+- **[Roadmap](./ROADMAP.md)** - Planned features and version history
 - **[Changelog](./CHANGELOG.md)** - Detailed release notes
 
 ## Available Tools
@@ -317,14 +331,26 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | **FM 2024/2025+** | `fm_odata_aggregate`, `fm_odata_cast`, `fm_odata_build_filter` |
 | **Connection**    | `fm_odata_connect`, `fm_odata_connect_multi`, `fm_odata_set_connection`, `fm_odata_list_connections`, `fm_odata_get_current_connection` |
 | **Sessions**      | `fm_odata_list_active_sessions`, `fm_odata_describe_sessions` |
+| **Diagnostics**   | `fm_odata_get_server_version` |
 | **Config**        | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
+| **Schema (DDL)**  | `fm_odata_create_table`, `fm_odata_add_fields`, `fm_odata_delete_table`, `fm_odata_delete_field`, `fm_odata_create_index`, `fm_odata_delete_index` |
 
 > The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and
 > `fm_odata_build_filter` require FileMaker Server v21.1+ (FileMaker 2024); `fm_odata_aggregate`
 > requires FileMaker Server v22.0.1+ (FileMaker 2025).
 >
-> All 11 connection-dependent OData tools accept an optional `connection` parameter to target
-> a specific session without changing the active connection. Useful in multi-file solutions.
+> All connection-dependent OData tools (including the 6 schema DDL tools when enabled) accept
+> an optional `connection` parameter to target a specific session without changing the active
+> connection. Useful in multi-file solutions.
+>
+> `fm_odata_get_server_version` detects the connected FileMaker Server version from `$metadata`
+> (cached per session) and returns a feature-compatibility report covering `basic_odata`,
+> `cast`, `build_filter`, `aggregate`, and `metadata_comments` (v26+). On servers that do not
+> support server-side `$apply`, `fm_odata_aggregate` automatically falls back to client-side
+> computation (capped at 10 000 records) with a `[Compatibility]` advisory.
+>
+> The **Schema (DDL)** tools are hidden by default. Set `FM_ALLOW_SCHEMA_EDITS=true` to
+> register them. See [Schema Editing](#schema-editing-ddl) below.
 
 ## Requirements
 
@@ -344,6 +370,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | `FM_PASSWORD` | Password                                       | Yes      | -       |
 | `FM_VERIFY_SSL`| Verify SSL certificates                        | No       | `true`  |
 | `FM_TIMEOUT`  | Request timeout (ms)                           | No       | `30000` |
+| `FM_ALLOW_SCHEMA_EDITS` | Enable schema (DDL) tools             | No       | `false` |
 
 ### HTTP/HTTPS Transport
 
@@ -417,6 +444,70 @@ Reusable filter with named placeholders:
   params={"@title":"Wizard of Oz","@minAge":18}
   → filter: "Title eq 'Wizard of Oz' and Age gt 18"
 ```
+
+### FileMaker 2026 Metadata Comments
+
+FileMaker Server 2026 (v26) exposes table and field comments — including AI annotations —
+in the OData `$metadata` document. When connected to a v26+ server:
+
+```text
+List tables with their comments:
+  fm_odata_list_tables with includeDetails=true
+  → contact — Contact table
+
+Merged schema with field comments and AI annotations:
+  fm_odata_describe_sessions
+  → tables include `comment`; fields include `comment` and `aiAnnotation`
+```
+
+On v25 and older servers these options are ignored safely — call
+`fm_odata_get_server_version` first to check `metadata_comments` support.
+
+## Schema Editing (DDL)
+
+FileMaker Server exposes a proprietary OData schema extension through the
+`FileMaker_Tables` and `FileMaker_Indexes` system endpoints. Six tools wrap it:
+
+| Tool | Operation |
+|------|-----------|
+| `fm_odata_create_table` | Create a table with field definitions |
+| `fm_odata_add_fields` | Add fields to an existing table |
+| `fm_odata_delete_table` | Delete a table and ALL its records |
+| `fm_odata_delete_field` | Delete a field and all its data |
+| `fm_odata_create_index` | Create an index on a field |
+| `fm_odata_delete_index` | Delete a field index (no data loss) |
+
+**Safety model:**
+
+- The tools are **not registered** unless the environment variable
+  `FM_ALLOW_SCHEMA_EDITS=true` is set on the MCP server.
+- `fm_odata_delete_table` and `fm_odata_delete_field` are irreversible and require an
+  explicit `confirm: true` argument; without it they refuse and describe what would be deleted.
+- The FileMaker account needs full access (schema modification) privileges. Claris recommends
+  a dedicated account for table deletion.
+
+**Field definitions** use SQL-style types: `NUMERIC`, `DECIMAL`, `INT`, `DATE`, `TIME`,
+`TIMESTAMP`, `VARCHAR(n)`, `BLOB`, etc. Repetitions in brackets (`INT[4]`). Optional flags:
+`primary`, `unique`, `global`, `nullable`, `default` (keyword such as `CURRENT_USER` or
+`CURRENT_TIMESTAMP`), and `externalSecurePath` for container fields.
+
+```text
+Create a Company table:
+  tableName="Company", fields=[
+    {name:"Company ID", type:"int", primary:true},
+    {name:"Company Name", type:"varchar(100)", nullable:false},
+    {name:"Notes", type:"varchar(2000)", global:true}
+  ]
+
+Add a phone field:
+  table="Company", fields=[{name:"Phone", type:"varchar(25)"}]
+
+Index the State field:
+  table="Company", field="State"
+```
+
+> **Limitations:** relationships, layouts, scripts, value lists, and calculation/summary
+> fields cannot be created via OData — only base tables, regular fields, and indexes.
 
 ## Contributing
 

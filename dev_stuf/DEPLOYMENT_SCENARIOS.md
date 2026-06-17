@@ -32,7 +32,7 @@ This is how the MCP server communicates with FileMaker Server.
 ```json
 {
   "mcpServers": {
-    "filemaker": {
+    "filemaker-odata": {
       "command": "node",
       "args": ["/path/to/FMS-ODATA-MCP/dist/index.js"],
       "env": {
@@ -41,7 +41,8 @@ This is how the MCP server communicates with FileMaker Server.
         "FM_DATABASE": "YourDatabase",
         "FM_USER": "your-username",
         "FM_PASSWORD": "your-password",
-        "FM_VERIFY_SSL": "false"
+        "FM_VERIFY_SSL": "false",
+        "FM_ALLOW_SCHEMA_EDITS": "false"
       }
     }
   }
@@ -85,7 +86,7 @@ node dist/index.js
 ```json
 {
   "mcpServers": {
-    "filemaker": {
+    "filemaker-odata": {
       "command": "curl",
       "args": [
         "-X", "POST",
@@ -154,7 +155,7 @@ npx filemaker-odata-mcp
 ```json
 {
   "mcpServers": {
-    "filemaker": {
+    "filemaker-odata": {
       "command": "npx",
       "args": ["-y", "filemaker-odata-mcp"],
       "env": {
@@ -162,7 +163,8 @@ npx filemaker-odata-mcp
         "FM_DATABASE": "Contacts",
         "FM_USER": "admin",
         "FM_PASSWORD": "password",
-        "FM_VERIFY_SSL": "true"
+        "FM_VERIFY_SSL": "true",
+        "FM_ALLOW_SCHEMA_EDITS": "false"
       }
     }
   }
@@ -202,6 +204,7 @@ Controls how MCP server connects to FileMaker:
 | `FM_PASSWORD` | string | *required* | Password |
 | `FM_VERIFY_SSL` | true, false | true | Verify SSL certificates |
 | `FM_TIMEOUT` | milliseconds | 30000 | Request timeout |
+| `FM_ALLOW_SCHEMA_EDITS` | true, false | false | Enable schema (DDL) tools |
 
 **Important Notes:**
 - `FM_SERVER` must use HTTPS protocol
