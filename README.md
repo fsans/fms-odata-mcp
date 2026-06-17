@@ -26,6 +26,12 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 - **FileMaker 2026 Metadata Comments** - Table/field comments and AI annotations extracted
   from `$metadata` on v26+ servers (`fm_odata_list_tables` with `includeDetails`,
   enriched `fm_odata_describe_sessions` output)
+- **Automatic FMFID Resolution (v26+)** - Non-ASCII field names are automatically resolved
+  to stable internal `FMFID` IDs in `$filter` expressions, eliminating double-quote escaping
+  and preventing breakage on field renames. Falls back to auto-quoting on older servers.
+- **Script Execution by FMSID (v26+)** - Run FileMaker scripts by stable internal `FMSID`
+  instead of script name, preventing integration breakage when scripts are renamed.
+  `fm_odata_list_scripts` exposes IDs so agents can prefer ID-based calls.
 - **Schema Editing (DDL)** - Create/alter/delete tables, fields, and indexes via
   FileMaker's OData schema endpoints (opt-in with `FM_ALLOW_SCHEMA_EDITS=true`)
 

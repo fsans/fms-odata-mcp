@@ -141,56 +141,154 @@ export class ODataParser {
     );
     const entityTypeMatch = metadataXml.match(entityTypeRegex);
 
-    if (entityTypeMatch) {
-      const entityTypeContent = entityTypeMatch[1];
+    if (!entityTypeMatch) {
+      return fields;
+    }
 
-      // Extract properties
-      const propertyRegex = /<Property\s+Name="([^"]+)"\s+Type="([^"]+)"([^>]*?)\/>/g;
-      let match;
+    const entityTypeContent = entityTypeMatch[1];
 
-      while ((match = propertyRegex.exec(entityTypeContent)) !== null) {
-        const name = match[1];
-        const type = match[2];
-        const attributes = match[3];
+    // Match both self-closing <Property ... /> and block-style <Property>...</Property>.
+    // Group 1: Name, Group 2: Type, Group 3: extra attributes in opening tag,
+    // Group 4 (optional): inner content for block-style properties.
+    const propertyRegex =
+      /<Property\s+Name="([^"]+)"\s+Type="([^"]+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/Property>)/g;
+    let match;
 
-        const nullable = !attributes.includes('Nullable="false"');
-        const maxLength = attributes.match(/MaxLength="(\d+)"/)?.[1];
+    while ((match = propertyRegex.exec(entityTypeContent)) !== null) {
+      const name = match[1];
+      const type = match[2];
+      const attributes = match[3];
+      const innerContent = match[4] || "";
 
-        const field: FieldInfo = {
-          name,
-          type,
-          nullable,
-          maxLength: maxLength ? parseInt(maxLength) : undefined,
-        };
+      const nullable = !attributes.includes('Nullable="false"');
+      const maxLength = attributes.match(/MaxLength="(\d+)"/)?.[1];
 
-        if (enriched) {
-          // Look for a trailing Description Annotation for this property.
-          // Use Core.V1.Description (standard OData) and exclude AI-specific terms.
-          const annotationRegex = new RegExp(
-            `<Annotation\\s+Term="(?:(?!AI)[^"])*Description"[^>]*>\\s*<String>([^<]*)</String>\\s*</Annotation>\\s*<Property\\s+Name="${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
-            "i"
-          );
-          const annotationMatch = entityTypeContent.match(annotationRegex);
-          if (annotationMatch) {
-            field.comment = annotationMatch[1];
-          }
+      const field: FieldInfo = {
+        name,
+        type,
+        nullable,
+        maxLength: maxLength ? parseInt(maxLength) : undefined,
+      };
 
-          // AI annotation (vendor-specific term containing 'AI')
-          const aiRegex = new RegExp(
-            `<Annotation\\s+Term="[^"]*AI[^"]*"[^>]*>\\s*<String>([^<]*)</String>\\s*</Annotation>\\s*<Property\\s+Name="${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
-            "i"
-          );
-          const aiMatch = entityTypeContent.match(aiRegex);
-          if (aiMatch) {
-            field.aiAnnotation = aiMatch[1];
+      if (enriched) {
+        // --- v26+ child annotations (inside the Property block) ---
+
+        // com.filemaker.odata.FieldID → FMFID:...
+        const fieldIdMatch = innerContent.match(
+          /Term="com\.filemaker\.odata\.FieldID"[^>]*String="FMFID:([^"]+)"/
+        );
+        if (fieldIdMatch) {
+          field.fieldId = `FMFID:${fieldIdMatch[1]}`;
+        }
+
+        // Org.OData.Core.V1.Computed
+        const computedMatch = innerContent.match(
+          /Term="Org\.OData\.Core\.V1\.Computed"[^>]*Bool="true"/
+        );
+        if (computedMatch) {
+          field.computed = true;
+        }
+
+        // com.filemaker.odata.Index
+        const indexMatch = innerContent.match(
+          /Term="com\.filemaker\.odata\.Index"[^>]*Bool="true"/
+        );
+        if (indexMatch) {
+          field.indexed = true;
+        }
+
+        // com.filemaker.odata.Calculation
+        const calcMatch = innerContent.match(
+          /Term="com\.filemaker\.odata\.Calculation"[^>]*Bool="true"/
+        );
+        if (calcMatch) {
+          field.calculation = true;
+        }
+
+        // Org.OData.Core.V1.Permissions → Read or Read/Write
+        const permMatch = innerContent.match(
+          /Term="Org\.OData\.Core\.V1\.Permissions"[^>]*>[\s\S]*?<EnumMember>Org\.OData\.Core\.V1\.Permission\/([^<]+)<\/EnumMember>/
+        );
+        if (permMatch) {
+          const perm = permMatch[1];
+          if (perm === "Read" || perm === "ReadWrite") {
+            field.permissions = perm === "ReadWrite" ? "Read/Write" : "Read";
           }
         }
 
-        fields.push(field);
+        // com.filemaker.odata.FMComment (explicit, more reliable than generic Description)
+        const commentMatch = innerContent.match(
+          /Term="com\.filemaker\.odata\.FMComment"[^>]*String="([^"]*)"/
+        );
+        if (commentMatch) {
+          field.comment = commentMatch[1];
+        }
+
+        // com.filemaker.odata.AIAnnotation
+        const aiMatch = innerContent.match(
+          /Term="com\.filemaker\.odata\.AIAnnotation"[^>]*String="([^"]*)"/
+        );
+        if (aiMatch) {
+          field.aiAnnotation = aiMatch[1];
+        }
       }
+
+      fields.push(field);
     }
 
     return fields;
+  }
+
+  /**
+   * Parse OData $metadata XML to extract available scripts.
+   *
+   * FileMaker Server 2026 (v26+) exposes scripts as `<Action>` elements inside
+   * `<EntityContainer>` with names prefixed `Script.`. Each Action contains
+   * a parameter definition, return type, and an annotation with the internal
+   * FMSID.
+   *
+   * Example:
+   *   <Action Name="Script.HelloScript">
+   *     <Parameter Name="scriptParameterValue" Type="Edm.String" />
+   *     <ReturnType Type="Edm.String" />
+   *     <Annotation Term="com.filemaker.odata.ScriptID" String="FMSID:72" />
+   *   </Action>
+   */
+  static parseMetadataForScripts(metadataXml: string): ScriptInfo[] {
+    const scripts: ScriptInfo[] = [];
+
+    // Match Action elements whose Name starts with "Script."
+    const actionRegex = /<Action\s+Name="Script\.([^"]+)"[^>]*>([\s\S]*?)<\/Action>/g;
+    let match;
+
+    while ((match = actionRegex.exec(metadataXml)) !== null) {
+      const name = match[1];
+      const body = match[2];
+
+      const script: ScriptInfo = { name };
+
+      // Parameter type (e.g. Edm.String, Edm.Int32)
+      const paramTypeMatch = body.match(/<Parameter\s+Name="scriptParameterValue"\s+Type="([^"]+)"\s*\/?>/);
+      if (paramTypeMatch) {
+        script.parameterType = paramTypeMatch[1];
+      }
+
+      // Return type
+      const returnTypeMatch = body.match(/<ReturnType\s+Type="([^"]+)"\s*\/?>/);
+      if (returnTypeMatch) {
+        script.returnType = returnTypeMatch[1];
+      }
+
+      // Internal FMSID
+      const idMatch = body.match(/Term="com\.filemaker\.odata\.ScriptID"\s+String="FMSID:(\d+)"/);
+      if (idMatch) {
+        script.scriptId = parseInt(idMatch[1], 10);
+      }
+
+      scripts.push(script);
+    }
+
+    return scripts;
   }
 
   /**
@@ -434,6 +532,27 @@ export interface FieldInfo {
   maxLength?: number;
   comment?: string;
   aiAnnotation?: string;
+  /** Internal field ID (FMFID:...) when exposed in metadata (v26+). */
+  fieldId?: string;
+  /** True if the field is a calculation (v26+). */
+  computed?: boolean;
+  /** True if the field is indexed (v26+). */
+  indexed?: boolean;
+  /** True if the field is a calculation (v26+). */
+  calculation?: boolean;
+  /** Field permission level: Read or Read/Write (v26+). */
+  permissions?: "Read" | "Read/Write";
+}
+
+export interface ScriptInfo {
+  /** Script name (without the "Script." prefix). */
+  name: string;
+  /** Internal FileMaker script ID (FMSID), available on v26+. */
+  scriptId?: number;
+  /** OData parameter type (e.g. Edm.String). */
+  parameterType?: string;
+  /** OData return type (e.g. Edm.String). */
+  returnType?: string;
 }
 
 export interface BatchResult {
