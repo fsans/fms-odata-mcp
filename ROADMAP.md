@@ -17,6 +17,11 @@
   `FileMaker_Tables` / `FileMaker_Indexes`. 32 tools total (26 standard + 6 opt-in schema editing).
 - **v0.8.0** — Documentation overhaul and project reorganization. Working docs moved to `private/`,
   all public docs reviewed and updated, ROADMAP restructured with confirmed planned features.
+- **v0.8.1** — Run FileMaker scripts via OData: `fm_odata_run_script`, `fm_odata_list_scripts`,
+  call-by-name and call-by-FMSID. 33 tools total.
+- **v0.8.2** — Enhanced v26 metadata parsing: child annotations inside `<Property>`, automatic
+  FMFID resolution for non-ASCII field names in `$filter`, `fm_odata_describe_table`.
+  35 tools total (29 standard + 6 optional schema editing).
 
 ---
 
@@ -76,13 +81,32 @@
 - **Confirm guards** — Destructive operations require `confirm: true`
 - **Multi-session** — All DDL tools accept per-call `connection` parameter
 
+### v0.8.1 — Run FileMaker Scripts
+
+- **`fm_odata_run_script`** — Run scripts by `scriptName` or `scriptId` (mutually exclusive),
+  with optional `scriptParam` (string, number, or JSON object)
+- **`fm_odata_list_scripts`** — List available scripts with FMSID, parameter type, return type
+  from `$metadata` (v26+ only)
+- **Call-by-ID on v26+** — `runScriptById` calls `POST /Script.FMSID:{id}` to avoid breakage
+  when scripts are renamed
+
+### v0.8.2 — Enhanced v26 Metadata Parsing
+
+- **`parseMetadataForFields` rewrite** — Parses child `<Annotation>` elements inside
+  `<Property>` blocks (v26+) while preserving self-closing tag support for v22/v25
+- **Enriched `FieldInfo`** — `fieldId` (FMFID), `computed`, `indexed`, `calculation`,
+  `permissions` (Read / Read/Write)
+- **Automatic FMFID resolution** — Non-ASCII field names in `$filter` are resolved to stable
+  `FMFID` IDs on v26+; falls back to auto-quoting on older servers
+- **`fm_odata_describe_table`** — Full field metadata for a single table
+
 ---
 
 ## 🔧 In Progress / Planned
 
 ### 1. Run FileMaker Scripts (v0.8.1)
 
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: High  
 **Estimated Effort**: 2-3 days  
 **FileMaker Support**: Yes — confirmed via Claris docs (`private/ODATA_scripts.md`). Endpoint:
@@ -143,7 +167,7 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 
 ### 2. Enhanced v26 Metadata Parsing (v0.8.2)
 
-**Status**: 📋 Planned
+**Status**: ✅ Completed
 **Priority**: High
 **Estimated Effort**: 2-3 days
 **FileMaker Support**: Yes — FM Server 26 returns rich field-level annotations as child
