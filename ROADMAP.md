@@ -55,11 +55,17 @@
 - **`fm_odata_get_server_version`** — Version detection + feature-compatibility matrix
 - **Version-gated fallbacks** — `aggregate` falls back to client-side on older servers
 
-### v0.6.x — FileMaker 2026 Metadata Comments
+### v0.6.x — FileMaker 2026 Metadata Comments (partial)
 
 - **`metadata_comments` feature flag** — Gated at FM Server `26.0.0`
 - **`fm_odata_list_tables` — `includeDetails`** — Returns table comments on v26+
 - **`fm_odata_describe_sessions`** — Enriched with `comment` and `aiAnnotation`
+
+> **Note (v26 metadata gap):** The v0.6.x implementation only parses `comment` and
+> `aiAnnotation`. FileMaker Server 26 exposes significantly richer field metadata
+> as child `<Annotation>` elements inside `<Property>` tags. See "Enhanced v26
+> Metadata Parsing" in the Planned section below for the full list of annotations
+> to be added.
 
 ### v0.7.0 — Schema Editing (DDL)
 
@@ -74,28 +80,7 @@
 
 ## 🔧 In Progress / Planned
 
-### 1. OData Batch Requests (v0.8.5)
-
-**Status**: 📋 Planned  
-**Priority**: High  
-**Estimated Effort**: 3-4 days  
-**FileMaker Support**: Yes — FileMaker Server supports OData `$batch` via `multipart/mixed`
-(see [Claris docs](https://help.claris.com/en/odata-guide/content/batch-requests.html))
-
-**Current State**: A stub `batch()` method exists in `ODataClient` but executes requests
-sequentially instead of using true OData batch format.
-
-**Implementation Tasks**:
-- [ ] Build proper `multipart/mixed` batch request body per OData 4.01 spec
-- [ ] Add `Content-ID` correlation for change sets (atomic operations)
-- [ ] Parse `multipart/mixed` response boundaries
-- [ ] New tool: `fm_odata_batch` — accept array of operations, return correlated results
-- [ ] Handle batch-level vs operation-level errors
-- [ ] Unit tests for request construction and response parsing
-
----
-
-### 2. Run FileMaker Scripts (v0.8.1)
+### 1. Run FileMaker Scripts (v0.8.1)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -105,19 +90,150 @@ sequentially instead of using true OData batch format.
 (accepts string, number, or JSON object). Scripts run server-side with no user interaction.
 Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 
+> **Important notice: Call scripts by stable internal FMSID (v26+)**
+> Starting with v0.8.1, when connected to FileMaker Server 2026 (v26+), you can run
+> scripts by their internal `FMSID` instead of the script name. This prevents
+> integration breakage when scripts are renamed in FileMaker Pro. The
+> `fm_odata_list_scripts` tool exposes each script's FMSID so agents can prefer
+> ID-based calls. On older servers only call-by-name is available.
+
 **Limitations**:
 - Script names cannot contain `@`, `&`, `/` or start with a number
 - Only scripts with web-compatible script steps run successfully
 - Scripts that modify data must include `Commit Records/Requests` step
-- Use `Script.FMSID:#` endpoint variant for scripts with problematic names
+
+**FileMaker Server 2026 (v26) enhancements** — must be incorporated into the implementation:
+
+- **Script metadata in `$metadata`** — FM Server 26 exposes available scripts (name, parameter
+  type, return type, and internal FMSID) as `<Action>` elements in the metadata response.
+  Example:
+
+  ```xml
+  <Action Name="Script.OData Test">
+    <Parameter Name="scriptParameterValue" Type="Edm.String" />
+    <ReturnType Type="Edm.String" />
+    <Annotation Term="com.filemaker.odata.ScriptID" String="FMSID:72" />
+  </Action>
+  ```
+
+- **Call scripts by internal ID** — new endpoint variant:
+  `POST /database-name/Script.FMSID:<script-id>` where `script-id` is an integer.
+  Calling by ID avoids breakage when scripts are renamed in FileMaker. IDs are sequential
+  (first script in a blank file = 1). Everything else (parameters, response format) is
+  identical to calling by name.
+
+- **Design considerations**: the tool should support both `scriptName` and `scriptId` as
+  mutually exclusive arguments. On v26+ servers, a `fm_odata_list_scripts` tool (or an
+  option in an existing metadata tool) could parse `<Action>` elements from `$metadata` to
+  list available scripts with their names and FMSIDs. On older servers, only call-by-name
+  is available.
 
 **Implementation Tasks**:
-- [ ] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
-- [ ] New tool: `fm_odata_run_script` — `scriptName`, optional `scriptParam`, optional `connection`
-- [ ] Parse `{ scriptResult: { code, resultParameter } }` from response
-- [ ] Handle script errors (non-zero `code`, timeout, privilege failures)
-- [ ] Document privilege requirements and web-compatible script step constraints
-- [ ] Unit tests with mocked script responses (success, error, param passing)
+- [x] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
+- [x] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
+- [x] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive),
+  optional `scriptParam`, optional `connection`
+- [x] Parse `{ scriptResult: { code, resultParameter } }` from response
+- [x] Handle script errors (non-zero `code`, timeout, privilege failures)
+- [x] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
+- [x] Document privilege requirements and web-compatible script step constraints
+- [x] Unit tests with mocked script responses (success, error, param passing, call-by-ID)
+
+---
+
+### 2. Enhanced v26 Metadata Parsing (v0.8.2)
+
+**Status**: 📋 Planned
+**Priority**: High
+**Estimated Effort**: 2-3 days
+**FileMaker Support**: Yes — FM Server 26 returns rich field-level annotations as child
+elements inside `<Property>` tags in `$metadata`. FM Server 22.0.4+ also supports
+referencing fields by internal ID (`FMFID`).
+
+> **Important notice: Automatic FMFID Resolution for non-ASCII field names**
+> Starting with v0.8.2, when connected to FileMaker Server 2026 (v26+), the MCP
+> server **automatically resolves non-ASCII field names to their internal `FMFID`
+> IDs** in `$filter` expressions. This eliminates the need for double-quote escaping
+> and prevents query breakage when fields are renamed. On v25 and older servers,
+> the previous auto-quoting strategy remains as the fallback. This is a major
+> reliability improvement for international FileMaker solutions.
+
+**Context**: The v0.6.x implementation only extracts `comment` and `aiAnnotation` from
+metadata, and uses a regex that looks for annotations _before_ the `<Property>` tag.
+FM Server 26 actually places annotations as _children inside_ `<Property>` elements,
+making the current parser fragile. The full set of v26 annotations provides valuable
+schema intelligence for AI agents.
+
+**New v26 `<Property>` child annotations to parse**:
+
+```xml
+<Property Name="My Calc Field" Type="Edm.Decimal">
+  <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:60130607233" />
+  <Annotation Term="Org.OData.Core.V1.Computed" Bool="true" />
+  <Annotation Term="com.filemaker.odata.Index" Bool="true" />
+  <Annotation Term="com.filemaker.odata.Calculation" Bool="true" />
+  <Annotation Term="Org.OData.Core.V1.Permissions">
+    <EnumMember>Org.OData.Core.V1.Permission/Read</EnumMember>
+  </Annotation>
+  <Annotation Term="com.filemaker.odata.FMComment"
+    String="This is a sample comment" />
+  <Annotation Term="com.filemaker.odata.AIAnnotation"
+    String="This is the AI annotation" />
+</Property>
+```
+
+| Annotation Term | Value | Description |
+|-----------------|-------|-------------|
+| `com.filemaker.odata.FieldID` | `FMFID:<int>` | Internal field ID (stable across renames) |
+| `Org.OData.Core.V1.Computed` | `Bool` | `true` if field is a calculation |
+| `com.filemaker.odata.Index` | `Bool` | `true` if field is indexed |
+| `com.filemaker.odata.Calculation` | `Bool` | `true` if field is a calculation |
+| `Org.OData.Core.V1.Permissions` | `EnumMember` | Read/Write permissions |
+| `com.filemaker.odata.FMComment` | `String` | Field comment (user-facing) |
+| `com.filemaker.odata.AIAnnotation` | `String` | AI-specific annotation (v26+) |
+
+**Design notes**:
+- The permissions annotation tells agents whether a field is writable, avoiding
+  failed update attempts on calculated or read-only fields.
+- The `Computed` and `Calculation` flags help agents understand which fields can
+  be set in create/update operations.
+
+**Non-ASCII field name strategy (version-gated)**:
+
+The `normalizeFilter()` auto-quoting introduced in v0.8.x is the universal baseline
+and must remain as the default strategy for all FM Server versions. It handles
+non-ASCII identifiers transparently by wrapping them in double-quotes per the
+OData 4.01 spec.
+
+On FM Server 22.0.4+ (when field IDs are available in metadata), and especially
+on v26+ (where `FMFID` annotations are exposed in `$metadata`), the server can
+additionally resolve field names to their internal IDs and use ID-based references
+in queries. This is inherently more robust: no quoting edge cases, no breakage on
+field renames, and no dependency on the OData parser accepting quoted identifiers.
+
+The version-gated approach follows the existing pattern (e.g. `aggregate` falling
+back to client-side on older servers):
+- **v26+**: resolve field names to `FMFID` from cached metadata when available;
+  fall back to auto-quoting if the field is not found in the cache
+- **v22.0.4 -- v25**: auto-quoting only (field IDs exist but are not exposed in
+  `$metadata`; could be obtained via other means in future)
+- **< v22.0.4**: auto-quoting only
+
+**Implementation Tasks**:
+- [x] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
+  annotations (not self-closing `/>`) in addition to the existing self-closing format
+- [x] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
+- [x] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
+  Description matching)
+- [x] Build a field name-to-FMFID lookup map from cached metadata (v26+)
+- [x] Version-gated field resolution in `normalizeFilter()`: on v26+ substitute
+  non-ASCII field names with their FMFID when available, otherwise auto-quote
+- [x] Surface enriched field metadata in `fm_odata_describe_sessions` and
+  `fm_odata_list_tables` (with `includeDetails`)
+- [x] New tool: `fm_odata_describe_table` returns full field metadata for a single table
+  (field types, IDs, options, comments, permissions)
+- [x] Unit tests with real v26 metadata XML fixtures
+- [x] Backward compatibility: ensure v22/v25 metadata still parses correctly
 
 ---
 
@@ -147,13 +263,13 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 - [ ] New tool: `fm_odata_create_record_with_container` — extends `create_record` to accept
   container fields as base64 + metadata
 - [ ] Validate base64 input; reject if not valid base64 string
-- [ ] Handle media type inference failures (FileMaker infers from first bytes; misidentification
-  can occur with base64)
+- [ ] Handle media type inference failures (FileMaker infers from first bytes;
+  misidentification can occur with base64)
 - [ ] Unit tests for base64 construction, binary path (mocked), error handling
 
 ---
 
-### 4. Enhanced Error Handling
+### 4. Enhanced Error Handling (v0.8.4)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -168,7 +284,28 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 5. Performance Optimization (v0.9.0)
+### 5. OData Batch Requests (v0.8.5)
+
+**Status**: 📋 Planned  
+**Priority**: High  
+**Estimated Effort**: 3-4 days  
+**FileMaker Support**: Yes — FileMaker Server supports OData `$batch` via `multipart/mixed`
+(see [Claris docs](https://help.claris.com/en/odata-guide/content/batch-requests.html))
+
+**Current State**: A stub `batch()` method exists in `ODataClient` but executes requests
+sequentially instead of using true OData batch format.
+
+**Implementation Tasks**:
+- [ ] Build proper `multipart/mixed` batch request body per OData 4.01 spec
+- [ ] Add `Content-ID` correlation for change sets (atomic operations)
+- [ ] Parse `multipart/mixed` response boundaries
+- [ ] New tool: `fm_odata_batch` — accept array of operations, return correlated results
+- [ ] Handle batch-level vs operation-level errors
+- [ ] Unit tests for request construction and response parsing
+
+---
+
+### 6. Performance Optimization (v0.9.0)
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -183,7 +320,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 6. Integration Testing with Live Servers
+### 7. Integration Testing with Live Servers
 
 **Status**: � Planned  
 **Priority**: High  
@@ -199,7 +336,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 7. Documentation & Examples
+### 8. Documentation & Examples
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -235,10 +372,12 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 | v0.6.1 | Released | v26 metadata comments |
 | v0.7.0 | Released | Schema DDL editing (opt-in) |
 | v0.8.0 | Released | Documentation overhaul, project reorganization |
-| v0.8.1 | Planned | Script execution (`fm_odata_run_script`) |
+| v0.8.1 | Planned | Script execution (`fm_odata_run_script`, call-by-ID on v26+) |
+| v0.8.2 | Planned | Enhanced v26 metadata (field IDs, options, permissions, FMFID) |
 | v0.8.3 | Planned | Container upload (`fm_odata_upload_container`) |
+| v0.8.4 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
 | v0.8.5 | Planned | OData batch requests (`multipart/mixed`) |
-| v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive, compression) |
+| v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive) |
 | v1.0.0 | Future | To be disclosed |
 
 ---
@@ -265,4 +404,4 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: June 2026 (v0.7.0 released)
+**Last Updated**: June 2026 (v0.8.0 released, v0.8.x planned)
