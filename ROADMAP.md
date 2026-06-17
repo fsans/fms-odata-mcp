@@ -90,6 +90,13 @@
 (accepts string, number, or JSON object). Scripts run server-side with no user interaction.
 Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 
+> **Important notice: Call scripts by stable internal FMSID (v26+)**
+> Starting with v0.8.1, when connected to FileMaker Server 2026 (v26+), you can run
+> scripts by their internal `FMSID` instead of the script name. This prevents
+> integration breakage when scripts are renamed in FileMaker Pro. The
+> `fm_odata_list_scripts` tool exposes each script's FMSID so agents can prefer
+> ID-based calls. On older servers only call-by-name is available.
+
 **Limitations**:
 - Script names cannot contain `@`, `&`, `/` or start with a number
 - Only scripts with web-compatible script steps run successfully
@@ -142,6 +149,14 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
 **FileMaker Support**: Yes — FM Server 26 returns rich field-level annotations as child
 elements inside `<Property>` tags in `$metadata`. FM Server 22.0.4+ also supports
 referencing fields by internal ID (`FMFID`).
+
+> **Important notice: Automatic FMFID Resolution for non-ASCII field names**
+> Starting with v0.8.2, when connected to FileMaker Server 2026 (v26+), the MCP
+> server **automatically resolves non-ASCII field names to their internal `FMFID`
+> IDs** in `$filter` expressions. This eliminates the need for double-quote escaping
+> and prevents query breakage when fields are renamed. On v25 and older servers,
+> the previous auto-quoting strategy remains as the fallback. This is a major
+> reliability improvement for international FileMaker solutions.
 
 **Context**: The v0.6.x implementation only extracts `comment` and `aiAnnotation` from
 metadata, and uses a regex that looks for annotations _before_ the `<Property>` tag.
