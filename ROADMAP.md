@@ -18,7 +18,7 @@
 - **v0.8.0** — Documentation overhaul and project reorganization. Working docs moved to `private/`,
   all public docs reviewed and updated, ROADMAP restructured with confirmed planned features.
 - **v0.8.1** — Run FileMaker scripts via OData: `fm_odata_run_script`, `fm_odata_list_scripts`,
-  call-by-name and call-by-FMSID. 33 tools total.
+  call-by-name and call-by-FMSID. 34 tools total.
 - **v0.8.2** — Enhanced v26 metadata parsing: child annotations inside `<Property>`, automatic
   FMFID resolution for non-ASCII field names in `$filter`, `fm_odata_describe_table`.
   35 tools total (29 standard + 6 optional schema editing).

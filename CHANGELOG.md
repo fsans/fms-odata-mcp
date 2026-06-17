@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.8.2] - 2026-06-17
 
 Enhanced FileMaker Server 2026 (v26) metadata parsing and automatic FMFID field
-resolution. Tool count increases from 32 to 35 (29 standard + 6 optional schema editing).
+resolution. Tool count increases from 34 to 35 (29 standard + 6 optional schema editing).
 
 ### Added
 
@@ -56,7 +56,8 @@ resolution. Tool count increases from 32 to 35 (29 standard + 6 optional schema 
 
 ## [0.8.1] - 2026-06-17
 
-FileMaker script execution via OData. Tool count increases from 32 to 33.
+FileMaker script execution via OData. Tool count increases from 32 to 34
+(adds `fm_odata_run_script` and `fm_odata_list_scripts`).
 
 ### Added
 

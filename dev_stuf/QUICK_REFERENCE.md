@@ -192,7 +192,7 @@ Find all contacts where LastName is 'Smith'
 
 ---
 
-## AVAILABLE TOOLS (32 Total — 26 standard + 6 optional schema editing)
+## AVAILABLE TOOLS (35 Total — 29 standard + 6 optional schema editing)
 
 **Data Operations:**
 - List tables, Get metadata, Get service document

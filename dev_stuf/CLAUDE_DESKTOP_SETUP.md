@@ -218,7 +218,7 @@ Should show:
 ```
 Starting filemaker-odata-mcp Server...
 Transport: stdio
-Registered 32 tools (26 standard + 6 schema editing when enabled)
+Registered 35 tools (29 standard + 6 schema editing when enabled)
 filemaker-odata-mcp Server running on stdio
 ```
 
