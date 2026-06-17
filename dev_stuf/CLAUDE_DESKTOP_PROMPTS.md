@@ -250,7 +250,7 @@ Set "production" as my default FileMaker connection
 
 ---
 
-## 12. TOOL REFERENCE TABLE
+## 13. TOOL REFERENCE TABLE
 
 | Category | Tool Name | Purpose |
 |----------|-----------|---------|
@@ -278,11 +278,18 @@ Set "production" as my default FileMaker connection
 | **Config** | `fm_odata_config_add_connection` | Save connection |
 | | `fm_odata_config_remove_connection` | Remove connection |
 | | `fm_odata_config_list_connections` | List saved connections |
+| | `fm_odata_config_get_connection` | Get a saved connection |
 | | `fm_odata_config_set_default_connection` | Set default |
+| **Schema (DDL)** | `fm_odata_create_table` | Create a table with field definitions (requires `FM_ALLOW_SCHEMA_EDITS=true`) |
+| | `fm_odata_add_fields` | Add fields to an existing table |
+| | `fm_odata_delete_table` | Delete a table and ALL its records |
+| | `fm_odata_delete_field` | Delete a field and all its data |
+| | `fm_odata_create_index` | Create an index on a field |
+| | `fm_odata_delete_index` | Delete a field index (no data loss) |
 
 ---
 
-## 13. WORKFLOW TIPS
+## 14. WORKFLOW TIPS
 
 1. **Always connect first** before querying data
 2. **Start with discovery** - run `What tables are in my database?`
@@ -293,7 +300,7 @@ Set "production" as my default FileMaker connection
 
 ---
 
-## 14. COMMON PATTERNS
+## 15. COMMON PATTERNS
 
 ### Pattern: Explore → Query → Create
 ```
@@ -318,7 +325,7 @@ Set "production" as my default FileMaker connection
 
 ---
 
-## 15. TESTING WITH POSTMAN
+## 16. TESTING WITH POSTMAN
 
 Before using with Claude Desktop, you can test your FileMaker OData connection with Postman:
 
@@ -437,11 +444,12 @@ FM_VERIFY_SSL=true   # Enable SSL verification (default, recommended)
 - Development environments without proper SSL setup
 - Internal networks with self-signed certificates
 
-**Security Warning:** Disabling SSL verification makes connections vulnerable to man-in-the-middle attacks. Only use this option in trusted, isolated environments.
+**Security Warning:** Disabling SSL verification makes connections vulnerable to
+man-in-the-middle attacks. Only use this option in trusted, isolated environments.
 
 ---
 
-## 16. TROUBLESHOOTING
+## 17. TROUBLESHOOTING
 
 ### Connection Issues
 - Verify server URL includes protocol (http:// or https://)
@@ -462,4 +470,4 @@ FM_VERIFY_SSL=true   # Enable SSL verification (default, recommended)
 For detailed documentation, see:
 - README.md - Project overview
 - CLAUDE_DESKTOP_SETUP.md - Installation guide
-- TESTING_GUIDE.md - Testing information
+- ROADMAP.md - Completed and planned features
