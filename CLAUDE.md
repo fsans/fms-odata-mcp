@@ -64,13 +64,14 @@ FileMaker Server OData 4.01 API
 - `http` — binds on `MCP_PORT` (default 3333)
 - `https` — binds on `MCP_PORT` (default 3443); requires `MCP_CERT_PATH` / `MCP_KEY_PATH`
 
-**32 MCP tools** in four categories (26 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
-- `src/tools/odata.ts` — 14 tools for OData operations (list tables, query/get/create/update/delete records,
-  metadata, count, service doc, aggregate, cast, build_filter). All connection-dependent tools accept an
-  optional `connection` param for per-call session targeting without changing the active session.
+**35 MCP tools** in four categories (29 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
+- `src/tools/odata.ts` — 16 tools for OData operations (list tables, describe_table, query/get/create/update/delete
+  records, metadata, count, service doc, aggregate, cast, build_filter, run_script, list_scripts). All
+  connection-dependent tools accept an optional `connection` param for per-call session targeting without
+  changing the active session.
 - `src/tools/connection.ts` — 8 tools: connect, connect_multi, set_connection, list_connections,
   get_current_connection, list_active_sessions, describe_sessions, get_server_version
-- `src/tools/configuration.ts` — 4 tools for persisted connections in `~/.fms-odata-mcp/config.json`
+- `src/tools/configuration.ts` — 5 tools for persisted connections in `~/.fms-odata-mcp/config.json`
 - `src/tools/schema.ts` — 6 optional schema (DDL) tools: create_table, add_fields, delete_table,
   delete_field, create_index, delete_index. Only registered when `FM_ALLOW_SCHEMA_EDITS=true`.
 
