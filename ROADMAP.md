@@ -205,20 +205,20 @@ back to client-side on older servers):
 - **< v22.0.4**: auto-quoting only
 
 **Implementation Tasks**:
-- [ ] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
+- [x] Rewrite `parseMetadataForFields` to parse `<Property>` as a block with child
   annotations (not self-closing `/>`) in addition to the existing self-closing format
-- [ ] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
-- [ ] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
+- [x] Add `fieldId`, `computed`, `indexed`, `calculation`, `permissions` to `FieldInfo`
+- [x] Use `com.filemaker.odata.FMComment` term explicitly (more reliable than generic
   Description matching)
-- [ ] Build a field name-to-FMFID lookup map from cached metadata (v26+)
-- [ ] Version-gated field resolution in `normalizeFilter()`: on v26+ substitute
+- [x] Build a field name-to-FMFID lookup map from cached metadata (v26+)
+- [x] Version-gated field resolution in `normalizeFilter()`: on v26+ substitute
   non-ASCII field names with their FMFID when available, otherwise auto-quote
-- [ ] Surface enriched field metadata in `fm_odata_describe_sessions` and
+- [x] Surface enriched field metadata in `fm_odata_describe_sessions` and
   `fm_odata_list_tables` (with `includeDetails`)
-- [ ] Consider a `fm_odata_describe_table` tool that returns full field metadata
-  for a single table (field types, IDs, options, comments, permissions)
-- [ ] Unit tests with real v26 metadata XML fixtures
-- [ ] Backward compatibility: ensure v22/v25 metadata still parses correctly
+- [x] New tool: `fm_odata_describe_table` returns full field metadata for a single table
+  (field types, IDs, options, comments, permissions)
+- [x] Unit tests with real v26 metadata XML fixtures
+- [x] Backward compatibility: ensure v22/v25 metadata still parses correctly
 
 ---
 

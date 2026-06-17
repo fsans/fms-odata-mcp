@@ -678,4 +678,58 @@ describe('ODataClient', () => {
       expect(result.resultParameter).toBe('Privilege failure');
     });
   });
+
+  describe('normalizeFilter with v26 FMFID resolution', () => {
+    const v26Metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <Annotation Term="Org.OData.Core.V1.ProductVersion" String="26.0.1" />
+  <Schema>
+    <EntityType Name="contacts">
+      <Property Name="位置" Type="Edm.String">
+        <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:12345" />
+      </Property>
+      <Property Name="Name" Type="Edm.String" />
+    </EntityType>
+  </Schema>
+</edmx:Edmx>`;
+
+    test('should substitute non-ASCII field name with FMFID on v26+', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: v26Metadata });
+      await client.getServerVersion(); // populates version + metadata + fieldIdMap
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "位置 eq 'Tokyo'" });
+
+      const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
+      expect(url).toContain('FMFID');
+      expect(url).not.toContain('%E4%BD%8D%E7%BD%AE'); // should NOT contain encoded '位置'
+    });
+
+    test('should fall back to auto-quoting when FMFID not found on v26+', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: v26Metadata });
+      await client.getServerVersion();
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "未知 eq 'X'" });
+
+      const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
+      expect(url).toContain('%22'); // should contain double-quotes (auto-quoted)
+    });
+
+    test('should auto-quote on v25 (no FMFID resolution)', async () => {
+      const v25Metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <Annotation Term="Org.OData.Core.V1.ProductVersion" String="25.0.0" />
+</edmx:Edmx>`;
+      mockAxiosInstance.get.mockResolvedValue({ data: v25Metadata });
+      await client.getServerVersion();
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "位置 eq 'Tokyo'" });
+
+      const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
+      expect(url).toContain('%22'); // auto-quoted
+      expect(url).not.toContain('FMFID');
+    });
+  });
 });

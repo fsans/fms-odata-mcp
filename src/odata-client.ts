@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import https from "https";
 import { logger } from "./logger.js";
-import { FMServerVersion, parseServerVersion } from "./fm-version.js";
+import { FMServerVersion, parseServerVersion, isFeatureSupported } from "./fm-version.js";
 
 export interface ODataClientConfig {
   server: string;
@@ -81,6 +81,10 @@ export class ODataClient {
    * Any other value = cached FM Server version for this session lifetime.
    */
   private _cachedVersion: FMServerVersion | null | undefined = undefined;
+  /** Cached metadata XML, kept after the first `getMetadata()` or `getServerVersion()` call. */
+  private _cachedMetadata?: string;
+  /** Map of field name → FMFID built from cached metadata (v26+ only). */
+  private _fieldIdMap?: Map<string, string>;
 
   constructor(config: ODataClientConfig) {
     this.config = config;
@@ -208,7 +212,7 @@ export class ODataClient {
    *   - Numeric literals: 123, -3.14, 2.5e10
    *   - OData functions, parentheses, commas
    */
-  private normalizeFilter(filter: string): string {
+  private normalizeFilter(filter: string, table?: string): string {
     // OData comparison/logical operators and constants (case-insensitive match)
     const ODATA_KEYWORDS = new Set([
       "eq", "ne", "gt", "ge", "lt", "le",
@@ -216,6 +220,13 @@ export class ODataClient {
       "true", "false", "null",
       "asc", "desc",
     ]);
+
+    // v26+: resolve non-ASCII identifiers to FMFID when available.
+    const useFieldIds =
+      this._fieldIdMap !== undefined &&
+      this._cachedVersion !== undefined &&
+      this._cachedVersion !== null &&
+      isFeatureSupported(this._cachedVersion, "field_id_in_metadata");
 
     // Tokenize: respect string literals ('...'), quoted identifiers ("..."
     // optionally followed by /path segments for cast expressions),
@@ -250,9 +261,21 @@ export class ODataClient {
       // Functions like contains(), startswith(), endswith(), etc. are ASCII-only
       // and handled fine without quoting.
 
-      // If the token contains non-ASCII characters, wrap in double-quotes
+      // v26+ field-ID resolution: if the token contains non-ASCII characters,
+      // try to substitute with its FMFID. Fall back to auto-quoting when not found.
       // eslint-disable-next-line no-control-regex
-      if (/[^\x00-\x7F]/.test(token)) {
+      const hasNonAscii = /[^\x00-\x7F]/.test(token);
+      if (hasNonAscii && useFieldIds && this._fieldIdMap) {
+        const fmfid = this._fieldIdMap.get(token);
+        if (fmfid) {
+          token = fmfid; // e.g. "FMFID:60130607233"
+          tokens.push(token);
+          continue;
+        }
+      }
+
+      // If the token contains non-ASCII characters, wrap in double-quotes
+      if (hasNonAscii) {
         token = `"${token}"`;
       }
 
@@ -277,7 +300,7 @@ export class ODataClient {
       const add = (k: string, v: string) => parts.push(`${k}=${this.odataEncode(v)}`);
 
       if (options.apply) add("$apply", options.apply);
-      if (options.filter) add("$filter", this.normalizeFilter(options.filter));
+      if (options.filter) add("$filter", this.normalizeFilter(options.filter, table));
       if (options.select) add("$select", options.select);
       if (options.orderby) add("$orderby", options.orderby);
       if (options.top !== undefined) parts.push(`$top=${options.top}`);
@@ -306,13 +329,17 @@ export class ODataClient {
    * Get metadata document
    */
   async getMetadata(): Promise<string> {
+    if (this._cachedMetadata !== undefined) {
+      return this._cachedMetadata;
+    }
     logger.debug(`Getting metadata from ${this.baseUrl}/$metadata`);
     const response = await this.axiosInstance.get(`${this.baseUrl}/$metadata`, {
       headers: {
         Accept: "application/xml",
       },
     });
-    return response.data;
+    this._cachedMetadata = String(response.data);
+    return this._cachedMetadata;
   }
 
   /**
@@ -328,7 +355,10 @@ export class ODataClient {
     }
     try {
       const xml = await this.getMetadata();
+      this._cachedMetadata = xml;
       this._cachedVersion = parseServerVersion(xml);
+      this._fieldIdMap = undefined; // force rebuild now that version is known
+      this._buildFieldIdMap();
     } catch {
       this._cachedVersion = null;
     }
@@ -407,7 +437,7 @@ export class ODataClient {
   async countRecords(table: string, filter?: string): Promise<number> {
     let url = `${this.baseUrl}/${table}/$count`;
     if (filter) {
-      url += `?$filter=${this.odataEncode(this.normalizeFilter(filter))}`;
+      url += `?$filter=${this.odataEncode(this.normalizeFilter(filter, table))}`;
     }
     logger.debug(`Counting records: ${url}`);
     const response = await this.axiosInstance.get<number>(url);
@@ -580,6 +610,41 @@ export class ODataClient {
       code: result.code,
       resultParameter: result.resultParameter ?? null,
     };
+  }
+
+  /**
+   * Build a name → FMFID lookup map from cached metadata.
+   * Only populates the map when the server is v26+ (where FMFID annotations
+   * appear inside `<Property>` elements). Safe to call repeatedly — it is a
+   * no-op once the map is built.
+   */
+  private _buildFieldIdMap(): void {
+    if (this._fieldIdMap !== undefined || !this._cachedMetadata) return;
+
+    // Don't cache anything if the version hasn't been determined yet;
+    // getServerVersion() will call us again after parsing the version.
+    if (this._cachedVersion === undefined) return;
+
+    if (
+      this._cachedVersion === null ||
+      !isFeatureSupported(this._cachedVersion, "field_id_in_metadata")
+    ) {
+      this._fieldIdMap = new Map(); // empty — prevents re-evaluation
+      return;
+    }
+
+    const map = new Map<string, string>();
+    // Match block-style <Property> elements that contain a FieldID annotation
+    const propertyRegex =
+      /<Property\s+Name="([^"]+)"\s+Type="[^"]+"[^>]*>[\s\S]*?<Annotation\s+Term="com\.filemaker\.odata\.FieldID"[^>]*String="FMFID:([^"]+)"\s*\/>?[\s\S]*?<\/Property>/g;
+    let match;
+    while ((match = propertyRegex.exec(this._cachedMetadata)) !== null) {
+      const fieldName = match[1];
+      const fmfid = `FMFID:${match[2]}`;
+      map.set(fieldName, fmfid);
+    }
+
+    this._fieldIdMap = map;
   }
 
   /**

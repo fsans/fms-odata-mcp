@@ -385,16 +385,18 @@ describe('ODataParser', () => {
       expect(fields[0].aiAnnotation).toBeUndefined();
     });
 
-    test('should extract comments and AI annotations when serverVersion is v26+', () => {
+    test('should extract v26 child annotations inside Property blocks', () => {
       const metadata = `<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
       <EntityType Name="contact">
-        <Annotation Term="Org.OData.Core.V1.Description"><String>record ID field</String></Annotation>
-        <Property Name="recordId" Type="Edm.String"/>
-        <Annotation Term="Claris.AI.V1.Description"><String>AI hint for name</String></Annotation>
-        <Property Name="firstName" Type="Edm.String"/>
+        <Property Name="recordId" Type="Edm.String">
+          <Annotation Term="com.filemaker.odata.FMComment" String="record ID field" />
+        </Property>
+        <Property Name="firstName" Type="Edm.String">
+          <Annotation Term="com.filemaker.odata.AIAnnotation" String="AI hint for name" />
+        </Property>
       </EntityType>
     </Schema>
   </edmx:DataServices>
@@ -409,6 +411,126 @@ describe('ODataParser', () => {
       expect(fields[1].name).toBe('firstName');
       expect(fields[1].comment).toBeUndefined();
       expect(fields[1].aiAnnotation).toBe('AI hint for name');
+    });
+
+    test('should parse v26 block-style Property with child annotations', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Property Name="recordId" Type="Edm.String" Nullable="false">
+          <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:60130607233" />
+          <Annotation Term="com.filemaker.odata.FMComment" String="Primary key" />
+        </Property>
+        <Property Name="fullName" Type="Edm.String">
+          <Annotation Term="Org.OData.Core.V1.Computed" Bool="true" />
+          <Annotation Term="com.filemaker.odata.Calculation" Bool="true" />
+          <Annotation Term="Org.OData.Core.V1.Permissions">
+            <EnumMember>Org.OData.Core.V1.Permission/Read</EnumMember>
+          </Annotation>
+          <Annotation Term="com.filemaker.odata.AIAnnotation" String="AI name hint" />
+        </Property>
+        <Property Name="email" Type="Edm.String">
+          <Annotation Term="com.filemaker.odata.Index" Bool="true" />
+          <Annotation Term="Org.OData.Core.V1.Permissions">
+            <EnumMember>Org.OData.Core.V1.Permission/ReadWrite</EnumMember>
+          </Annotation>
+        </Property>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v26 = { major: 26, minor: 0, patch: 0, raw: "26.0.0" };
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact', v26);
+      expect(fields).toHaveLength(3);
+
+      // recordId
+      expect(fields[0].name).toBe('recordId');
+      expect(fields[0].nullable).toBe(false);
+      expect(fields[0].fieldId).toBe('FMFID:60130607233');
+      expect(fields[0].comment).toBe('Primary key');
+
+      // fullName (calculation, read-only)
+      expect(fields[1].name).toBe('fullName');
+      expect(fields[1].computed).toBe(true);
+      expect(fields[1].calculation).toBe(true);
+      expect(fields[1].permissions).toBe('Read');
+      expect(fields[1].aiAnnotation).toBe('AI name hint');
+
+      // email (indexed, read/write)
+      expect(fields[2].name).toBe('email');
+      expect(fields[2].indexed).toBe(true);
+      expect(fields[2].permissions).toBe('Read/Write');
+    });
+
+    test('should still parse self-closing Property tags on v22/v25 (backward compat)', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Property Name="recordId" Type="Edm.String" Nullable="false"/>
+        <Property Name="firstName" Type="Edm.String" MaxLength="100"/>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v25 = { major: 25, minor: 0, patch: 0, raw: "25.0.0" };
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact', v25);
+      expect(fields).toHaveLength(2);
+      expect(fields[0].name).toBe('recordId');
+      expect(fields[0].nullable).toBe(false);
+      expect(fields[0].fieldId).toBeUndefined();
+      expect(fields[1].name).toBe('firstName');
+      expect(fields[1].maxLength).toBe(100);
+      expect(fields[1].fieldId).toBeUndefined();
+    });
+
+    test('should handle mixed self-closing and block-style Property elements', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Property Name="id" Type="Edm.Int64" Nullable="false"/>
+        <Property Name="name" Type="Edm.String">
+          <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:123" />
+        </Property>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v26 = { major: 26, minor: 0, patch: 0, raw: "26.0.0" };
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact', v26);
+      expect(fields).toHaveLength(2);
+      expect(fields[0].name).toBe('id');
+      expect(fields[0].fieldId).toBeUndefined();
+      expect(fields[1].name).toBe('name');
+      expect(fields[1].fieldId).toBe('FMFID:123');
+    });
+
+    test('should not extract annotations when serverVersion is below v26', () => {
+      const metadata = `<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="FMS">
+      <EntityType Name="contact">
+        <Property Name="recordId" Type="Edm.String" Nullable="false">
+          <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:999" />
+        </Property>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>`;
+
+      const v25 = { major: 25, minor: 0, patch: 0, raw: "25.0.0" };
+      const fields = ODataParser.parseMetadataForFields(metadata, 'contact', v25);
+      expect(fields).toHaveLength(1);
+      expect(fields[0].fieldId).toBeUndefined();
     });
   });
 

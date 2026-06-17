@@ -63,6 +63,28 @@ export const odataTools = [
     },
   },
 
+  {
+    name: "fm_odata_describe_table",
+    description:
+      "Get full field metadata for a single table, including types, nullability, " +
+      "internal field IDs (FMFID), whether a field is computed or indexed, " +
+      "permissions (Read vs Read/Write), and comments/AI annotations. " +
+      "Requires FileMaker Server 2026 (v26+) for enriched details; on older servers " +
+      "only name, type, and nullable are returned. " +
+      "Call fm_odata_get_server_version first to know what detail level to expect.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name to describe",
+        },
+        ...connectionParam,
+      },
+      required: ["table"],
+    },
+  },
+
   // Script Tools
   {
     name: "fm_odata_run_script",
@@ -506,6 +528,9 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
       case "fm_odata_list_tables":
         return await handleListTables(client, args);
 
+      case "fm_odata_describe_table":
+        return await handleDescribeTable(client, args);
+
       // Script Tools
       case "fm_odata_run_script":
         return await handleRunScript(client, args);
@@ -587,6 +612,57 @@ async function handleListTables(client: any, args: any) {
 
   return {
     content: [{ type: "text", text: `Available tables:\n${lines.join("\n")}` }],
+  };
+}
+
+async function handleDescribeTable(client: any, args: any) {
+  const metadata = await client.getMetadata();
+  const version = await client.getServerVersion();
+  const fields = ODataParser.parseMetadataForFields(
+    metadata,
+    args.table,
+    version ?? undefined
+  );
+
+  if (fields.length === 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `No fields found for table "${args.table}".`,
+        },
+      ],
+    };
+  }
+
+  const enriched = version && isFeatureSupported(version, "metadata_comments");
+  const header = enriched
+    ? `Fields in "${args.table}" (v26+ enriched metadata):\n`
+    : `Fields in "${args.table}":\n`;
+
+  const lines = fields.map((f: any) => {
+    const parts: string[] = [`  ${f.name}: ${f.type}`];
+    if (!f.nullable) parts.push("not-null");
+    if (f.maxLength !== undefined) parts.push(`maxLength=${f.maxLength}`);
+    if (enriched) {
+      if (f.fieldId) parts.push(`id=${f.fieldId}`);
+      if (f.computed) parts.push("computed");
+      if (f.indexed) parts.push("indexed");
+      if (f.calculation) parts.push("calculation");
+      if (f.permissions) parts.push(`perms=${f.permissions}`);
+      if (f.comment) parts.push(`comment="${f.comment}"`);
+      if (f.aiAnnotation) parts.push(`ai="${f.aiAnnotation}"`);
+    }
+    return parts.join("  ");
+  });
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: header + lines.join("\n"),
+      },
+    ],
   };
 }
 

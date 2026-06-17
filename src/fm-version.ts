@@ -61,6 +61,11 @@ export const FM_FEATURE_MATRIX: Record<string, FeatureInfo> = {
     description: "Script metadata (FMSID, parameter type, return type) in $metadata (FileMaker 2026)",
     fallback: "Only call-by-name is available; script IDs cannot be resolved from metadata",
   },
+  field_id_in_metadata: {
+    minVersion: { major: 26, minor: 0, patch: 0, raw: "26.0.0" },
+    description: "Internal field IDs (FMFID) exposed in $metadata Property annotations (FileMaker 2026)",
+    fallback: "Auto-quoting of non-ASCII identifiers in $filter",
+  },
 };
 
 // ---------------------------------------------------------------------------
