@@ -570,4 +570,166 @@ describe('ODataClient', () => {
       expect(results[0].error).toBeDefined();
     });
   });
+
+  describe('runScript', () => {
+    test('should run script by name without parameter', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 0, resultParameter: 'Done' } },
+      });
+
+      const result = await client.runScript('HelloScript');
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        'https://test-server.com/fmi/odata/v4/TestDB/Script.HelloScript',
+        undefined
+      );
+      expect(result.code).toBe(0);
+      expect(result.resultParameter).toBe('Done');
+    });
+
+    test('should run script by name with string parameter', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 0, resultParameter: 'Hello World' } },
+      });
+
+      const result = await client.runScript('HelloScript', 'World');
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        'https://test-server.com/fmi/odata/v4/TestDB/Script.HelloScript',
+        { scriptParameterValue: 'World' }
+      );
+      expect(result.code).toBe(0);
+      expect(result.resultParameter).toBe('Hello World');
+    });
+
+    test('should run script by name with JSON object parameter', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 0, resultParameter: null } },
+      });
+
+      const param = { ids: [1, 2, 3], mode: 'fast' };
+      await client.runScript('ProcessData', param);
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        'https://test-server.com/fmi/odata/v4/TestDB/Script.ProcessData',
+        { scriptParameterValue: param }
+      );
+    });
+
+    test('should handle script error (non-zero code)', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 3, resultParameter: null } },
+      });
+
+      const result = await client.runScript('BadScript');
+
+      expect(result.code).toBe(3);
+      expect(result.resultParameter).toBeNull();
+    });
+
+    test('should throw on invalid response format', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { unexpected: 'shape' },
+      });
+
+      await expect(client.runScript('BadScript')).rejects.toThrow('Invalid script response format');
+    });
+  });
+
+  describe('runScriptById', () => {
+    test('should run script by internal FMSID without parameter', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 0, resultParameter: 'Done' } },
+      });
+
+      const result = await client.runScriptById(72);
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        'https://test-server.com/fmi/odata/v4/TestDB/Script.FMSID:72',
+        undefined
+      );
+      expect(result.code).toBe(0);
+      expect(result.resultParameter).toBe('Done');
+    });
+
+    test('should run script by string FMSID with parameter', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 0, resultParameter: 'Hello 42' } },
+      });
+
+      const result = await client.runScriptById('72', 42);
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        'https://test-server.com/fmi/odata/v4/TestDB/Script.FMSID:72',
+        { scriptParameterValue: 42 }
+      );
+      expect(result.code).toBe(0);
+      expect(result.resultParameter).toBe('Hello 42');
+    });
+
+    test('should handle script error by ID', async () => {
+      mockAxiosInstance.post.mockResolvedValue({
+        data: { scriptResult: { code: 401, resultParameter: 'Privilege failure' } },
+      });
+
+      const result = await client.runScriptById(5);
+
+      expect(result.code).toBe(401);
+      expect(result.resultParameter).toBe('Privilege failure');
+    });
+  });
+
+  describe('normalizeFilter with v26 FMFID resolution', () => {
+    const v26Metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <Annotation Term="Org.OData.Core.V1.ProductVersion" String="26.0.1" />
+  <Schema>
+    <EntityType Name="contacts">
+      <Property Name="位置" Type="Edm.String">
+        <Annotation Term="com.filemaker.odata.FieldID" String="FMFID:12345" />
+      </Property>
+      <Property Name="Name" Type="Edm.String" />
+    </EntityType>
+  </Schema>
+</edmx:Edmx>`;
+
+    test('should substitute non-ASCII field name with FMFID on v26+', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: v26Metadata });
+      await client.getServerVersion(); // populates version + metadata + fieldIdMap
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "位置 eq 'Tokyo'" });
+
+      const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
+      expect(url).toContain('FMFID');
+      expect(url).not.toContain('%E4%BD%8D%E7%BD%AE'); // should NOT contain encoded '位置'
+    });
+
+    test('should fall back to auto-quoting when FMFID not found on v26+', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: v26Metadata });
+      await client.getServerVersion();
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "未知 eq 'X'" });
+
+      const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
+      expect(url).toContain('%22'); // should contain double-quotes (auto-quoted)
+    });
+
+    test('should auto-quote on v25 (no FMFID resolution)', async () => {
+      const v25Metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <Annotation Term="Org.OData.Core.V1.ProductVersion" String="25.0.0" />
+</edmx:Edmx>`;
+      mockAxiosInstance.get.mockResolvedValue({ data: v25Metadata });
+      await client.getServerVersion();
+
+      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] } });
+      await client.queryRecords('contacts', { filter: "位置 eq 'Tokyo'" });
+
+      const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
+      expect(url).toContain('%22'); // auto-quoted
+      expect(url).not.toContain('FMFID');
+    });
+  });
 });
