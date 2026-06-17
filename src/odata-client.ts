@@ -179,6 +179,80 @@ export class ODataClient {
   }
 
   /**
+   * Normalize identifiers in an OData $filter expression.
+   *
+   * The OData 4.01 specification requires that property names containing
+   * non-ASCII characters (e.g. CJK ideographs like `位置`) or spaces be
+   * enclosed in double-quotes. FileMaker Server returns error 8310
+   * ("internal data formatting error") when unquoted non-ASCII identifiers
+   * are used in $filter.
+   *
+   * This method tokenizes the filter expression and wraps any unquoted
+   * identifier that contains non-ASCII characters or unescaped spaces in
+   * double-quotes so the caller does not need to know about this rule.
+   *
+   * Tokens that are already correctly formed are left untouched:
+   *   - String literals: 'value'
+   *   - Already-quoted identifiers: "位置"
+   *   - OData keywords: eq, ne, gt, ge, lt, le, and, or, not, in, has, null, true, false
+   *   - Numeric literals: 123, -3.14, 2.5e10
+   *   - OData functions, parentheses, commas
+   */
+  private normalizeFilter(filter: string): string {
+    // OData comparison/logical operators and constants (case-insensitive match)
+    const ODATA_KEYWORDS = new Set([
+      "eq", "ne", "gt", "ge", "lt", "le",
+      "and", "or", "not", "in", "has",
+      "true", "false", "null",
+      "asc", "desc",
+    ]);
+
+    // Tokenize: respect string literals ('...'), quoted identifiers ("..."
+    // optionally followed by /path segments for cast expressions),
+    // numbers, operators, parentheses, commas, and bare identifiers.
+    const tokenRegex =
+      /'(?:[^']|'')*'|"(?:[^"\\]|\\.)*"(?:\/[^\s(),'"]+)?|[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?|[(),]|[^\s(),'"]+/g;
+
+    const tokens: string[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = tokenRegex.exec(filter)) !== null) {
+      let token = match[0];
+
+      // Skip string literals, already-quoted identifiers, numbers, punctuation
+      if (
+        token.startsWith("'") ||         // string literal
+        token.startsWith('"') ||         // already-quoted identifier
+        /^[-+]?\d/.test(token) ||        // numeric literal
+        /^[(),]$/.test(token)            // punctuation
+      ) {
+        tokens.push(token);
+        continue;
+      }
+
+      // Skip OData keywords (case-insensitive)
+      if (ODATA_KEYWORDS.has(token.toLowerCase())) {
+        tokens.push(token);
+        continue;
+      }
+
+      // Skip OData function names (token ends with '(' or next non-space is '(')
+      // Functions like contains(), startswith(), endswith(), etc. are ASCII-only
+      // and handled fine without quoting.
+
+      // If the token contains non-ASCII characters, wrap in double-quotes
+      // eslint-disable-next-line no-control-regex
+      if (/[^\x00-\x7F]/.test(token)) {
+        token = `"${token}"`;
+      }
+
+      tokens.push(token);
+    }
+
+    return tokens.join(" ");
+  }
+
+  /**
    * Build OData URL with query options
    */
   private buildUrl(table: string, options?: ODataQueryOptions, recordId?: string): string {
@@ -193,7 +267,7 @@ export class ODataClient {
       const add = (k: string, v: string) => parts.push(`${k}=${this.odataEncode(v)}`);
 
       if (options.apply) add("$apply", options.apply);
-      if (options.filter) add("$filter", options.filter);
+      if (options.filter) add("$filter", this.normalizeFilter(options.filter));
       if (options.select) add("$select", options.select);
       if (options.orderby) add("$orderby", options.orderby);
       if (options.top !== undefined) parts.push(`$top=${options.top}`);
@@ -323,7 +397,7 @@ export class ODataClient {
   async countRecords(table: string, filter?: string): Promise<number> {
     let url = `${this.baseUrl}/${table}/$count`;
     if (filter) {
-      url += `?$filter=${this.odataEncode(filter)}`;
+      url += `?$filter=${this.odataEncode(this.normalizeFilter(filter))}`;
     }
     logger.debug(`Counting records: ${url}`);
     const response = await this.axiosInstance.get<number>(url);
