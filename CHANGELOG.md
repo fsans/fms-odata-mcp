@@ -7,6 +7,91 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.8.2] - 2026-06-17
+
+Enhanced FileMaker Server 2026 (v26) metadata parsing and automatic FMFID field
+resolution. Tool count increases from 32 to 35 (29 standard + 6 optional schema editing).
+
+### Added
+
+- **`fm_odata_describe_table`** — Returns full field metadata for a single table,
+  including type, nullability, internal field ID (`FMFID`), computed/indexed flags,
+  permissions (Read/ReadWrite), comments, and AI annotations. Enriched on v26+;
+  basic info on older servers.
+
+- **Automatic FMFID resolution in `$filter` (v26+)** — `ODataClient.normalizeFilter()`
+  now resolves non-ASCII field names to their stable internal `FMFID` IDs when connected
+  to FM Server 2026+. A name→FMFID lookup map is built from cached `$metadata` XML.
+  Falls back to the existing double-quote auto-quoting strategy when the FMFID is not
+  found or on older servers.
+
+- **`parseMetadataForFields` v26 block-style parsing** — The parser now handles both
+  self-closing `<Property ... />` tags (v22/v25) and block-style `<Property>...</Property>`
+  elements containing child `<Annotation>` tags (v26+). Extracts:
+  - `com.filemaker.odata.FieldID` → `FMFID:<id>`
+  - `Org.OData.Core.V1.Computed` → `computed: true`
+  - `com.filemaker.odata.Index` → `indexed: true`
+  - `com.filemaker.odata.Calculation` → `calculation: true`
+  - `Org.OData.Core.V1.Permissions` → `permissions: "Read" | "Read/Write"`
+  - `com.filemaker.odata.FMComment` → `comment`
+  - `com.filemaker.odata.AIAnnotation` → `aiAnnotation`
+
+- **`field_id_in_metadata` feature flag** — Gated at FM Server `26.0.0`.
+  Added to `FM_FEATURE_MATRIX` in `src/fm-version.ts`.
+
+### Changed
+
+- **`ODataClient` metadata caching** — `$metadata` XML is now cached after the first
+  `getMetadata()` or `getServerVersion()` call, and a `_fieldIdMap` is built from it
+  on v26+ servers.
+
+### Tests
+
+- New: v26 block-style Property annotation parsing, mixed self-closing/block-style
+  fixtures, backward compat for v25, FMFID resolution in `normalizeFilter`,
+  fallback to auto-quoting when FMFID is absent.
+- Total: 251 tests across 8 suites (up from 244).
+
+---
+
+## [0.8.1] - 2026-06-17
+
+FileMaker script execution via OData. Tool count increases from 32 to 33.
+
+### Added
+
+- **`fm_odata_run_script`** — Run a FileMaker script by `scriptName` or `scriptId`
+  (mutually exclusive). Accepts optional `scriptParam` (string, number, or JSON object).
+  Returns `{ scriptName|scriptId, code, resultParameter, success }`. Non-zero script
+  error codes surface as MCP tool errors.
+
+- **`fm_odata_list_scripts`** — Parse `<Action>` elements from `$metadata` to list
+  available scripts with their internal FMSID, parameter type, and return type.
+  v26+ only; returns empty list on older servers.
+
+- **`ODataClient.runScript(scriptName, scriptParam?)`** — POST to `/Script.{scriptName}`.
+
+- **`ODataClient.runScriptById(scriptId, scriptParam?)`** — POST to `/Script.FMSID:{scriptId}`.
+  v26+ preferred: calling by ID prevents breakage when scripts are renamed in FileMaker.
+
+- **`ODataParser.parseMetadataForScripts`** — Extracts script metadata from `<Action Name="Script.*">`
+  elements in `$metadata` XML.
+
+- **`run_scripts` and `script_metadata` feature flags** — Added to `FM_FEATURE_MATRIX`.
+  `run_scripts` gated at FM 19.0.0 (all supported servers). `script_metadata` gated at
+  FM 26.0.0.
+
+### Tests
+
+- New: `tests/unit/odata-client.test.ts` — script execution tests (by name without
+  param, with string param, with JSON object param, error handling, invalid response
+  format, by ID without param, by ID with param, privilege failure).
+- New: `tests/unit/odata-parser.test.ts` — `parseMetadataForScripts` tests (empty
+  metadata, no Script actions, full parsing with all fields, missing optional fields).
+- Total: 244 tests across 8 suites (up from 223).
+
+---
+
 ## [0.8.0] - 2026-06-11
 
 Documentation overhaul, project reorganization, and roadmap updates.
