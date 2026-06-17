@@ -693,4 +693,73 @@ describe('ODataParser', () => {
       expect(expr).toBe("filter(Status eq 'Active')/aggregate($count as Total)");
     });
   });
+
+  describe('parseMetadataForScripts', () => {
+    test('should return empty array when no Action elements present', () => {
+      const metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <EntityContainer/>
+</edmx:Edmx>`;
+      const scripts = ODataParser.parseMetadataForScripts(metadata);
+      expect(scripts).toHaveLength(0);
+    });
+
+    test('should return empty array when no Script Actions present', () => {
+      const metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <EntityContainer>
+    <Action Name="CustomAction">
+      <Parameter Name="input" Type="Edm.String"/>
+    </Action>
+  </EntityContainer>
+</edmx:Edmx>`;
+      const scripts = ODataParser.parseMetadataForScripts(metadata);
+      expect(scripts).toHaveLength(0);
+    });
+
+    test('should parse script name, parameter type, return type, and FMSID', () => {
+      const metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <EntityContainer>
+    <Action Name="Script.HelloScript">
+      <Parameter Name="scriptParameterValue" Type="Edm.String" />
+      <ReturnType Type="Edm.String" />
+      <Annotation Term="com.filemaker.odata.ScriptID" String="FMSID:72" />
+    </Action>
+    <Action Name="Script.ProcessData">
+      <Parameter Name="scriptParameterValue" Type="Edm.Int32"/>
+      <ReturnType Type="Edm.Boolean" />
+      <Annotation Term="com.filemaker.odata.ScriptID" String="FMSID:15" />
+    </Action>
+  </EntityContainer>
+</edmx:Edmx>`;
+      const scripts = ODataParser.parseMetadataForScripts(metadata);
+      expect(scripts).toHaveLength(2);
+      expect(scripts[0]).toEqual({
+        name: 'HelloScript',
+        parameterType: 'Edm.String',
+        returnType: 'Edm.String',
+        scriptId: 72,
+      });
+      expect(scripts[1]).toEqual({
+        name: 'ProcessData',
+        parameterType: 'Edm.Int32',
+        returnType: 'Edm.Boolean',
+        scriptId: 15,
+      });
+    });
+
+    test('should parse script with missing optional fields', () => {
+      const metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <EntityContainer>
+    <Action Name="Script.SimpleScript">
+    </Action>
+  </EntityContainer>
+</edmx:Edmx>`;
+      const scripts = ODataParser.parseMetadataForScripts(metadata);
+      expect(scripts).toHaveLength(1);
+      expect(scripts[0]).toEqual({ name: 'SimpleScript' });
+    });
+  });
 });

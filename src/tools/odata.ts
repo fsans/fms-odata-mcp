@@ -2,6 +2,7 @@ import { connectionManager } from "../connection.js";
 import { ODataParser } from "../odata-parser.js";
 import { logger } from "../logger.js";
 import { featureWarning, isFeatureSupported } from "../fm-version.js";
+import type { ScriptResult } from "../odata-client.js";
 
 /**
  * Shared property definition for the optional per-call connection targeting param.
@@ -58,6 +59,48 @@ export const odataTools = [
         },
         ...connectionParam,
       },
+      required: [],
+    },
+  },
+
+  // Script Tools
+  {
+    name: "fm_odata_run_script",
+    description:
+      "Run a FileMaker script server-side via OData. " +
+      "Provide either scriptName (by name) or scriptId (by internal FMSID), but not both. " +
+      "scriptId is preferred on FileMaker Server 2026 (v26+) because it remains stable if the script is renamed. " +
+      "Optionally pass a scriptParam value (string, number, or JSON object). " +
+      "Only scripts with web-compatible script steps can run; scripts that modify data must include Commit Records/Requests.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scriptName: {
+          type: "string",
+          description: "Name of the FileMaker script to run. Mutually exclusive with scriptId.",
+        },
+        scriptId: {
+          type: "number",
+          description: "Internal FileMaker script ID (FMSID). Available on v26+. Mutually exclusive with scriptName.",
+        },
+        scriptParam: {
+          type: ["string", "number", "object"],
+          description: "Optional parameter to pass to the script (string, number, or JSON object).",
+        },
+        ...connectionParam,
+      },
+      required: [],
+    },
+  },
+  {
+    name: "fm_odata_list_scripts",
+    description:
+      "List available FileMaker scripts from the OData metadata (FileMaker Server 2026 / v26+ only). " +
+      "Returns script names, internal FMSIDs, parameter types, and return types when present in metadata. " +
+      "On older servers this returns an empty list because scripts are not exposed in $metadata.",
+    inputSchema: {
+      type: "object",
+      properties: { ...connectionParam },
       required: [],
     },
   },
@@ -463,6 +506,13 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
       case "fm_odata_list_tables":
         return await handleListTables(client, args);
 
+      // Script Tools
+      case "fm_odata_run_script":
+        return await handleRunScript(client, args);
+
+      case "fm_odata_list_scripts":
+        return await handleListScripts(client, args);
+
       // Query Tools
       case "fm_odata_query_records":
         return await handleQueryRecords(client, args);
@@ -537,6 +587,101 @@ async function handleListTables(client: any, args: any) {
 
   return {
     content: [{ type: "text", text: `Available tables:\n${lines.join("\n")}` }],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Script Tool Handlers
+// ---------------------------------------------------------------------------
+
+async function handleRunScript(client: any, args: any) {
+  const { scriptName, scriptId, scriptParam } = args;
+
+  if (!scriptName && scriptId === undefined) {
+    return {
+      content: [{ type: "text", text: "Error: either scriptName or scriptId is required." }],
+      isError: true,
+    };
+  }
+
+  if (scriptName && scriptId !== undefined) {
+    return {
+      content: [{ type: "text", text: "Error: scriptName and scriptId are mutually exclusive. Provide one or the other." }],
+      isError: true,
+    };
+  }
+
+  const version = await client.getServerVersion();
+  const warning = featureWarning(version, "run_scripts");
+
+  let result: ScriptResult;
+
+  if (scriptId !== undefined) {
+    // Call by ID — preferred on v26+
+    const idWarning = featureWarning(version, "script_metadata");
+    result = await client.runScriptById(scriptId, scriptParam);
+
+    const messages: string[] = [];
+    if (warning) messages.push(warning);
+    if (idWarning) messages.push(idWarning);
+
+    const output = {
+      scriptId,
+      scriptParam: scriptParam ?? null,
+      code: result.code,
+      resultParameter: result.resultParameter,
+      success: result.code === 0,
+    };
+
+    return {
+      content: [{
+        type: "text",
+        text: messages.length > 0 ? `${messages.join("\n")}\n\n${JSON.stringify(output, null, 2)}` : JSON.stringify(output, null, 2),
+      }],
+      isError: result.code !== 0,
+    };
+  } else {
+    // Call by name
+    result = await client.runScript(scriptName, scriptParam);
+
+    const output = {
+      scriptName,
+      scriptParam: scriptParam ?? null,
+      code: result.code,
+      resultParameter: result.resultParameter,
+      success: result.code === 0,
+    };
+
+    return {
+      content: [{
+        type: "text",
+        text: warning ? `${warning}\n\n${JSON.stringify(output, null, 2)}` : JSON.stringify(output, null, 2),
+      }],
+      isError: result.code !== 0,
+    };
+  }
+}
+
+async function handleListScripts(client: any, _args: any) {
+  const metadata = await client.getMetadata();
+  const scripts = ODataParser.parseMetadataForScripts(metadata);
+
+  if (scripts.length === 0) {
+    return {
+      content: [{ type: "text", text: "No scripts found in metadata. Script listing requires FileMaker Server 2026 (v26+) or a server that exposes scripts in $metadata. On older servers you can still run scripts by name using fm_odata_run_script." }],
+    };
+  }
+
+  const lines = scripts.map((s: { name: string; scriptId?: number; parameterType?: string; returnType?: string }) => {
+    const parts: string[] = [s.name];
+    if (s.scriptId !== undefined) parts.push(`FMSID:${s.scriptId}`);
+    if (s.parameterType) parts.push(`param:${s.parameterType}`);
+    if (s.returnType) parts.push(`returns:${s.returnType}`);
+    return parts.join("  |  ");
+  });
+
+  return {
+    content: [{ type: "text", text: `Available scripts (${scripts.length}):\n${lines.join("\n")}` }],
   };
 }
 

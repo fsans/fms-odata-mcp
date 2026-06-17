@@ -122,15 +122,15 @@ Response: `{ "scriptResult": { "code": 0, "resultParameter": "..." } }`.
   is available.
 
 **Implementation Tasks**:
-- [ ] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
-- [ ] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
-- [ ] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive),
+- [x] Add `runScript(scriptName, scriptParam?)` to `ODataClient` — POST to `/Script.{scriptName}`
+- [x] Add `runScriptById(scriptId, scriptParam?)` to `ODataClient` — POST to `/Script.FMSID:{scriptId}` (v26+)
+- [x] New tool: `fm_odata_run_script` — `scriptName` or `scriptId` (mutually exclusive),
   optional `scriptParam`, optional `connection`
-- [ ] Parse `{ scriptResult: { code, resultParameter } }` from response
-- [ ] Handle script errors (non-zero `code`, timeout, privilege failures)
-- [ ] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
-- [ ] Document privilege requirements and web-compatible script step constraints
-- [ ] Unit tests with mocked script responses (success, error, param passing, call-by-ID)
+- [x] Parse `{ scriptResult: { code, resultParameter } }` from response
+- [x] Handle script errors (non-zero `code`, timeout, privilege failures)
+- [x] Parse `<Action>` elements from `$metadata` to list available scripts (v26+ only)
+- [x] Document privilege requirements and web-compatible script step constraints
+- [x] Unit tests with mocked script responses (success, error, param passing, call-by-ID)
 
 ---
 
