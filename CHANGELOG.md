@@ -7,6 +7,84 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.8.3] - 2026-06-22
+
+Bug-fix and consistency release. No new tools; tool count remains 35
+(29 standard + 6 optional schema editing).
+
+### Fixed
+
+- **Dockerfile healthcheck** — The healthcheck command used `require()` in an
+  ESM project (`"type": "module"`), causing `ReferenceError: require is not
+  defined` and making the container always report unhealthy. Now uses
+  `node --input-type=commonjs -e`.
+
+- **Logger file path** — File logs were written to `~/fms-odata-mcp/logs/`
+  instead of `~/.fms-odata-mcp/logs/` due to a `".."` traversal in the path
+  construction. Logs now correctly land alongside the config file.
+
+- **Multi-field `groupBy` in client-side aggregate fallback** —
+  `computeClientSideAggregate` typed `groupBy` as `string` but the tool schema
+  passes `string[]`. Multi-field groupings (e.g. `['Region', 'Status']`)
+  collapsed all records into a single bucket. Now builds a composite key from
+  all groupBy fields and emits one column per field in the result rows.
+
+- **`buildParameterizedFilter` `$` injection** — `String.replace` with a string
+  replacement interprets `$&`, `$1`, etc. specially. A param value containing
+  `$100` would corrupt the output. Now uses a function replacement so `$` is
+  treated literally.
+
+- **Aggregate filter not normalized** — The `filter` passed to
+  `fm_odata_aggregate` was embedded directly into the `$apply` expression
+  without going through `normalizeFilter`, so non-ASCII field names (and v26+
+  FMFID resolution) were not applied. `normalizeFilter` is now public and
+  called on the filter before building the `$apply` expression.
+
+- **`http-server.ts` broken transport wiring** — The standalone HTTP entry
+  point passed the `FileMakerODataServer` wrapper to `setupSimpleHttpTransport`,
+  which expects a real MCP `Server` (with a `connect` method). Rewrote to
+  construct a bare `Server` with the same request handlers.
+
+- **`countdistinct` counted null/undefined** — The client-side fallback for
+  `countdistinct` included `undefined` values for records missing the field,
+  inflating the distinct count by 1. Null/undefined values are now excluded.
+
+- **`runScript` URL not encoded** — Script names with spaces or special
+  characters (`#`, `?`, `%`) were sent unencoded in the URL path. Now wrapped
+  in `encodeURIComponent`.
+
+### Changed
+
+- **`fm_odata_list_connections`** — Now lists both active in-memory sessions
+  and saved connections in a single combined view, differentiating it from
+  `fm_odata_config_list_connections` (saved-only) and
+  `fm_odata_list_active_sessions` (active-only). Previously it was a duplicate
+  of `fm_odata_config_list_connections`.
+
+- **`fm_odata_connect_multi` duplicate alias detection** — Now rejects the
+  call up front when two entries resolve to the same alias, instead of
+  silently overwriting the first session in the cache.
+
+- **`getClient` cached-client warning** — When `verifySsl`/`timeout` are
+  passed but a cached client already exists for the connection name, a debug
+  log now surfaces that the caller-supplied options are being ignored, with
+  guidance to call `removeClient()` first.
+
+- **Error message format unified** — All tool error responses now use
+  `Error: ${message}`. Previously `index.ts` used `Error executing tool: ...`
+  while other handlers used `Error: ...`.
+
+- **`normalizeFilter` signature** — Removed unused `table` parameter and made
+  the method public (was private) so it can be called from the aggregate path.
+
+### Tests
+
+- Fixed `fm-version.test.ts` groupBy test to pass an array (`["Category"]`)
+  instead of a string, matching the tool's JSON schema.
+- Total: 251 tests across 8 suites (unchanged count; one test corrected).
+
+---
+
 ## [0.8.2] - 2026-06-17
 
 Enhanced FileMaker Server 2026 (v26) metadata parsing and automatic FMFID field

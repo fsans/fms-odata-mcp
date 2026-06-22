@@ -81,7 +81,7 @@ export class FileMakerODataServer {
           content: [
             {
               type: "text",
-              text: `Error executing tool: ${error.message}`,
+              text: `Error: ${error.message}`,
             },
           ],
           isError: true,

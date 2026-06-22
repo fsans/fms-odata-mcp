@@ -124,7 +124,12 @@ export const connectionTools = [
   },
   {
     name: "fm_odata_list_connections",
-    description: "List all configured connections (passwords masked)",
+    description:
+      "List all connections: active in-memory sessions (from fm_odata_connect / fm_odata_connect_multi) " +
+      "and saved connections (from fm_odata_config_add_connection). " +
+      "Passwords are masked. " +
+      "For saved-only connections use fm_odata_config_list_connections; " +
+      "for active-only sessions use fm_odata_list_active_sessions.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -308,6 +313,32 @@ async function handleConnectMulti(args: any) {
     verifySsl !== undefined ? verifySsl : config.filemaker.verifySsl;
   const timeout = config.filemaker.timeout;
 
+  // Detect duplicate aliases before connecting — two entries with the same
+  // alias would silently overwrite each other in the session cache.
+  const seenAliases = new Set<string>();
+  const duplicates: string[] = [];
+  for (const entry of databases as any[]) {
+    const alias = (entry.alias || entry.database).trim();
+    if (seenAliases.has(alias)) {
+      duplicates.push(alias);
+    } else {
+      seenAliases.add(alias);
+    }
+  }
+  if (duplicates.length > 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            `Error: duplicate session alias(es): ${duplicates.join(", ")}. ` +
+            `Each entry must have a unique alias (or unique database name when alias is omitted).`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
   // Connect all databases in parallel
   const results = await Promise.all(
     (databases as any[]).map(async (entry) => {
@@ -426,8 +457,9 @@ async function handleSetConnection(args: any) {
 async function handleListConnections() {
   const { listConnections } = await import("../config.js");
   const connections = listConnections();
+  const sessions = connectionManager.listActiveSessions();
 
-  if (connections.length === 0) {
+  if (connections.length === 0 && sessions.length === 0) {
     return {
       content: [
         {
@@ -438,12 +470,25 @@ async function handleListConnections() {
     };
   }
 
-  const list = connections
-    .map((conn) => `- ${conn.name}: ${conn.server}/${conn.database} (user: ${conn.user})`)
-    .join("\n");
+  const parts: string[] = [];
+
+  if (sessions.length > 0) {
+    parts.push(`Active sessions (${sessions.length}):`);
+    for (const s of sessions) {
+      const active = s.isCurrent ? " [active]" : "";
+      parts.push(`- ${s.name}${active}: ${s.server}/${s.database} (user: ${s.user})`);
+    }
+  }
+
+  if (connections.length > 0) {
+    parts.push(`Saved connections (${connections.length}):`);
+    for (const conn of connections) {
+      parts.push(`- ${conn.name}: ${conn.server}/${conn.database} (user: ${conn.user})`);
+    }
+  }
 
   return {
-    content: [{ type: "text", text: `Configured connections:\n${list}` }],
+    content: [{ type: "text", text: parts.join("\n") }],
   };
 }
 

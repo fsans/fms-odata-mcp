@@ -927,10 +927,15 @@ async function handleAggregate(client: any, args: any) {
   const warning = featureWarning(version, "aggregate");
 
   if (supported) {
+    // Normalize the filter so non-ASCII identifiers are quoted (or resolved
+    // to FMFID on v26+) before being embedded in the $apply expression.
+    // buildUrl only odataEncode-s the whole string; it does not run
+    // normalizeFilter on the filter portion inside $apply.
+    const normalizedFilter = filter ? client.normalizeFilter(filter) : undefined;
     const applyExpression = ODataParser.buildApplyExpression(
       { method, alias, field },
       groupBy,
-      filter
+      normalizedFilter
     );
     logger.debug(`Aggregating ${table} with $apply=${applyExpression}`);
     const response = await client.aggregateRecords(table, applyExpression);
@@ -979,23 +984,30 @@ function computeClientSideAggregate(
   method: string,
   field: string | undefined,
   alias: string | undefined,
-  groupBy: string | undefined
+  groupBy: string[] | undefined
 ): Record<string, any>[] {
   const outputAlias = alias ?? (field ? `${method}_${field}` : method);
 
-  if (groupBy) {
+  if (groupBy && groupBy.length > 0) {
     const groups = new Map<string, Record<string, any>[]>();
     for (const rec of records) {
-      const key = String(rec[groupBy] ?? "");
+      // Build a composite key from all groupBy fields so multi-field
+      // groupings don't collapse into a single bucket.
+      const key = groupBy.map((g) => String(rec[g] ?? "")).join("\u0000");
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(rec);
     }
     const rows: Record<string, any>[] = [];
-    for (const [groupValue, groupRecords] of groups) {
-      rows.push({
-        [groupBy]: groupValue,
-        [outputAlias]: aggregateValue(groupRecords, method, field),
-      });
+    for (const [, groupRecords] of groups) {
+      const row: Record<string, any> = {};
+      // Re-emit each groupBy field with its value from the first record of
+      // the group (all records in the group share the same values).
+      const sample = groupRecords[0];
+      for (const g of groupBy) {
+        row[g] = sample[g];
+      }
+      row[outputAlias] = aggregateValue(groupRecords, method, field);
+      rows.push(row);
     }
     return rows;
   }
@@ -1013,8 +1025,16 @@ function aggregateValue(
   if (m === "count") return records.length;
   if (!field) return null;
 
-  // countdistinct works on any value type — handle before numeric filter
-  if (m === "countdistinct") return new Set(records.map((r) => r[field])).size;
+  // countdistinct works on any value type — handle before numeric filter.
+  // Exclude null/undefined so records missing the field don't inflate the count.
+  if (m === "countdistinct") {
+    const seen = new Set();
+    for (const r of records) {
+      const v = r[field];
+      if (v !== null && v !== undefined) seen.add(v);
+    }
+    return seen.size;
+  }
 
   const nums = records
     .map((r) => {

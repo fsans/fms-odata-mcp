@@ -454,10 +454,12 @@ export class ODataParser {
     for (const key of sortedKeys) {
       const value = ODataParser.formatParamValue(params[key]);
       // Replace all occurrences; use word-boundary-style check (alias ends at
-      // non-identifier chars or end of string) to avoid partial substitution
+      // non-identifier chars or end of string) to avoid partial substitution.
+      // Use a function replacement so `$&`, `$1`, etc. in `value` are treated
+      // literally instead of being interpreted by String.replace.
       resolved = resolved.replace(
         new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![A-Za-z0-9_])", "g"),
-        value
+        () => value
       );
     }
     return resolved;
