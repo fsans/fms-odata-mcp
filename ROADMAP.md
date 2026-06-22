@@ -141,7 +141,7 @@
 
 ## 🔧 In Progress / Planned
 
-### 1. Upload Container Data (v0.8.3)
+### 1. Upload Container Data (v0.8.4)
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -173,7 +173,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 2. Enhanced Error Handling (v0.8.4)
+### 2. Enhanced Error Handling (v0.8.5)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -188,7 +188,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 3. OData Batch Requests (v0.8.5)
+### 3. OData Batch Requests (v0.8.6)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -278,9 +278,10 @@ sequentially instead of using true OData batch format.
 | v0.8.0 | Released | Documentation overhaul, project reorganization |
 | v0.8.1 | Released | Script execution (`fm_odata_run_script`, call-by-ID on v26+) |
 | v0.8.2 | Released | Enhanced v26 metadata (field IDs, options, permissions, FMFID) |
-| v0.8.3 | Planned | Container upload (`fm_odata_upload_container`) |
-| v0.8.4 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
-| v0.8.5 | Planned | OData batch requests (`multipart/mixed`) |
+| v0.8.3 | Released | Bug fixes and consistency improvements (13 fixes) |
+| v0.8.4 | Planned | Container upload (`fm_odata_upload_container`) |
+| v0.8.5 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
+| v0.8.6 | Planned | OData batch requests (`multipart/mixed`) |
 | v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive) |
 | v1.0.0 | Future | To be disclosed |
 
@@ -308,4 +309,4 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: June 2026 (v0.8.2 released, v0.8.3+ planned)
+**Last Updated**: June 2026 (v0.8.3 released, v0.8.4+ planned)
