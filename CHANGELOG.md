@@ -313,7 +313,7 @@ Tool count increases from 25 to 26.
 
 - **`fm_odata_aggregate`** — now version-gated: executes server-side `$apply` on
   FM 22.0.1+; falls back to client-side computation (sum/avg/min/max/count/countdistinct
-  + groupBy) capped at 10 000 records on older or unknown servers. A `[Compatibility]`
+  and groupBy) capped at 10 000 records on older or unknown servers. A `[Compatibility]`
   advisory notice is prepended to the result when the fallback is used.
 
 - **`fm_odata_cast`** and **`fm_odata_build_filter`** — prepend an advisory notice
