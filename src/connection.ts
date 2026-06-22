@@ -54,6 +54,18 @@ export class ConnectionManager {
   getClient(connectionName: string, verifySsl?: boolean, timeout?: number): ODataClient {
     // Return cached client if available
     if (this.clients.has(connectionName)) {
+      // Surface when caller-supplied verifySsl/timeout are being ignored
+      // because a client is already cached for this connection name. This
+      // keeps the silent override visible in debug logs without changing the
+      // long-standing caching semantics (reconnecting would invalidate every
+      // active session alias that shares the underlying client).
+      if (verifySsl !== undefined || timeout !== undefined) {
+        logger.debug(
+          `getClient("${connectionName}"): returning cached client; ` +
+          `caller-supplied verifySsl/timeout ignored. ` +
+          `Use removeClient() first to force a fresh client with new options.`
+        );
+      }
       return this.clients.get(connectionName)!;
     }
 

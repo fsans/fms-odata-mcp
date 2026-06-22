@@ -17,7 +17,7 @@ export class Logger {
 
   constructor() {
     this.fileLoggingEnabled = process.env.MCP_LOG_FILE === "true";
-    this.logFile = path.join(getConfigDir(), "..", "fms-odata-mcp", "logs", "server.log");
+    this.logFile = path.join(getConfigDir(), "logs", "server.log");
 
     if (this.fileLoggingEnabled) {
       this.ensureLogDirectory();

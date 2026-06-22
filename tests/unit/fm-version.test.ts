@@ -462,7 +462,7 @@ describe("fm_odata_aggregate client-side fallback", () => {
       method: "sum",
       field: "Amount",
       alias: "TotalAmount",
-      groupBy: "Category",
+      groupBy: ["Category"],
     });
     const text = result.content?.[0]?.text ?? "";
     const jsonStart = text.indexOf("{");

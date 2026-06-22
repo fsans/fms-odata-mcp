@@ -22,6 +22,12 @@
 - **v0.8.2** — Enhanced v26 metadata parsing: child annotations inside `<Property>`, automatic
   FMFID resolution for non-ASCII field names in `$filter`, `fm_odata_describe_table`.
   35 tools total (29 standard + 6 optional schema editing).
+- **v0.8.3** — Bug-fix and consistency release: Dockerfile healthcheck (ESM `require`),
+  logger path, multi-field `groupBy` client-side fallback, `$` injection in
+  `buildParameterizedFilter`, aggregate filter normalization, `http-server.ts`
+  transport wiring, `countdistinct` null handling, `runScript` URL encoding,
+  duplicate alias detection in `connect_multi`, unified error format.
+  35 tools total (unchanged).
 
 ---
 
