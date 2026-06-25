@@ -33,7 +33,7 @@ Open the file in a text editor and add this configuration:
       "command": "npx",
       "args": [
         "-y",
-        "filemaker-odata-mcp"
+        "fms-odata-mcp"
       ],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
@@ -56,7 +56,7 @@ Open the file in a text editor and add this configuration:
       "command": "npx",
       "args": [
         "-y",
-        "filemaker-odata-mcp"
+        "fms-odata-mcp"
       ],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
@@ -72,7 +72,7 @@ Open the file in a text editor and add this configuration:
 ```
 
 **Important Notes:**
-- `npx -y filemaker-odata-mcp` automatically uses the latest published version (no local install needed)
+- `npx -y fms-odata-mcp` automatically uses the latest published version (no local install needed)
 - Use HTTPS (not HTTP) for FileMaker Server URLs
 - Set `FM_VERIFY_SSL` to `"false"` only for development/testing with self-signed certificates
 - Set `FM_VERIFY_SSL` to `"true"` (or omit it) for production with valid SSL certificates
@@ -102,7 +102,7 @@ Ensure Node.js 18+ is installed:
 node --version
 ```
 
-If using `npx`, no separate build or install step is needed — it fetches `filemaker-odata-mcp` automatically.
+If using `npx`, no separate build or install step is needed — it fetches `fms-odata-mcp` automatically.
 
 ### Step 4: Restart Claude Desktop
 
@@ -139,7 +139,7 @@ List all available FileMaker tables
 
 **Test npx works:**
 ```bash
-npx filemaker-odata-mcp --help
+npx fms-odata-mcp --help
 ```
 
 ### Issue 2: "Connection failed"
@@ -164,7 +164,7 @@ curl -k -u your-username:your-password \
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
 
 # Verify npx can find the package
-npx filemaker-odata-mcp --help
+npx fms-odata-mcp --help
 ```
 
 ### Issue 4: "Permission denied" errors
@@ -193,7 +193,7 @@ cp .env.example .env
       "command": "npx",
       "args": [
         "-y",
-        "filemaker-odata-mcp"
+        "fms-odata-mcp"
       ]
     }
   }
@@ -212,14 +212,14 @@ FM_PASSWORD=your-password
 
 ### Test 1: Check if server starts
 ```bash
-npx filemaker-odata-mcp
+npx fms-odata-mcp
 ```
 Should show:
 ```
-Starting filemaker-odata-mcp Server...
+Starting fms-odata-mcp Server...
 Transport: stdio
 Registered 35 tools (29 standard + 6 schema editing when enabled)
-filemaker-odata-mcp Server running on stdio
+fms-odata-mcp Server running on stdio
 ```
 
 Press Ctrl+C to stop.
@@ -243,7 +243,7 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
       "command": "npx",
       "args": [
         "-y",
-        "filemaker-odata-mcp"
+        "fms-odata-mcp"
       ],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
@@ -266,7 +266,7 @@ Here's a complete example of what your `claude_desktop_config.json` should look 
       "command": "npx",
       "args": [
         "-y",
-        "filemaker-odata-mcp"
+        "fms-odata-mcp"
       ],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
@@ -307,7 +307,7 @@ If you still have issues:
 
 1. **Check Claude Desktop logs** (usually in Console.app on Mac)
 2. **Enable debug mode** by adding `"DEBUG": "fms-odata-mcp:*"` to env in config
-3. **Test npx works**: `npx filemaker-odata-mcp --help`
+3. **Test npx works**: `npx fms-odata-mcp --help`
 4. **Verify FileMaker Server access**: `curl -k -u your-username:your-password https://your-filemaker-server.com/fmi/odata/v4/YourDatabase`
 
 ## Need More Help?
@@ -315,7 +315,7 @@ If you still have issues:
 Run this diagnostic:
 ```bash
 echo "=== Testing npx ==="
-npx filemaker-odata-mcp --help
+npx fms-odata-mcp --help
 echo ""
 echo "=== Checking Claude Config ==="
 cat ~/Library/Application\ Support/Claude/claude_desktop_config.json

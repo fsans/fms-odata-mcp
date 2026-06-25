@@ -9,16 +9,16 @@
 ### Option A: NPM (Recommended - no build needed)
 
 ```bash
-npm install -g filemaker-odata-mcp
+npm install -g fms-odata-mcp
 # or use directly without installing:
-npx filemaker-odata-mcp
+npx fms-odata-mcp
 ```
 
 ### Option B: Build from Source
 
 ```bash
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm install
 npm run build
 ```
@@ -40,7 +40,7 @@ npm run build
   "mcpServers": {
     "filemaker-odata": {
       "command": "npx",
-      "args": ["-y", "filemaker-odata-mcp"],
+      "args": ["-y", "fms-odata-mcp"],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
         "FM_DATABASE": "YourDatabase",
@@ -72,7 +72,7 @@ npm run build
   "mcpServers": {
     "filemaker-odata": {
       "command": "npx",
-      "args": ["-y", "filemaker-odata-mcp"],
+      "args": ["-y", "fms-odata-mcp"],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
         "FM_DATABASE": "YourDatabase",
@@ -265,7 +265,7 @@ a specific session per call without changing the active connection.
 ## NEED HELP?
 
 1. **Check logs:** Enable `DEBUG: "fms-odata-mcp:*"` in your MCP env config
-2. **Verify npx works:** `npx filemaker-odata-mcp --help`
+2. **Verify npx works:** `npx fms-odata-mcp --help`
 3. **Test FileMaker directly:** `curl -k -u user:pass https://server/fmi/odata/v4/database`
 4. **Docker option:** See `../DOCKER.md` for containerized deployment
 

@@ -2,7 +2,7 @@
 
 /**
  * Standalone HTTP server for FileMaker OData MCP
- * Run with: MCP_TRANSPORT=http MCP_PORT=3000 filemaker-odata-mcp
+ * Run with: MCP_TRANSPORT=http MCP_PORT=3000 fms-odata-mcp
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";

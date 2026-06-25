@@ -1,6 +1,6 @@
 # NPM Publishing Guide
 
-This guide walks through the process of publishing the `filemaker-odata-mcp` package to NPM.
+This guide walks through the process of publishing the `fms-odata-mcp` package to NPM.
 
 ## Prerequisites
 
@@ -63,14 +63,14 @@ Ensure these fields are correct:
 
 ```json
 {
-  "name": "filemaker-odata-mcp",
+  "name": "fms-odata-mcp",
   "version": "0.7.0",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration",
   "author": "Francesc Sans <fsans@ntwk.es>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fsans/FMS-ODATA-MCP.git"
+    "url": "git+https://github.com/fsans/fms-odata-mcp.git"
   },
   "keywords": [
     "mcp",
@@ -102,11 +102,11 @@ Ensure these fields are correct:
 npm pack
 
 # Extract and inspect
-tar -xzf filemaker-odata-mcp-*.tgz
+tar -xzf fms-odata-mcp-*.tgz
 ls -la package/
 
 # Clean up
-rm -rf package/ filemaker-odata-mcp-*.tgz
+rm -rf package/ fms-odata-mcp-*.tgz
 ```
 
 **Verify the package includes:**
@@ -157,7 +157,7 @@ npm version 0.3.0-beta.1
 npm publish --tag beta
 
 # Users install with:
-# npm install filemaker-odata-mcp@beta
+# npm install fms-odata-mcp@beta
 ```
 
 ### Option 3: Publish with Dry Run
@@ -174,16 +174,16 @@ npm publish --dry-run
 
 ```bash
 # Check on NPM
-npm view filemaker-odata-mcp
+npm view fms-odata-mcp
 
 # Install in a test project
 mkdir test-install
 cd test-install
 npm init -y
-npm install filemaker-odata-mcp
+npm install fms-odata-mcp
 
 # Test via npx
-npx filemaker-odata-mcp --help
+npx fms-odata-mcp --help
 ```
 
 ### 2. Update Documentation
@@ -196,7 +196,7 @@ npx filemaker-odata-mcp --help
 
 Once the GitHub repository is created:
 
-1. Go to https://github.com/fsans/FMS-ODATA-MCP/releases
+1. Go to https://github.com/fsans/fms-odata-mcp/releases
 2. Click "Create a new release"
 3. Select the tag (e.g., `v1.0.0`)
 4. Add release notes:
@@ -213,9 +213,9 @@ Once the GitHub repository is created:
 
 ## Installation
 \`\`\`bash
-npm install -g filemaker-odata-mcp
+npm install -g fms-odata-mcp
 # or via npx (no install needed)
-npx filemaker-odata-mcp
+npx fms-odata-mcp
 \`\`\`
 
 ## Documentation
@@ -228,14 +228,14 @@ npx filemaker-odata-mcp
 
 ### Package is already published
 
-The package `filemaker-odata-mcp` is already live on NPM. Check current state:
+The package `fms-odata-mcp` is already live on NPM. Check current state:
 
 ```bash
-npm view filemaker-odata-mcp
+npm view fms-odata-mcp
 ```
 
 For scoped alternatives if needed:
-- `@your-username/filemaker-odata-mcp`
+- `@your-username/fms-odata-mcp`
 
 ### "Need to authenticate"
 

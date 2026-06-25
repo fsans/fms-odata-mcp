@@ -7,7 +7,7 @@ echo "🐳 Testing Docker deployment..."
 
 # Build the image
 echo "Building Docker image..."
-docker build -t filemaker-odata-mcp:test .
+docker build -t fms-odata-mcp:test .
 
 # Run the container
 echo "Starting container..."
@@ -15,7 +15,7 @@ docker run -d --name test-container \
   -e MCP_TRANSPORT=http \
   -e MCP_PORT=3333 \
   -p 3333:3333 \
-  filemaker-odata-mcp:test
+  fms-odata-mcp:test
 
 # Wait for startup
 echo "Waiting for server to start..."
@@ -40,6 +40,6 @@ curl -f -X POST http://localhost:3333/mcp \
 echo "Cleaning up..."
 docker stop test-container
 docker rm test-container
-docker rmi filemaker-odata-mcp:test
+docker rmi fms-odata-mcp:test
 
 echo "✅ All tests passed!"

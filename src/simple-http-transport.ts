@@ -108,7 +108,7 @@ export async function setupSimpleHttpTransport(
   warnIfDockerLocalhost(host);
 
   http.createServer(app).listen(port, host, () => {
-    console.error(`FMS-ODATA-MCP Server running on http://${host}:${port}`);
+    console.error(`fms-odata-mcp Server running on http://${host}:${port}`);
     console.error(`MCP endpoint: http://${host}:${port}/mcp`);
     console.error(`Health check: http://${host}:${port}/health`);
     console.error(`Transport: HTTP (JSON-RPC 2.0)`);
@@ -186,7 +186,7 @@ export async function setupSimpleHttpsTransport(
   warnIfDockerLocalhost(host);
   
   https.createServer({ cert, key }, app).listen(port, host, () => {
-    console.error(`FMS-ODATA-MCP Server running on https://${host}:${port}`);
+    console.error(`fms-odata-mcp Server running on https://${host}:${port}`);
     console.error(`MCP endpoint: https://${host}:${port}/mcp`);
     console.error(`Health check: https://${host}:${port}/health`);
     console.error(`Transport: HTTPS (JSON-RPC 2.0)`);

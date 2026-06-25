@@ -1,4 +1,4 @@
-# Deployment Scenarios - FMS-ODATA-MCP
+# Deployment Scenarios - fms-odata-mcp
 
 ## Understanding the Two Connection Types
 
@@ -34,7 +34,7 @@ This is how the MCP server communicates with FileMaker Server.
   "mcpServers": {
     "filemaker-odata": {
       "command": "node",
-      "args": ["/path/to/FMS-ODATA-MCP/dist/index.js"],
+      "args": ["/path/to/fms-odata-mcp/dist/index.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "FM_SERVER": "https://your-filemaker-server.com",
@@ -140,15 +140,15 @@ node dist/index.js
 
 **Setup:**
 ```
-[Claude Desktop] --stdio--> [filemaker-odata-mcp] --HTTPS--> [FileMaker Server]
+[Claude Desktop] --stdio--> [fms-odata-mcp] --HTTPS--> [FileMaker Server]
                              (npm global / npx)           (any server)
 ```
 
 **Installation:**
 ```bash
-npm install -g filemaker-odata-mcp
+npm install -g fms-odata-mcp
 # or use npx without installing:
-npx filemaker-odata-mcp
+npx fms-odata-mcp
 ```
 
 **Configuration:**
@@ -157,7 +157,7 @@ npx filemaker-odata-mcp
   "mcpServers": {
     "filemaker-odata": {
       "command": "npx",
-      "args": ["-y", "filemaker-odata-mcp"],
+      "args": ["-y", "fms-odata-mcp"],
       "env": {
         "FM_SERVER": "https://filemaker.company.com",
         "FM_DATABASE": "Contacts",
@@ -279,9 +279,9 @@ FM_VERIFY_SSL=true   # Require valid certificates
 ### Scenario 4 Issues (NPM Global)
 
 **Problem:** "Command not found"
-- ✓ Use `npx -y filemaker-odata-mcp` instead of a global install
-- ✓ Or reinstall: `npm install -g filemaker-odata-mcp`
-- ✓ Verify PATH includes npm global bin: `npm list -g filemaker-odata-mcp`
+- ✓ Use `npx -y fms-odata-mcp` instead of a global install
+- ✓ Or reinstall: `npm install -g fms-odata-mcp`
+- ✓ Verify PATH includes npm global bin: `npm list -g fms-odata-mcp`
 
 ---
 
