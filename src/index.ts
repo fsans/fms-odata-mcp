@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FMS-ODATA-MCP Server
+ * fms-odata-mcp Server
  * MCP server for FileMaker Server OData 4.01 API
  */
 
@@ -118,7 +118,7 @@ export class FileMakerODataServer {
         throw new Error(`Invalid configuration: ${validation.errors.join("; ")}`);
       }
 
-      logger.info(`Starting FMS-ODATA-MCP Server v${PACKAGE_VERSION}...`);
+      logger.info(`Starting fms-odata-mcp Server v${PACKAGE_VERSION}...`);
       logger.info(`Transport: ${transportConfig.type}`);
 
       await setupTransport(this.server, transportConfig);

@@ -37,7 +37,7 @@
 
 - **HTTP/HTTPS Transport** — Standalone server mode (`MCP_TRANSPORT=http|https`)
 - **Docker Deployment** — Full Docker and Docker Compose support with health checks
-- **CLI Binary** — `filemaker-odata-mcp` command, installable via `npm install -g` or `npx`
+- **CLI Binary** — `fms-odata-mcp` command, installable via `npm install -g` or `npx`
 - **19 MCP Tools** — Discovery, Queries, CRUD, Connection, and Configuration
 - **Saved Connections** — Persisted connection config in `~/.fms-odata-mcp/config.json`
 - **Debug Logging** — `DEBUG=fms-odata-mcp:*` support with password redaction
@@ -303,8 +303,8 @@ Want to help implement these features? See [CONTRIBUTING.md](../CONTRIBUTING.md)
 ## 📞 Feedback
 
 Have suggestions for the roadmap?
-- Open a [GitHub Issue](https://github.com/fsans/FMS-ODATA-MCP/issues)
-- Start a [Discussion](https://github.com/fsans/FMS-ODATA-MCP/discussions)
+- Open a [GitHub Issue](https://github.com/fsans/fms-odata-mcp/issues)
+- Start a [Discussion](https://github.com/fsans/fms-odata-mcp/discussions)
 - Submit a Pull Request
 
 ---

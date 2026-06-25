@@ -1,6 +1,6 @@
 # FileMaker Server OData MCP
 
-[![npm version](https://img.shields.io/npm/v/filemaker-odata-mcp.svg)](https://www.npmjs.com/package/filemaker-odata-mcp)
+[![npm version](https://img.shields.io/npm/v/fms-odata-mcp.svg)](https://www.npmjs.com/package/fms-odata-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration
@@ -41,14 +41,19 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ```bash
 # Via NPM (recommended)
-npm install -g filemaker-odata-mcp
+npm install -g fms-odata-mcp
 
 # Or local development
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm install
 npm run build
 ```
+
+> **Note:** This package was previously published as `filemaker-odata-mcp`. It has been
+> renamed to `fms-odata-mcp` to align with the related `fms-*` repositories
+> (`fms-odata-js`, `fms-odata-spec`). The old name is deprecated on npm; update your
+> installs to `fms-odata-mcp`.
 
 ## Deployment Modes
 
@@ -69,7 +74,7 @@ For use with AI assistants that support MCP (Claude Desktop, Windsurf, Cursor, C
   "mcpServers": {
     "filemaker-odata": {
       "command": "npx",
-      "args": ["-y", "filemaker-odata-mcp"],
+      "args": ["-y", "fms-odata-mcp"],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
         "FM_DATABASE": "YourDatabase",
@@ -108,7 +113,7 @@ export MCP_PORT=3333
 export MCP_HOST=0.0.0.0  # Listen on all interfaces
 
 # Run the server
-filemaker-odata-mcp
+fms-odata-mcp
 ```
 
 The server will start on `http://localhost:3333` with the following endpoints:
@@ -202,8 +207,8 @@ const response = await fetch('http://localhost:3333/mcp', {
 The included `start.sh` script handles building, credential injection from `.env`, and container lifecycle:
 
 ```bash
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 cp .env.example .env
 # Edit .env with your FileMaker credentials and set MCP_TRANSPORT=http, MCP_HOST=0.0.0.0
 ./start.sh
@@ -216,14 +221,14 @@ and start a fresh one. Logs are tailed automatically.
 
 ```bash
 # Clone and build
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm run build
-docker build -t filemaker-odata-mcp:latest .
+docker build -t fms-odata-mcp:latest .
 
 # Run the container
 docker run -d \
-  --name filemaker-odata-mcp \
+  --name fms-odata-mcp \
   -p 3333:3333 \
   -e FM_SERVER=https://your-filemaker-server.com \
   -e FM_DATABASE=YourDatabase \
@@ -233,7 +238,7 @@ docker run -d \
   -e MCP_TRANSPORT=http \
   -e MCP_HOST=0.0.0.0 \
   -v ~/.fms-odata-mcp:/home/mcp/.fms-odata-mcp \
-  filemaker-odata-mcp:latest
+  fms-odata-mcp:latest
 ```
 
 > **Important:** Set `MCP_HOST=0.0.0.0` when running in a container. Using `localhost` binds only to the container's loopback interface and makes the port unreachable from outside.
@@ -243,8 +248,8 @@ docker run -d \
 1. **Clone and build:**
 
 ```bash
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm run build
 ```
 
@@ -525,8 +530,8 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/fsans/FMS-ODATA-MCP/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/fsans/FMS-ODATA-MCP/discussions)
+- **Issues**: [GitHub Issues](https://github.com/fsans/fms-odata-mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/fsans/fms-odata-mcp/discussions)
 
 ## Changelog
 

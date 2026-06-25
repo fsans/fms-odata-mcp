@@ -40,7 +40,7 @@ bash -c '{
   echo '\''{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'\''; sleep 1
   echo '\''{"jsonrpc":"2.0","method":"tools/call","id":2,"params":{"name":"fm_odata_connect","arguments":{"server":"https://FM_SERVER","database":"DB","user":"USER","password":"PASS","verifySsl":false}}}'\''; sleep 2
   echo '\''{"jsonrpc":"2.0","method":"tools/call","id":3,"params":{"name":"fm_odata_list_tables","arguments":{}}}'\''; sleep 5
-} | docker run --rm -i --env-file .env filemaker-odata-mcp:latest'
+} | docker run --rm -i --env-file .env fms-odata-mcp:latest'
 ```
 
 ## Architecture

@@ -18,7 +18,7 @@ cp .env.example .env
 ```bash
 # Run with environment variables
 docker run -d \
-  --name filemaker-odata-mcp \
+  --name fms-odata-mcp \
   -p 3333:3333 \
   -e FM_SERVER=https://your-filemaker-server.com \
   -e FM_DATABASE=YourDatabase \
@@ -26,7 +26,7 @@ docker run -d \
   -e FM_PASSWORD=your-password \
   -e MCP_TRANSPORT=http \
   -e MCP_HOST=0.0.0.0 \
-  ghcr.io/fsans/filemaker-odata-mcp:latest
+  ghcr.io/fsans/fms-odata-mcp:latest
 ```
 
 > **Important:** Always set `MCP_HOST=0.0.0.0` in Docker. The default `localhost` binds only to the
@@ -56,11 +56,11 @@ To save connection configurations:
 
 ```bash
 docker run -d \
-  --name filemaker-odata-mcp \
+  --name fms-odata-mcp \
   -p 3333:3333 \
   -v ~/.fms-odata-mcp:/home/mcp/.fms-odata-mcp \
   -e FM_SERVER=... \
-  ghcr.io/fsans/filemaker-odata-mcp:latest
+  ghcr.io/fsans/fms-odata-mcp:latest
 ```
 
 ## Docker Compose
@@ -73,8 +73,8 @@ Create `docker-compose.yml`:
 version: '3.8'
 
 services:
-  filemaker-odata-mcp:
-    image: ghcr.io/fsans/filemaker-odata-mcp:latest
+  fms-odata-mcp:
+    image: ghcr.io/fsans/fms-odata-mcp:latest
     restart: unless-stopped
     ports:
       - "3333:3333"
@@ -102,8 +102,8 @@ For production deployments with HTTPS:
 version: '3.8'
 
 services:
-  filemaker-odata-mcp:
-    image: ghcr.io/fsans/filemaker-odata-mcp:latest
+  fms-odata-mcp:
+    image: ghcr.io/fsans/fms-odata-mcp:latest
     restart: unless-stopped
     environment:
       - FM_SERVER=...
@@ -119,7 +119,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - filemaker-odata-mcp
+      - fms-odata-mcp
 ```
 
 ## Building from Source
@@ -128,22 +128,22 @@ To build the Docker image locally:
 
 ```bash
 # Clone the repository
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 
 # Build the application
 npm install
 npm run build
 
 # Build the Docker image
-docker build -t filemaker-odata-mcp:local .
+docker build -t fms-odata-mcp:local .
 
 # Run the local image
 docker run -d \
-  --name filemaker-odata-mcp \
+  --name fms-odata-mcp \
   -p 3333:3333 \
   -e FM_SERVER=... \
-  filemaker-odata-mcp:local
+  fms-odata-mcp:local
 ```
 
 ## Health Checks
@@ -155,7 +155,7 @@ The Docker image includes built-in health checks:
 docker ps
 
 # View health logs
-docker inspect --format='{{.State.Health}}' filemaker-odata-mcp
+docker inspect --format='{{.State.Health}}' fms-odata-mcp
 
 # Manual health check
 curl http://localhost:3333/health
@@ -166,14 +166,14 @@ curl http://localhost:3333/health
 1. **Use environment files** for sensitive data:
 
 ```bash
-docker run --env-file .env filemaker-odata-mcp:latest
+docker run --env-file .env fms-odata-mcp:latest
 ```
 
 2. **Network isolation**:
 
 ```bash
 docker network create mcp-network
-docker run --network mcp-network filemaker-odata-mcp:latest
+docker run --network mcp-network fms-odata-mcp:latest
 ```
 
 3. **Resource limits**:
@@ -192,10 +192,10 @@ deploy:
 
 ```bash
 # Container logs
-docker logs filemaker-odata-mcp
+docker logs fms-odata-mcp
 
 # Follow logs
-docker logs -f filemaker-odata-mcp
+docker logs -f fms-odata-mcp
 
 # Docker Compose logs
 docker-compose logs -f
@@ -210,7 +210,7 @@ docker-compose logs -f
 lsof -i :3333
 
 # Use a different port — update MCP_PORT in .env and the -p mapping
-docker run -p 3334:3333 -e MCP_PORT=3333 filemaker-odata-mcp:latest
+docker run -p 3334:3333 -e MCP_PORT=3333 fms-odata-mcp:latest
 ```
 
 2. **Connection refused / health check failing**:
@@ -254,8 +254,8 @@ Example production compose file:
 version: '3.8'
 
 services:
-  filemaker-odata-mcp:
-    image: ghcr.io/fsans/filemaker-odata-mcp:latest
+  fms-odata-mcp:
+    image: ghcr.io/fsans/fms-odata-mcp:latest
     restart: always
     deploy:
       replicas: 2

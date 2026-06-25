@@ -9,7 +9,7 @@ const debugError = debug("fms-odata-mcp:error");
 const debugDebug = debug("fms-odata-mcp:debug");
 
 /**
- * Logger utility for FMS-ODATA-MCP
+ * Logger utility for fms-odata-mcp
  */
 export class Logger {
   private logFile: string;
