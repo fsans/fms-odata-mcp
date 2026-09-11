@@ -8,7 +8,7 @@ Quick reference guide for querying FileMaker Server data in Claude Desktop.
 
 ### Connect with Inline Credentials (Temporary)
 ```
-Connect to my FileMaker server at http://192.168.0.24, 
+Connect to my FileMaker server at http://fms.example.com, 
 database "Contacts", username "your-username", password "your-password"
 ```
 
@@ -234,7 +234,7 @@ What version of FileMaker Server am I connected to, and which features are suppo
 
 ### Save Connection Permanently
 ```
-Add a new connection named "production" for server http://192.168.0.24, 
+Add a new connection named "production" for server http://fms.example.com, 
 database "CRM", username "admin", password "secret"
 ```
 
@@ -338,7 +338,7 @@ Before using with Claude Desktop, you can test your FileMaker OData connection w
 
 **1. Service Document (List all tables)**
 ```
-GET http://192.168.0.24/fmi/odata/v4/Contacts
+GET http://fms.example.com/fmi/odata/v4/Contacts
 ```
 
 **2. Metadata (Database schema)**
@@ -348,7 +348,7 @@ GET http://your-server/fmi/odata/v4/Contacts/$metadata
 
 **3. Query a Table**
 ```
-GET http://192.168.0.24/fmi/odata/v4/Contacts/YourTableName
+GET http://fms.example.com/fmi/odata/v4/Contacts/YourTableName
 ```
 
 **4. Count Records**
