@@ -470,54 +470,6 @@ export class ODataClient {
   }
 
   /**
-   * Execute batch operations
-   */
-  async batch(operations: BatchOperation[]): Promise<BatchResponse[]> {
-    // OData batch implementation
-    // This is a simplified version - full batch requires multipart/mixed format
-    logger.debug(`Executing batch with ${operations.length} operations`);
-    
-    const results: BatchResponse[] = [];
-    
-    for (const op of operations) {
-      try {
-        let result: any;
-        
-        switch (op.method) {
-          case "GET":
-            result = await this.axiosInstance.get(op.url);
-            break;
-          case "POST":
-            result = await this.axiosInstance.post(op.url, op.data);
-            break;
-          case "PATCH":
-            result = await this.axiosInstance.patch(op.url, op.data);
-            break;
-          case "DELETE":
-            result = await this.axiosInstance.delete(op.url);
-            break;
-          default:
-            throw new Error(`Unsupported method: ${op.method}`);
-        }
-        
-        results.push({
-          success: true,
-          status: result.status,
-          data: result.data,
-        });
-      } catch (error: any) {
-        results.push({
-          success: false,
-          status: error.response?.status || 500,
-          error: error.message,
-        });
-      }
-    }
-    
-    return results;
-  }
-
-  /**
    * Create a new table via the FileMaker_Tables system endpoint.
    * Proprietary FileMaker OData schema extension (DDL).
    */
@@ -709,17 +661,4 @@ export class ODataClient {
       return { ok: false, error: message };
     }
   }
-}
-
-export interface BatchOperation {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
-  url: string;
-  data?: any;
-}
-
-export interface BatchResponse {
-  success: boolean;
-  status: number;
-  data?: any;
-  error?: string;
 }
