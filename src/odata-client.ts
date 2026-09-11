@@ -366,6 +366,17 @@ export class ODataClient {
   }
 
   /**
+   * Invalidate the cached $metadata, parsed server version, and FMFID map.
+   * Must be called after any schema mutation (create/delete table/field/index)
+   * so subsequent getMetadata()/getServerVersion() calls re-fetch fresh XML.
+   */
+  invalidateMetadataCache(): void {
+    this._cachedMetadata = undefined;
+    this._cachedVersion = undefined;
+    this._fieldIdMap = undefined;
+  }
+
+  /**
    * Query records from a table
    */
   async queryRecords<T = any>(
@@ -594,7 +605,11 @@ export class ODataClient {
    * Calling by ID avoids breakage when scripts are renamed.
    */
   async runScriptById(scriptId: number | string, scriptParam?: any): Promise<ScriptResult> {
-    const url = `${this.baseUrl}/Script.FMSID:${scriptId}`;
+    const id = String(scriptId);
+    if (!/^\d+$/.test(id)) {
+      throw new Error(`Invalid scriptId "${scriptId}": FMSID must be numeric`);
+    }
+    const url = `${this.baseUrl}/Script.FMSID:${id}`;
     const body = scriptParam !== undefined ? { scriptParameterValue: scriptParam } : undefined;
     logger.debug(`Running script by ID: ${scriptId}`);
     const response = await this.axiosInstance.post(url, body);
@@ -637,6 +652,7 @@ export class ODataClient {
     }
 
     const map = new Map<string, string>();
+    const ambiguous = new Set<string>();
     // Match block-style <Property> elements that contain a FieldID annotation
     const propertyRegex =
       /<Property\s+Name="([^"]+)"\s+Type="[^"]+"[^>]*>[\s\S]*?<Annotation\s+Term="com\.filemaker\.odata\.FieldID"[^>]*String="FMFID:([^"]+)"\s*\/>?[\s\S]*?<\/Property>/g;
@@ -644,7 +660,21 @@ export class ODataClient {
     while ((match = propertyRegex.exec(this._cachedMetadata)) !== null) {
       const fieldName = match[1];
       const fmfid = `FMFID:${match[2]}`;
-      map.set(fieldName, fmfid);
+      const existing = map.get(fieldName);
+      if (existing !== undefined && existing !== fmfid) {
+        // Same field name in multiple EntityTypes with different FMFIDs —
+        // the map is not table-scoped, so substitution would be ambiguous.
+        ambiguous.add(fieldName);
+      } else {
+        map.set(fieldName, fmfid);
+      }
+    }
+    for (const name of ambiguous) {
+      map.delete(name);
+      logger.debug(
+        `Field "${name}" maps to multiple FMFIDs across tables — ` +
+        `falling back to quoted-identifier filtering for this name.`
+      );
     }
 
     this._fieldIdMap = map;
