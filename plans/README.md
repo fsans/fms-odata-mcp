@@ -47,7 +47,7 @@ verification commands, and stop conditions.
 | # | Plan | Category | Priority | Effort | Risk | Depends on | Status |
 |---|------|----------|----------|--------|------|------------|--------|
 | 001 | [verification-baseline](001-verification-baseline.md) | dx | P1 | M | LOW | — | done |
-| 002 | [scrub-tls-private-key](002-scrub-tls-private-key.md) | security | P1 | M | LOW | — | not started |
+| 002 | [scrub-tls-private-key](002-scrub-tls-private-key.md) | security | P1 | M | LOW | — | done — key untracked; **maintainer action still required: rotate cert + scrub git history** |
 | 003 | [scrub-test-credentials](003-scrub-test-credentials.md) | security | P1 | S | LOW | — | partially resolved — password files deleted; plan rescoped to remaining IP refs |
 | 004 | [wire-integration-tests](004-wire-integration-tests.md) | tests | P1 | S | LOW | 001 | not started |
 | 005 | [http-server-graceful-shutdown](005-http-server-graceful-shutdown.md) | bug | P2 | S | LOW | 001 | not started |
