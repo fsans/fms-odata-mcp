@@ -55,7 +55,7 @@
   },
   "homepage": "https://github.com/fsans/fms-odata-mcp#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -70,7 +70,7 @@
     "@types/debug": "^4.1.12",
     "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.10.5",
+    "@types/node": "^24.0.0",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",
     "typescript": "^5.7.3"
