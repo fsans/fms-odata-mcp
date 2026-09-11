@@ -10,6 +10,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { setupTransport, getTransportConfig } from "./transport.js";
+import { closeHttpServer } from "./simple-http-transport.js";
 import { getConfig, validateConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { getAllTools, handleToolCall } from "./tools/index.js";
@@ -48,6 +49,7 @@ export class FileMakerODataServer {
       logger.info(`Received ${signal}, shutting down server...`);
       try {
         await this.server.close();
+        await closeHttpServer();
       } finally {
         process.exit(0);
       }
