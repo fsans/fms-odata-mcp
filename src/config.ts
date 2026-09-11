@@ -130,9 +130,9 @@ export function getConfig(): AppConfig {
   const config: AppConfig = {
     server: {
       transport: transportType,
-      port: parseInt(
+      port: parseIntSafe(
         process.env.MCP_PORT || String(fileConfig.server?.port || defaultPort),
-        10
+        defaultPort
       ),
       host: process.env.MCP_HOST || fileConfig.server?.host || "localhost",
     },
@@ -144,7 +144,7 @@ export function getConfig(): AppConfig {
       verifySsl: process.env.FM_VERIFY_SSL
         ? process.env.FM_VERIFY_SSL.toLowerCase() === "true"
         : resolveVerifySsl(fileConfig.filemaker?.verifySsl),
-      timeout: parseInt(process.env.FM_TIMEOUT || String(fileConfig.filemaker?.timeout || 30000), 10),
+      timeout: parseIntSafe(process.env.FM_TIMEOUT || String(fileConfig.filemaker?.timeout || 30000), 30000),
     },
     security: {
       certPath: process.env.MCP_CERT_PATH || fileConfig.security?.certPath,
@@ -174,8 +174,8 @@ export function validateConfig(config: AppConfig): { valid: boolean; errors: str
 
   // Validate server configuration
   if (config.server.transport !== "stdio") {
-    if (config.server.port < 1 || config.server.port > 65535) {
-      errors.push("MCP_PORT must be between 1 and 65535");
+    if (typeof config.server.port !== "number" || isNaN(config.server.port) || config.server.port < 1 || config.server.port > 65535) {
+      errors.push("MCP_PORT must be a valid number between 1 and 65535");
     }
   }
 
@@ -313,6 +313,16 @@ export function resolveVerifySsl(...sources: Array<boolean | undefined>): boolea
     if (v !== undefined) return v !== false;
   }
   return true;
+}
+
+/**
+ * Parse an integer from a string, returning a fallback if the result is NaN.
+ * Used for env var parsing where non-numeric values should not silently
+ * produce NaN (which passes comparison validation in JS).
+ */
+function parseIntSafe(value: string, fallback: number): number {
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? fallback : parsed;
 }
 
 /**
