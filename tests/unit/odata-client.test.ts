@@ -539,38 +539,6 @@ describe('ODataClient', () => {
     });
   });
 
-  describe('Batch Operations', () => {
-    test('should execute batch operations', async () => {
-      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] }, status: 200 });
-      mockAxiosInstance.post.mockResolvedValue({ data: { id: '1' }, status: 201 });
-
-      const operations = [
-        { method: 'GET' as const, url: 'test1' },
-        { method: 'POST' as const, url: 'test2', data: { name: 'test' } },
-      ];
-
-      const results = await client.batch(operations);
-
-      expect(results).toHaveLength(2);
-      expect(results[0].success).toBe(true);
-      expect(results[1].success).toBe(true);
-    });
-
-    test('should handle failed operations in batch', async () => {
-      mockAxiosInstance.get.mockRejectedValue(new Error('Failed'));
-
-      const operations = [
-        { method: 'GET' as const, url: 'test1' },
-      ];
-
-      const results = await client.batch(operations);
-
-      expect(results).toHaveLength(1);
-      expect(results[0].success).toBe(false);
-      expect(results[0].error).toBeDefined();
-    });
-  });
-
   describe('runScript', () => {
     test('should run script by name without parameter', async () => {
       mockAxiosInstance.post.mockResolvedValue({

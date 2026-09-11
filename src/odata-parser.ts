@@ -506,20 +506,6 @@ export class ODataParser {
     const type = targetType.startsWith("Edm.") ? targetType : `Edm.${targetType}`;
     return `${field}/${type}`;
   }
-
-  /**
-   * Format batch operation results
-   */
-  static formatBatchResults(results: BatchResult[]): string {
-    const summary = {
-      total: results.length,
-      successful: results.filter((r) => r.success).length,
-      failed: results.filter((r) => !r.success).length,
-      results: results,
-    };
-    
-    return this.formatResponse(summary);
-  }
 }
 
 export interface TableInfo {
@@ -555,11 +541,4 @@ export interface ScriptInfo {
   parameterType?: string;
   /** OData return type (e.g. Edm.String). */
   returnType?: string;
-}
-
-export interface BatchResult {
-  success: boolean;
-  status: number;
-  data?: any;
-  error?: string;
 }

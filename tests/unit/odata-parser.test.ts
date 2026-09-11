@@ -622,22 +622,6 @@ describe('ODataParser', () => {
     });
   });
 
-  describe('formatBatchResults', () => {
-    test('should format batch results', () => {
-      const results = [
-        { success: true, status: 200, data: { id: 1 } },
-        { success: true, status: 201, data: { id: 2 } },
-        { success: false, status: 400, error: 'Bad request' }
-      ];
-
-      const formatted = ODataParser.formatBatchResults(results);
-      
-      expect(formatted).toContain('"total": 3');
-      expect(formatted).toContain('"successful": 2');
-      expect(formatted).toContain('"failed": 1');
-    });
-  });
-
   describe('buildParameterizedFilter', () => {
     test('resolved mode: substitutes a string alias with auto-quoting', () => {
       const result = ODataParser.buildParameterizedFilter(
