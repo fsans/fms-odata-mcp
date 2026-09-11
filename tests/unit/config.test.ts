@@ -183,7 +183,7 @@ describe('Config Module', () => {
       const result = validateConfig(config);
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('MCP_PORT must be between 1 and 65535');
+      expect(result.errors).toContain('MCP_PORT must be a valid number between 1 and 65535');
     });
 
     test('should not validate port for stdio transport', () => {
@@ -367,6 +367,35 @@ describe('Config Module', () => {
       const configDir = getConfigDir();
       expect(configDir).toContain(testHome);
       expect(configDir).toContain('.fms-odata-mcp');
+    });
+  });
+
+  describe('parseIntSafe / NaN handling', () => {
+    test('should fall back to default port when MCP_PORT is non-numeric', () => {
+      process.env.MCP_TRANSPORT = 'http';
+      process.env.MCP_PORT = 'abc';
+      const config = getConfig();
+      expect(config.server.port).not.toBeNaN();
+      expect(config.server.port).toBeGreaterThan(0);
+      delete process.env.MCP_PORT;
+      delete process.env.MCP_TRANSPORT;
+    });
+
+    test('should fall back to default timeout when FM_TIMEOUT is non-numeric', () => {
+      process.env.FM_TIMEOUT = 'not-a-number';
+      const config = getConfig();
+      expect(config.filemaker.timeout).not.toBeNaN();
+      expect(config.filemaker.timeout).toBe(30000);
+      delete process.env.FM_TIMEOUT;
+    });
+
+    test('should reject NaN port in validateConfig', () => {
+      const result = validateConfig({
+        server: { transport: 'http', port: NaN, host: 'localhost' },
+        filemaker: { server: 'x', database: 'x', user: 'x' },
+      } as any);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('MCP_PORT'))).toBe(true);
     });
   });
 });
