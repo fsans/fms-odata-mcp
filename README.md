@@ -144,6 +144,25 @@ export MCP_CERT_PATH=/path/to/cert.pem
 export MCP_KEY_PATH=/path/to/key.pem
 ```
 
+#### HTTP/HTTPS Authentication
+
+When the server is accessible on a non-localhost network, set `MCP_AUTH_TOKEN` to require Bearer token authentication for `/mcp` POST requests. This prevents unauthorized tool invocation.
+
+```bash
+# Generate a random token
+export MCP_AUTH_TOKEN=$(openssl rand -hex 32)
+
+# Clients must now send the token in the Authorization header:
+curl -X POST http://localhost:3333/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $MCP_AUTH_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+- When `MCP_AUTH_TOKEN` is set, POST requests to `/mcp` without a valid `Authorization: Bearer <token>` header receive a 401 response.
+- The `/health` endpoint and `GET /mcp` (server info) remain open — no auth required.
+- When unset, a warning is logged and the endpoint is open (suitable for local development only).
+
 #### Integration Examples
 
 **Python Example:**
@@ -396,6 +415,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | `MCP_HOST`      | Host to bind to                                | No       | `localhost`                       |
 | `MCP_CERT_PATH` | Path to SSL certificate (HTTPS only)           | No       | -                                 |
 | `MCP_KEY_PATH`  | Path to SSL private key (HTTPS only)           | No       | -                                 |
+| `MCP_AUTH_TOKEN`| Bearer token for `/mcp` auth (HTTP/HTTPS)      | No       | - (open endpoint, warning logged) |
 
 ## OData Query Syntax
 
