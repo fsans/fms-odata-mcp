@@ -61,6 +61,7 @@ verification commands, and stop conditions.
 | 013 | [batch-operations-spike](013-batch-operations-spike.md) | direction | P3 | M | LOW | 009 | not started |
 | 014 | [pagination-helper-spike](014-pagination-helper-spike.md) | direction | P3 | S | LOW | — | not started |
 | 015 | [oauth-auth-spike](015-oauth-auth-spike.md) | direction | P3 | M | LOW | — | not started |
+| 016 | [metadata-cache-invalidation](016-metadata-cache-invalidation.md) | bug | P2 | S | LOW | 001 | not started |
 
 ## Dependency graph
 
@@ -71,7 +72,8 @@ verification commands, and stop conditions.
                               ├── 007 (Node 18 EOL upgrade)
                               ├── 008 (Express dep upgrades)
                               ├── 009 (remove dead code) ───── 013 (batch spike)
-                              └── 012 (parseInt NaN guard)
+                              ├── 012 (parseInt NaN guard)
+                              └── 016 (metadata cache invalidation)
 
 002 (scrub TLS key) ── (independent, no dependencies)
 
@@ -102,40 +104,43 @@ verification commands, and stop conditions.
 6. **008** — Express dep upgrades (depends on 001). Fixes 10 known
    vulnerabilities with `npm audit fix` + version bumps.
 7. **012** — parseInt NaN guard (depends on 001). Small bug fix.
+8. **016** — Metadata cache invalidation (depends on 001). Fixes the
+   stale-schema bug introduced by the v0.8.3 metadata cache; small
+   fix, high user-visible impact for anyone using the schema tools.
 
 ### Wave 3 — Medium-effort security and migration (depends on Wave 1)
 
-8. **006** — HTTP transport auth (depends on 001). Adds Bearer token
+9. **006** — HTTP transport auth (depends on 001). Adds Bearer token
    auth for the `/mcp` endpoint.
-9. **007** — Node 18 EOL upgrade (depends on 001). Updates Dockerfile,
-   CI, and engines to Node 22 LTS.
+10. **007** — Node 18 EOL upgrade (depends on 001). Updates Dockerfile,
+    CI, and engines to Node 24 LTS.
 
 ### Wave 4 — Cleanup and test coverage (depends on Wave 1+2)
 
-10. **009** — Remove dead code (depends on 001). Deletes
+11. **009** — Remove dead code (depends on 001). Deletes
     `http-server.ts` and the batch stub.
-11. **010** — Clean dev_stuf docs (depends on 003). Removes cruft and
+12. **010** — Clean dev_stuf docs (depends on 003). Removes cruft and
     fixes broken links.
-12. **011** — Critical path tests (depends on 001 + 004). Adds tests
+13. **011** — Critical path tests (depends on 001 + 004). Adds tests
     for URL building, transport, and multi-session handlers.
 
 ### Wave 5 — Direction spikes (can be done anytime)
 
-13. **013** — Batch operations spike (depends on 009). Investigates
+14. **013** — Batch operations spike (depends on 009). Investigates
     real OData batch vs parallel Promise.all.
-14. **014** — Pagination helper spike. Investigates @odata.nextLink
+15. **014** — Pagination helper spike. Investigates @odata.nextLink
     auto-following.
-15. **015** — OAuth auth spike. Investigates token-based auth for
+16. **015** — OAuth auth spike. Investigates token-based auth for
     FileMaker OData.
 
 ## Summary statistics
 
-- **Total plans**: 15 (12 fix plans + 3 direction spikes)
+- **Total plans**: 16 (13 fix plans + 3 direction spikes)
 - **Critical security**: 2 (TLS key, test credentials)
 - **High-priority**: 4 (verification baseline, integration tests, TLS key, credentials)
-- **Total effort**: 3M + 7S + 4M + 1S = ~15 person-days (rough estimate)
+- **Total effort**: 4M + 8S + 4M = ~16 person-days (rough estimate)
 - **Independent plans** (no dependencies): 002, 003, 014, 015 — can start immediately
-- **Plans that block others**: 001 (blocks 9 plans), 003 (blocks 010), 004 (blocks 011), 009 (blocks 013)
+- **Plans that block others**: 001 (blocks 10 plans), 003 (blocks 010), 004 (blocks 011), 009 (blocks 013)
 
 ## Findings considered and rejected
 
@@ -154,19 +159,25 @@ re-investigation.
 | Credentials in plaintext config.json | security subagent | `chmod 0o600` is reasonable mitigation for a local dev/agent tool. Encryption-at-rest adds significant complexity for marginal benefit here. Downgraded to investigate-only. |
 | Dynamic imports in tool handlers | tech-debt subagent | Likely avoids circular dependency with config.js. Minor style, not a real problem. |
 
-## Post-audit gaps
+## Post-audit delta review (2026-09-11)
 
-Identified during the 2026-09-11 reconciliation — not covered by any plan:
+The code added between `2829524` and `3705083` was reviewed. Findings:
 
-- `src/tools/schema.ts` (new, ~346 lines): 6 schema-editing tools gated by
-  `FM_ALLOW_SCHEMA_EDITS`. The gating logic and DDL surface were never
-  audited for security/correctness. Consider a dedicated audit or plan.
-- `src/tools/odata.ts` gained ~300 lines (script execution, aggregate, cast
-  tools) and `src/odata-client.ts` ~290 lines since the audit — same caveat.
+- **Stale `$metadata` cache after schema mutations** → plan 016. Also covers
+  `runScriptById` unencoded `scriptId` and the `_fieldIdMap` cross-table
+  collision.
+- **Verified clean**: schema tools are gated at dispatch time (not just
+  listing), `confirm: true` is required for destructive ops, URL segments
+  are encoded, duplicate-alias detection was added to `connect_multi`, and
+  real bugs were fixed post-audit (multi-field groupBy keys, countdistinct
+  null inflation, `$&` replacement injection in `formatResolvedFilter`).
+- `src/tools/schema.ts` (~346 lines, gated by `FM_ALLOW_SCHEMA_EDITS`),
+  `src/tools/odata.ts` (+~300), `src/odata-client.ts` (+~290),
+  `src/odata-parser.ts` (+~250) — all reviewed; no further findings.
 - `192.168.0.24` remains in `dev_stuf/CLAUDE_DESKTOP_PROMPTS.md`,
-  `dev_stuf/DEPLOYMENT_SCENARIOS.md`, and as a generic example string in
-  `src/tools/connection.ts` / `src/tools/configuration.ts` tool descriptions
-  (the latter is a doc example — harmless, leave it).
+  `dev_stuf/DEPLOYMENT_SCENARIOS.md` (plan 003), and as a generic example
+  string in `src/tools/connection.ts` / `src/tools/configuration.ts` tool
+  descriptions (doc example — harmless, leave it).
 
 ## Audit methodology
 
