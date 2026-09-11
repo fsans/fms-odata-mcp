@@ -1,37 +1,54 @@
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { odataTools, handleODataTool } from "../../../src/tools/odata.js";
-import { connectionManager } from "../../../src/connection.js";
-import { ODataParser } from "../../../src/odata-parser.js";
 
-// Mock dependencies
-jest.mock("../../../src/connection.js", () => ({
+// Mock connection.js — must use unstable_mockModule for ESM
+jest.unstable_mockModule("../../../src/connection.js", () => ({
+  ConnectionManager: jest.fn(() => ({})),
   connectionManager: {
     getCurrentClient: jest.fn(),
+    getClientByName: jest.fn(),
   },
 }));
 
-jest.mock("../../../src/odata-parser.js", () => ({
+// Mock odata-parser.js — provide ALL static methods used by odata.ts
+jest.unstable_mockModule("../../../src/odata-parser.js", () => ({
   ODataParser: {
-    formatServiceDocument: jest.fn((doc) => JSON.stringify(doc)),
+    formatServiceDocument: jest.fn((doc: unknown) => JSON.stringify(doc)),
     parseMetadataForTables: jest.fn(() => [{ name: "table1" }, { name: "table2" }]),
+    parseMetadataForFields: jest.fn(() => [{ name: "field1", type: "Edm.String" }]),
+    parseMetadataForScripts: jest.fn(() => []),
     createQuerySummary: jest.fn(() => "Found 5 records"),
     formatQueryResponse: jest.fn(() => "Formatted results"),
     formatRecordResponse: jest.fn(() => "Formatted record"),
+    formatResponse: jest.fn((data: unknown) => JSON.stringify(data)),
     formatError: jest.fn((error: unknown) => {
       if (error instanceof Error) {
         return error.message;
       }
       return String(error);
     }),
+    buildParameterizedFilter: jest.fn((template: string, params: Record<string, string>) => {
+      let result = template;
+      for (const [key, value] of Object.entries(params)) {
+        result = result.replace(key, `'${value}'`);
+      }
+      return result;
+    }),
+    buildCastExpression: jest.fn((table: string, field: string, type: string) => `${table}/${field}.${type}`),
+    buildApplyExpression: jest.fn(() => "apply-expression"),
   },
 }));
+
+// Dynamically import AFTER mock setup
+const { odataTools, handleODataTool } = await import("../../../src/tools/odata.js");
+const { connectionManager } = await import("../../../src/connection.js");
+const { ODataParser } = await import("../../../src/odata-parser.js");
 
 describe("OData Tools", () => {
   let mockClient: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockClient = {
       getServiceDocument: jest.fn(() => Promise.resolve({ value: [] })),
       getMetadata: jest.fn(() => Promise.resolve("<metadata/>")),
@@ -41,6 +58,11 @@ describe("OData Tools", () => {
       updateRecord: jest.fn(() => Promise.resolve()),
       deleteRecord: jest.fn(() => Promise.resolve()),
       countRecords: jest.fn(() => Promise.resolve(10)),
+      aggregateRecords: jest.fn(() => Promise.resolve({ value: [] })),
+      runScript: jest.fn(() => Promise.resolve({})),
+      runScriptById: jest.fn(() => Promise.resolve({})),
+      normalizeFilter: jest.fn((f: string) => f),
+      getServerVersion: jest.fn(() => Promise.resolve(null)),
     };
 
     (connectionManager.getCurrentClient as jest.Mock).mockReturnValue(mockClient);
@@ -48,26 +70,40 @@ describe("OData Tools", () => {
 
   describe("Tool Definitions", () => {
     it("should export correct number of tools", () => {
-      expect(odataTools).toHaveLength(10);
+      expect(odataTools).toHaveLength(16);
     });
 
     it("should have metadata tools", () => {
-      const tools = odataTools.map(t => t.name);
+      const tools = odataTools.map((t: any) => t.name);
       expect(tools).toContain("fm_odata_get_service_document");
       expect(tools).toContain("fm_odata_get_metadata");
       expect(tools).toContain("fm_odata_list_tables");
+      expect(tools).toContain("fm_odata_describe_table");
+    });
+
+    it("should have script tools", () => {
+      const tools = odataTools.map((t: any) => t.name);
+      expect(tools).toContain("fm_odata_run_script");
+      expect(tools).toContain("fm_odata_list_scripts");
     });
 
     it("should have query tools", () => {
-      const tools = odataTools.map(t => t.name);
+      const tools = odataTools.map((t: any) => t.name);
       expect(tools).toContain("fm_odata_query_records");
       expect(tools).toContain("fm_odata_get_record");
       expect(tools).toContain("fm_odata_get_records");
       expect(tools).toContain("fm_odata_count_records");
+      expect(tools).toContain("fm_odata_aggregate");
+    });
+
+    it("should have expression builder tools", () => {
+      const tools = odataTools.map((t: any) => t.name);
+      expect(tools).toContain("fm_odata_cast");
+      expect(tools).toContain("fm_odata_build_filter");
     });
 
     it("should have CRUD tools", () => {
-      const tools = odataTools.map(t => t.name);
+      const tools = odataTools.map((t: any) => t.name);
       expect(tools).toContain("fm_odata_create_record");
       expect(tools).toContain("fm_odata_update_record");
       expect(tools).toContain("fm_odata_delete_record");
@@ -127,10 +163,10 @@ describe("OData Tools", () => {
   describe("Query Tools", () => {
     describe("fm_odata_query_records", () => {
       it("should query records with all options", async () => {
-        const mockResponse = { 
+        const mockResponse = {
           "@odata.context": "http://example.com/$metadata#contacts",
-          value: [{ id: 1 }], 
-          "@odata.count": 100 
+          value: [{ id: 1 }],
+          "@odata.count": 100,
         };
         mockClient.queryRecords.mockResolvedValue(mockResponse);
 
