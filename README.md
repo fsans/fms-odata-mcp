@@ -273,7 +273,11 @@ docker-compose -f my-docker-compose.yml up -d
 docker-compose -f docker-compose.yml --profile https up -d
 ```
 
-Place your SSL certificates in the `./ssl` directory:
+Generate your own SSL certificates and place them in the `./ssl` directory:
+```bash
+mkdir -p ssl
+openssl req -x509 -newkey rsa:4096 -keyout ssl/key.pem -out ssl/cert.pem -days 365 -nodes
+```
 - `ssl/cert.pem` - SSL certificate
 - `ssl/key.pem` - SSL private key
 
