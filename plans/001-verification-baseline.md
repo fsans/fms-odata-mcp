@@ -138,7 +138,7 @@ export default {
 
 Run `npm install` to create `node_modules/`, then run the existing test suite to confirm it passes before making changes.
 
-**Verify**: `npm install && npm test` → exit 0, all tests pass (7 test files, ~100+ tests)
+**Verify**: `npm install && npm test` → exit 0, all tests pass (8 test files as of `3705083` — `schema-tools.test.ts` was added post-audit)
 
 ### Step 2: Add `typecheck` script to package.json
 
@@ -230,7 +230,7 @@ npm install && npm run typecheck && npm test && npm run build
 ## Test plan
 
 - No new tests to write in this plan — the goal is to make existing tests runnable in CI.
-- Verification: `npm test` → all existing tests pass (7 test files in `tests/unit/`)
+- Verification: `npm test` → all existing tests pass (8 test files in `tests/unit/`)
 
 ## Done criteria
 

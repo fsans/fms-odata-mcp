@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 2829524..HEAD -- src/http-server.ts src/odata-client.ts tests/unit/odata-client.test.ts`
+> **Drift check (run first)**: `git diff --stat 3705083..HEAD -- src/http-server.ts src/odata-client.ts tests/unit/odata-client.test.ts tests/unit/odata-parser.test.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -20,6 +20,7 @@
 - **Depends on**: plans/001-verification-baseline.md (needs working `npm test` and `npm run typecheck`)
 - **Category**: tech-debt
 - **Planned at**: commit `2829524`, 2026-07-16
+- **Reconciled at**: commit `3705083`, 2026-09-11 — line numbers updated; `formatBatchResults` confirmed present and its test added to scope
 
 ## Why this matters
 
@@ -72,7 +73,7 @@ main().catch((error) => {
 
 Confirmed dead: `grep -rn "http-server" src/ package.json` → no imports, no npm script references. The actual entry point is `src/bin/cli.ts` which imports `FileMakerODataServer` from `src/index.ts` and calls `server.run()`, which calls `setupTransport()` from `src/transport.ts`. The `http-server.ts` file duplicates this flow with a `setTimeout(100ms)` hack and `as any` type assertions.
 
-**`src/odata-client.ts` batch method (lines 329-372):**
+**`src/odata-client.ts` batch method (lines ~462-505 as of `3705083`):**
 ```ts
   /**
    * Execute batch operations
@@ -112,7 +113,7 @@ Confirmed dead: `grep -rn "http-server" src/ package.json` → no imports, no np
   }
 ```
 
-And the interfaces (lines 405-416):
+And the interfaces (lines ~684-696 as of `3705083`):
 ```ts
 export interface BatchOperation {
   method: "GET" | "POST" | "PATCH" | "DELETE";
@@ -128,13 +129,13 @@ export interface BatchResponse {
 }
 ```
 
-Confirmed dead: `grep -rn "\.batch(" src/` → no callers in source code. Only called from `tests/unit/odata-client.test.ts:470,484`.
+Confirmed dead: `grep -rn "\.batch(" src/` → no callers in source code. Only called from `tests/unit/odata-client.test.ts` (~lines 543-566 as of `3705083`).
 
-**`tests/unit/odata-client.test.ts` (batch tests, around lines 461-484):**
+**`tests/unit/odata-client.test.ts` (batch tests, around lines 543-566):**
 The test file contains tests for `client.batch()` that exercise the sequential loop implementation. These tests will need to be removed along with the method.
 
-**`src/odata-parser.ts` — `formatBatchResults` method:**
-Check if this exists: `grep -n "formatBatchResults" src/odata-parser.ts`. If it exists and is only used by batch tests, remove it too.
+**`src/odata-parser.ts` — `formatBatchResults` method (line ~513):**
+Confirmed present: `static formatBatchResults(results: BatchResult[])` at `src/odata-parser.ts:513`. It is exercised only by `tests/unit/odata-parser.test.ts` (~line 626, `'should format batch results'`) — which tests it with batch-shaped data. Remove the method AND that test case. If `BatchResult` interface (also in `odata-parser.ts` or `odata-client.ts`) has no other consumers, remove it too — check with `grep -rn "BatchResult" src/ tests/`.
 
 **Repo conventions:**
 - TypeScript strict mode, ES Modules (Node16 — imports use `.js` extensions)
@@ -155,7 +156,8 @@ Check if this exists: `grep -n "formatBatchResults" src/odata-parser.ts`. If it 
 - `src/http-server.ts` — delete entirely
 - `src/odata-client.ts` — remove `batch()` method and `BatchOperation`/`BatchResponse` interfaces
 - `tests/unit/odata-client.test.ts` — remove batch test cases
-- `src/odata-parser.ts` — remove `formatBatchResults` if it exists and is only used by batch tests
+- `src/odata-parser.ts` — remove `formatBatchResults` and the `BatchResult` interface if it has no other consumers
+- `tests/unit/odata-parser.test.ts` — remove the `formatBatchResults` test case
 
 **Out of scope** (do NOT touch):
 - `src/index.ts` — the real entry point; no changes
@@ -184,11 +186,11 @@ git rm src/http-server.ts
 ### Step 2: Remove batch() method and interfaces from odata-client.ts
 
 In `src/odata-client.ts`, remove:
-1. The `batch()` method (lines 329-372, including the JSDoc comment)
-2. The `BatchOperation` interface (lines 405-409)
-3. The `BatchResponse` interface (lines 411-416)
+1. The `batch()` method (~lines 462-505, including the JSDoc comment)
+2. The `BatchOperation` interface (~line 684)
+3. The `BatchResponse` interface (~line 690)
 
-Be careful to remove the complete method and interfaces without disturbing the surrounding code. The `testConnection()` method (line 378) and `testConnectionDetailed()` method (line 393) should remain.
+Be careful to remove the complete method and interfaces without disturbing the surrounding code. The `testConnection()` and `testConnectionDetailed()` methods (which follow `batch()`) should remain.
 
 **Verify**: `grep -n "batch\|BatchOperation\|BatchResponse" src/odata-client.ts` → no matches. `npm run typecheck` → exit 0.
 
@@ -204,15 +206,17 @@ Remove the entire `describe("batch", ...)` or `it("should batch ...", ...)` bloc
 
 **Verify**: `grep -n "batch" tests/unit/odata-client.test.ts` → no matches. `npm test` → all remaining tests pass.
 
-### Step 4: Check for and remove formatBatchResults from odata-parser.ts
+### Step 4: Remove formatBatchResults from odata-parser.ts and its test
+
+`formatBatchResults` is confirmed present at `src/odata-parser.ts:~513` and tested at `tests/unit/odata-parser.test.ts:~626` (`'should format batch results'`).
 
 ```bash
-grep -n "formatBatchResults" src/odata-parser.ts tests/
+grep -rn "formatBatchResults\|BatchResult" src/ tests/
 ```
 
-If `formatBatchResults` exists in `odata-parser.ts` and is only referenced by the batch tests you just removed, remove the method from `odata-parser.ts` as well. If it's referenced elsewhere, leave it.
+Remove the `formatBatchResults` method from `odata-parser.ts`, the test case from `tests/unit/odata-parser.test.ts`, and the `BatchResult` interface if nothing else references it.
 
-**Verify**: `grep -rn "formatBatchResults" src/ tests/` → no matches (if removed) or only non-batch references (if kept).
+**Verify**: `grep -rn "formatBatchResults\|BatchResult" src/ tests/` → no matches.
 
 ### Step 5: Full verification
 
@@ -230,8 +234,10 @@ git commit -m "refactor: remove dead code (http-server.ts and batch stub)
 - Remove ODataClient.batch() and BatchOperation/BatchResponse
   interfaces: 'simplified version' that doesn't implement real
   OData multipart/mixed batch, never called from any MCP tool.
-- Remove corresponding unit tests.
-- Remove ODataParser.formatBatchResults if only used by batch."
+- Remove ODataParser.formatBatchResults and BatchResult (only
+  exercised by the batch tests).
+- Remove corresponding unit tests in odata-client.test.ts and
+  odata-parser.test.ts."
 ```
 
 **Verify**: `git log --oneline -1` → shows the commit
@@ -248,6 +254,7 @@ Machine-checkable. ALL must hold:
 - [ ] `ls src/http-server.ts` → file does not exist
 - [ ] `grep -n "batch\|BatchOperation\|BatchResponse" src/odata-client.ts` → no matches
 - [ ] `grep -n "batch" tests/unit/odata-client.test.ts` → no matches
+- [ ] `grep -rn "formatBatchResults\|BatchResult" src/ tests/` → no matches
 - [ ] `grep -rn "http-server" src/` → no matches
 - [ ] `npm run typecheck` exits 0
 - [ ] `npm run build` exits 0

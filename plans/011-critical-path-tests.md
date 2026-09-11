@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 2829524..HEAD -- src/odata-client.ts src/transport.ts src/simple-http-transport.ts src/working-http-transport.ts src/tools/connection.ts`
+> **Drift check (run first)**: `git diff --stat 3705083..HEAD -- src/odata-client.ts src/transport.ts src/simple-http-transport.ts src/working-http-transport.ts src/tools/connection.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -20,6 +20,7 @@
 - **Depends on**: plans/001-verification-baseline.md, plans/004-wire-integration-tests.md (needs working test infrastructure)
 - **Category**: tests
 - **Planned at**: commit `2829524`, 2026-07-16
+- **Reconciled at**: commit `3705083`, 2026-09-11 — line numbers updated (odata-client.ts grew ~290 lines post-audit); note `src/tools/schema.ts` (new, ~346 lines) already has `tests/unit/schema-tools.test.ts`, so it's out of this plan's scope
 
 ## Why this matters
 
@@ -27,7 +28,7 @@ Three critical code paths have zero test coverage: (1) OData URL building (`buil
 
 ## Current state
 
-**`src/odata-client.ts` URL building (lines 141-189):**
+**`src/odata-client.ts` URL building (lines ~176-310 as of `3705083` — `entityKey` at 176, `odataEncode` at 191, `buildUrl` at 291):**
 ```ts
   private entityKey(recordId: string | number): string {
     const rid = String(recordId);
@@ -86,8 +87,8 @@ These are `private` methods — they're tested indirectly through the public met
   }
 ```
 
-**`src/tools/connection.ts` (lines 290-360, handleConnectMulti):**
-The multi-connect handler uses `Promise.all` to connect all databases in parallel, handles per-entry success/failure, selects the primary session, and builds a summary. See the full excerpt in the file.
+**`src/tools/connection.ts` (as of `3705083`: `handleConnectMulti` ~line 300, `handleDescribeSessions` ~line 570, `handleGetServerVersion` ~line 683):**
+The multi-connect handler uses `Promise.all` to connect all databases in parallel, handles per-entry success/failure, selects the primary session, and builds a summary. See the full excerpts in the file — line numbers drifted post-audit, locate handlers via `grep -n "^async function handle" src/tools/connection.ts`.
 
 **Existing test patterns to follow:**
 - `tests/unit/odata-client.test.ts` — uses `jest.mock("axios")` to mock axios and test ODataClient methods
