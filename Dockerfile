@@ -1,5 +1,5 @@
-# Use Node.js 18.19.1 LTS as base image (specific version for security)
-FROM node:18.19.1-alpine
+# Use Node.js 24 LTS as base image (Active LTS, supported until April 2028)
+FROM node:24-alpine
 
 # Set working directory
 WORKDIR /app
