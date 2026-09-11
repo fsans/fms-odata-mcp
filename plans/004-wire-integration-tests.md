@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 2829524..HEAD -- jest.config.js tests/integration/`
+> **Drift check (run first)**: `git diff --stat 3705083..HEAD -- jest.config.js tests/integration/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -20,6 +20,7 @@
 - **Depends on**: plans/001-verification-baseline.md (needs `npm install` and `npm test` working)
 - **Category**: tests
 - **Planned at**: commit `2829524`, 2026-07-16
+- **Reconciled at**: commit `3705083`, 2026-09-11 — unit test count updated (8 files now, `schema-tools.test.ts` added)
 
 ## Why this matters
 
@@ -65,13 +66,14 @@ Line 17: `testMatch` is `['**/tests/unit/**/*.test.ts']` — only matches `tests
 
 All three use `jest.mock()` to mock `../connection.js`, `../config.js`, `../odata-parser.js`, etc. — no live FileMaker server needed.
 
-**Existing unit tests (already running):**
+**Existing unit tests (already running — 8 files as of `3705083`):**
 - `tests/unit/config-helpers.test.ts` (35 lines)
 - `tests/unit/config.test.ts` (372 lines)
 - `tests/unit/fm-version.test.ts` (536 lines)
 - `tests/unit/multi-session.test.ts` (255 lines)
 - `tests/unit/odata-client.test.ts` (491 lines)
 - `tests/unit/odata-parser.test.ts` (574 lines)
+- `tests/unit/schema-tools.test.ts` (308 lines — added post-audit)
 - `tests/unit/tool-routing.test.ts` (141 lines)
 
 **Repo conventions:**
@@ -86,7 +88,7 @@ All three use `jest.mock()` to mock `../connection.js`, `../config.js`, `../odat
 |-----------|--------------------------|---------------------|
 | Install   | `npm install`            | exit 0              |
 | Tests     | `npm test`               | all pass, including new integration tests |
-| Test count| `npm test -- --verbose 2>&1 \| grep "Test Files\|Tests"` | shows 10 test files (7 unit + 3 integration) |
+| Test count| `npm test -- --verbose 2>&1 \| grep "Test Files\|Tests"` | shows 11 test files (8 unit + 3 integration) |
 
 ## Scope
 
@@ -110,7 +112,7 @@ All three use `jest.mock()` to mock `../connection.js`, `../config.js`, `../odat
 
 Ensure dependencies are installed and the current unit tests pass before making changes:
 
-**Verify**: `npm install && npm test` → exit 0, all 7 unit test files pass
+**Verify**: `npm install && npm test` → exit 0, all 8 unit test files pass
 
 ### Step 2: Update testMatch in jest.config.js
 
@@ -134,9 +136,9 @@ This adds a second glob pattern that matches the integration test files. Both pa
 
 ### Step 3: Run the full test suite and check for failures
 
-Run `npm test` with the new config. All 10 test files (7 unit + 3 integration) should now run. If any integration tests fail, DO NOT fix them in this plan — report the failures as a STOP condition. The integration tests may have been written against an older version of the tool handlers and may need updates (that would be a separate plan).
+Run `npm test` with the new config. All 11 test files (8 unit + 3 integration) should now run. If any integration tests fail, DO NOT fix them in this plan — report the failures as a STOP condition. The integration tests may have been written against an older version of the tool handlers and may need updates (that would be a separate plan).
 
-**Verify**: `npm test` → exit 0, all tests pass. Check the output for the number of test files run — should be 10 (7 unit + 3 integration).
+**Verify**: `npm test` → exit 0, all tests pass. Check the output for the number of test files run — should be 11 (8 unit + 3 integration).
 
 If any tests fail, run `npm test -- tests/integration/ 2>&1 | tail -50` to see the specific failures and report them.
 
@@ -157,7 +159,7 @@ pattern to include tests/integration/**."
 ## Test plan
 
 - No new tests to write — this plan makes existing tests run.
-- Verification: `npm test` → 10 test files, all pass. The output should show test suites from both `tests/unit/` and `tests/integration/tools/`.
+- Verification: `npm test` → 11 test files, all pass. The output should show test suites from both `tests/unit/` and `tests/integration/tools/`.
 
 ## Done criteria
 
@@ -165,7 +167,7 @@ Machine-checkable. ALL must hold:
 
 - [ ] `jest.config.js` `testMatch` array contains both `**/tests/unit/**/*.test.ts` and `**/tests/integration/**/*.test.ts`
 - [ ] `npm test` exits 0
-- [ ] `npm test` output shows 10 test files (7 unit + 3 integration) — verify by checking the jest summary output
+- [ ] `npm test` output shows 11 test files (8 unit + 3 integration) — verify by checking the jest summary output
 - [ ] No files outside the in-scope list are modified (`git status`)
 - [ ] `plans/README.md` status row updated
 

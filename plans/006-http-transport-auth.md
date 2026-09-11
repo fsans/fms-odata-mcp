@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 2829524..HEAD -- src/simple-http-transport.ts .env.example`
+> **Drift check (run first)**: `git diff --stat 3705083..HEAD -- src/simple-http-transport.ts .env.example`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -310,4 +310,6 @@ Stop and report back (do not improvise) if:
 - **Dify integration**: Dify's MCP client needs to send the `Authorization: Bearer <token>` header. Check Dify's MCP configuration documentation for how to set custom headers. If Dify doesn't support custom headers, this plan may need an alternative auth mechanism (e.g., token in URL path or query param — less secure but compatible).
 - **Token rotation**: The token is read at startup from `process.env`. Changing it requires a server restart. If hot-reload is needed in the future, the middleware would need to read the env var per-request (slight performance cost).
 - **CORS interaction**: The CORS middleware allows `Authorization` in `Access-Control-Allow-Headers` (line 60/131), so authenticated cross-origin requests will work. However, `Access-Control-Allow-Origin: *` with credentials is insecure. If auth is enabled, consider restricting CORS to specific origins via an env var (future improvement).
+- **Timing-safe comparison (added 2026-09-11)**: The plan's `` authHeader !== `Bearer ${authToken}` `` is a non-constant-time comparison. For stronger hardening, use `crypto.timingSafeEqual` on the two header strings (compare `Buffer.from(authHeader ?? "")` vs the expected bearer string, with a length check first). This is a minor improvement, not a blocker — bearer tokens are high-entropy so timing attacks are impractical, but it's cheap to do right.
+- **HTTPS asymmetry**: `GET /mcp` (info endpoint) exists only in `setupSimpleHttpTransport` (line ~95), not in the HTTPS variant. The GET exemption in the middleware is harmless either way, but note the inconsistency — a follow-up could add `GET /mcp` to the HTTPS transport for parity.
 - A reviewer should verify that the 401 response uses the JSON-RPC error format (so MCP clients can parse it) and that the `GET /mcp` info endpoint is intentionally left open (it only returns server metadata, no sensitive data).

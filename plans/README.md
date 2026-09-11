@@ -3,6 +3,14 @@
 > **Audited at**: commit `2829524`, 2026-07-16
 > **Audited by**: improve skill (GLM-5.2 High)
 > **Effort level**: standard
+> **Reconciled at**: commit `3705083`, 2026-09-11 — codebase drifted ~35 files
+> since the audit (v0.8.1–v0.8.3). Plans 003, 004, 006, 007, 009, 010, 011 were
+> updated to match current state and their drift-check bases rebased to
+> `3705083`. Unreconciled plans still check drift from `2829524` — if a check
+> reports changes, compare the plan's excerpts against the live code before
+> proceeding (excerpts, not line numbers, are the contract). Note: code added
+> after `2829524` (e.g. `src/tools/schema.ts` schema-editing tools, ~300 new
+> lines in `src/tools/odata.ts`) was never audited — see "Post-audit gaps".
 
 ## How to use this index
 
@@ -40,7 +48,7 @@ verification commands, and stop conditions.
 |---|------|----------|----------|--------|------|------------|--------|
 | 001 | [verification-baseline](001-verification-baseline.md) | dx | P1 | M | LOW | — | not started |
 | 002 | [scrub-tls-private-key](002-scrub-tls-private-key.md) | security | P1 | M | LOW | — | not started |
-| 003 | [scrub-test-credentials](003-scrub-test-credentials.md) | security | P1 | S | LOW | — | not started |
+| 003 | [scrub-test-credentials](003-scrub-test-credentials.md) | security | P1 | S | LOW | — | partially resolved — password files deleted; plan rescoped to remaining IP refs |
 | 004 | [wire-integration-tests](004-wire-integration-tests.md) | tests | P1 | S | LOW | 001 | not started |
 | 005 | [http-server-graceful-shutdown](005-http-server-graceful-shutdown.md) | bug | P2 | S | LOW | 001 | not started |
 | 006 | [http-transport-auth](006-http-transport-auth.md) | security | P2 | M | MED | 001 | not started |
@@ -145,6 +153,20 @@ re-investigation.
 | Double-escaped regex in metadata parser | correctness subagent | Subagent admits it's "technically correct" — `\\s` in RegExp constructor produces `\s`. Not a bug. |
 | Credentials in plaintext config.json | security subagent | `chmod 0o600` is reasonable mitigation for a local dev/agent tool. Encryption-at-rest adds significant complexity for marginal benefit here. Downgraded to investigate-only. |
 | Dynamic imports in tool handlers | tech-debt subagent | Likely avoids circular dependency with config.js. Minor style, not a real problem. |
+
+## Post-audit gaps
+
+Identified during the 2026-09-11 reconciliation — not covered by any plan:
+
+- `src/tools/schema.ts` (new, ~346 lines): 6 schema-editing tools gated by
+  `FM_ALLOW_SCHEMA_EDITS`. The gating logic and DDL surface were never
+  audited for security/correctness. Consider a dedicated audit or plan.
+- `src/tools/odata.ts` gained ~300 lines (script execution, aggregate, cast
+  tools) and `src/odata-client.ts` ~290 lines since the audit — same caveat.
+- `192.168.0.24` remains in `dev_stuf/CLAUDE_DESKTOP_PROMPTS.md`,
+  `dev_stuf/DEPLOYMENT_SCENARIOS.md`, and as a generic example string in
+  `src/tools/connection.ts` / `src/tools/configuration.ts` tool descriptions
+  (the latter is a doc example — harmless, leave it).
 
 ## Audit methodology
 
