@@ -348,9 +348,6 @@ Create a new contact with name "John Doe" and email "john@example.com"
 
 ## Documentation
 
-- **[Quick Reference](./dev_stuf/QUICK_REFERENCE.md)** - One-page setup guide
-- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference
-- **[Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)** - Detailed configuration
 - **[Docker Deployment](./DOCKER.md)** - Complete Docker guide with production examples
 - **[Roadmap](./ROADMAP.md)** - Planned features and version history
 - **[Changelog](./CHANGELOG.md)** - Detailed release notes

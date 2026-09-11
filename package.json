@@ -25,8 +25,7 @@
     "prepublishOnly": "npm run build && npm run typecheck && npm test",
     "docker:build": "docker build -t fms-odata-mcp:local .",
     "docker:run": "docker run -d --name fms-odata-mcp -p 3333:3333 fms-odata-mcp:local",
-    "docker:stop": "docker stop fms-odata-mcp && docker rm fms-odata-mcp",
-    "docker:test": "./test-docker.sh"
+    "docker:stop": "docker stop fms-odata-mcp && docker rm fms-odata-mcp"
   },
   "keywords": [
     "mcp",
