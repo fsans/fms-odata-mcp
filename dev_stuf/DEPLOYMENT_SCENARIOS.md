@@ -25,7 +25,7 @@ This is how the MCP server communicates with FileMaker Server.
 **Setup:**
 ```
 [Claude Desktop] --stdio--> [MCP Server] --HTTPS--> [FileMaker Server]
-   (local)                    (local)              (192.168.0.24)
+   (local)                    (local)              (<your-filemaker-server>)
 ```
 
 **Configuration:**
