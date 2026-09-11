@@ -2,10 +2,13 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { HttpTransport } from "./working-http-transport.js";
 import { PACKAGE_VERSION } from "./version.js";
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from "./config.js";
+import { logger } from "./logger.js";
 import express, { Request, Response } from "express";
 import https from "https";
 import http from "http";
 import fs from "fs";
+
+let httpServer: http.Server | https.Server | null = null;
 
 export interface HttpTransportConfig {
   port?: number;
@@ -107,7 +110,8 @@ export async function setupSimpleHttpTransport(
   const host = config.host || "localhost";
   warnIfDockerLocalhost(host);
 
-  http.createServer(app).listen(port, host, () => {
+  httpServer = http.createServer(app);
+  httpServer.listen(port, host, () => {
     console.error(`fms-odata-mcp Server running on http://${host}:${port}`);
     console.error(`MCP endpoint: http://${host}:${port}/mcp`);
     console.error(`Health check: http://${host}:${port}/health`);
@@ -185,10 +189,25 @@ export async function setupSimpleHttpsTransport(
   const host = config.host || "localhost";
   warnIfDockerLocalhost(host);
   
-  https.createServer({ cert, key }, app).listen(port, host, () => {
+  httpServer = https.createServer({ cert, key }, app);
+  httpServer.listen(port, host, () => {
     console.error(`fms-odata-mcp Server running on https://${host}:${port}`);
     console.error(`MCP endpoint: https://${host}:${port}/mcp`);
     console.error(`Health check: https://${host}:${port}/health`);
     console.error(`Transport: HTTPS (JSON-RPC 2.0)`);
   });
+}
+
+/**
+ * Close the HTTP/HTTPS server listener if one is active.
+ * Called during graceful shutdown to release the bound port.
+ */
+export async function closeHttpServer(): Promise<void> {
+  if (httpServer) {
+    await new Promise<void>((resolve) => {
+      httpServer!.close(() => resolve());
+    });
+    httpServer = null;
+    logger.info("HTTP server closed");
+  }
 }
