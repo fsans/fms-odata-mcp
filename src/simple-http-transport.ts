@@ -3,7 +3,7 @@ import { HttpTransport } from "./working-http-transport.js";
 import { PACKAGE_VERSION } from "./version.js";
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from "./config.js";
 import { logger } from "./logger.js";
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import https from "https";
 import http from "http";
 import fs from "fs";
@@ -46,6 +46,38 @@ function warnIfDockerLocalhost(host: string): void {
 }
 
 /**
+ * Create an Express authentication middleware that checks for a Bearer token
+ * matching MCP_AUTH_TOKEN. Returns null if no token is configured (auth disabled).
+ */
+export function createAuthMiddleware(): ((req: Request, res: Response, next: NextFunction) => void) | null {
+  const authToken = process.env.MCP_AUTH_TOKEN;
+  if (!authToken) {
+    console.error(
+      "[WARN] HTTP transport has no authentication. Set MCP_AUTH_TOKEN to secure the /mcp endpoint."
+    );
+    return null;
+  }
+  console.error("HTTP transport authentication enabled (MCP_AUTH_TOKEN set)");
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.method === "GET") {
+      return next();
+    }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${authToken}`) {
+      res.status(401).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: "Unauthorized: valid Bearer token required",
+        },
+      });
+      return;
+    }
+    next();
+  };
+}
+
+/**
  * Simple HTTP transport that processes MCP requests directly
  * This implementation handles JSON-RPC 2.0 requests without streaming
  */
@@ -72,6 +104,12 @@ export async function setupSimpleHttpTransport(
 
   // Body parser
   app.use(express.json());
+
+  // Authentication (optional — enabled when MCP_AUTH_TOKEN env var is set)
+  const authMiddleware = createAuthMiddleware();
+  if (authMiddleware) {
+    app.use("/mcp", authMiddleware);
+  }
 
   // Create HTTP transport instance
   const transport = new HttpTransport();
@@ -144,6 +182,12 @@ export async function setupSimpleHttpsTransport(
 
   // Body parser
   app.use(express.json());
+
+  // Authentication (optional — enabled when MCP_AUTH_TOKEN env var is set)
+  const authMiddleware = createAuthMiddleware();
+  if (authMiddleware) {
+    app.use("/mcp", authMiddleware);
+  }
 
   // Create HTTP transport instance
   const transport = new HttpTransport();
