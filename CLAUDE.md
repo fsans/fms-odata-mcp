@@ -103,16 +103,21 @@ FileMaker Server OData 4.01 API
 ```
 FM_SERVER          FileMaker Server URL (required)
 FM_DATABASE        Database name (required)
-FM_USER            Username (required)
-FM_PASSWORD        Password (required)
+FM_USER            Username (required for Basic auth)
+FM_PASSWORD        Password (required for Basic auth)
+FM_AUTH_TYPE       Authentication method: "basic" (default) or "bearer"
+FM_BEARER_TOKEN    Bearer token (required when FM_AUTH_TYPE=bearer)
 FM_VERIFY_SSL      Verify SSL cert (default: true)
 FM_TIMEOUT         Request timeout ms (default: 30000)
+FM_BATCH_MAX_ITEMS Max records per batch operation (default: 100)
+FM_MAX_RECORDS     Max records from query_all_records (default: 10000, hard cap 50000)
 FM_ALLOW_SCHEMA_EDITS  Enable schema (DDL) tools (default: false)
 MCP_TRANSPORT      stdio|http|https (default: stdio)
 MCP_PORT           HTTP/HTTPS port
 MCP_HOST           Bind host (default: localhost)
 MCP_CERT_PATH      SSL cert path (https only)
 MCP_KEY_PATH       SSL key path (https only)
+MCP_AUTH_TOKEN     Bearer token for MCP transport auth (optional, Plan 006)
 MCP_LOG_FILE       Enable file logging (true/false)
 DEBUG              Debug namespace (e.g. fms-odata-mcp:*)
 ```

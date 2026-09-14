@@ -9,7 +9,12 @@ import { buildFeatureReport, featureWarning, isFeatureSupported } from "../fm-ve
 export const connectionTools = [
   {
     name: "fm_odata_connect",
-    description: "Connect to FileMaker Server with inline credentials (temporary connection, not saved)",
+    description:
+      "Connect to FileMaker Server with inline credentials (temporary connection, not saved). " +
+      "Supports Basic Auth (default, user+password) and Bearer token auth " +
+      "(for FileMaker Cloud or OAuth/identity provider setups). " +
+      "Note: FileMaker Data API tokens do NOT work with OData — use a Claris ID " +
+      "or OAuth Bearer token instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -23,18 +28,30 @@ export const connectionTools = [
         },
         user: {
           type: "string",
-          description: "Username",
+          description: "Username (required for Basic auth, ignored for Bearer auth)",
         },
         password: {
           type: "string",
-          description: "Password",
+          description: "Password (required for Basic auth, ignored for Bearer auth)",
+        },
+        authType: {
+          type: "string",
+          enum: ["basic", "bearer"],
+          description: "Authentication method (default: basic). Use 'bearer' for FileMaker Cloud or OAuth/identity provider setups.",
+        },
+        bearerToken: {
+          type: "string",
+          description:
+            "Bearer token (required when authType=bearer). " +
+            "Obtain from Claris ID, OAuth provider, or a token-issuing reverse proxy. " +
+            "Tokens expire (typically 1 hour) — the AI agent will surface 401 errors when expired.",
         },
         verifySsl: {
           type: "boolean",
           description: "Verify SSL certificate (default: true)",
         },
       },
-      required: ["server", "database", "user", "password"],
+      required: ["server", "database"],
     },
   },
   {
@@ -44,6 +61,7 @@ export const connectionTools = [
       "Designed for FileMaker separation-of-concerns solutions (LOGIC + DATA files) " +
       "or any setup that requires simultaneous sessions to multiple databases on the same server. " +
       "All sessions share a default server/user/password unless overridden per entry. " +
+      "Supports both Basic auth (default) and Bearer token auth (authType=bearer). " +
       "Each session is registered under an alias and can be targeted individually " +
       "by OData tools via their optional 'connection' parameter. " +
       "The entry marked primary (or the first successful one) becomes the active session.",
@@ -56,11 +74,20 @@ export const connectionTools = [
         },
         user: {
           type: "string",
-          description: "Shared default username (can be overridden per database entry)",
+          description: "Shared default username (can be overridden per database entry; ignored when authType=bearer)",
         },
         password: {
           type: "string",
-          description: "Shared default password (can be overridden per database entry)",
+          description: "Shared default password (can be overridden per database entry; ignored when authType=bearer)",
+        },
+        authType: {
+          type: "string",
+          enum: ["basic", "bearer"],
+          description: "Shared authentication method (default: basic). Use 'bearer' for FileMaker Cloud or OAuth setups.",
+        },
+        bearerToken: {
+          type: "string",
+          description: "Shared Bearer token (required when authType=bearer). Can be overridden per database entry.",
         },
         databases: {
           type: "array",
@@ -81,11 +108,15 @@ export const connectionTools = [
               },
               user: {
                 type: "string",
-                description: "Override username for this database",
+                description: "Override username for this database (Basic auth only)",
               },
               password: {
                 type: "string",
-                description: "Override password for this database",
+                description: "Override password for this database (Basic auth only)",
+              },
+              bearerToken: {
+                type: "string",
+                description: "Override Bearer token for this database (Bearer auth only)",
               },
               primary: {
                 type: "boolean",
@@ -102,7 +133,7 @@ export const connectionTools = [
           description: "Verify SSL certificate for all connections (default: true)",
         },
       },
-      required: ["server", "user", "password", "databases"],
+      required: ["server", "databases"],
     },
   },
   {
@@ -207,8 +238,13 @@ function redactArgs(args: any): any {
   if (!args || typeof args !== "object") return args;
   const out: Record<string, any> = { ...args };
   if ("password" in out) out.password = "***";
+  if ("bearerToken" in out) out.bearerToken = "***";
   if (Array.isArray(out.databases)) {
-    out.databases = out.databases.map((d: any) => ({ ...d, password: d.password ? "***" : undefined }));
+    out.databases = out.databases.map((d: any) => ({
+      ...d,
+      password: d.password ? "***" : undefined,
+      bearerToken: d.bearerToken ? "***" : undefined,
+    }));
   }
   return out;
 }
@@ -268,12 +304,40 @@ async function handleConnect(args: any) {
   const { getConfig } = await import("../config.js");
   const config = getConfig();
 
+  const authType = args.authType || config.filemaker.authType || "basic";
+
+  // Validate auth requirements
+  if (authType === "bearer") {
+    if (!args.bearerToken && !config.filemaker.bearerToken) {
+      return {
+        content: [{ type: "text", text: "Error: bearerToken is required when authType=bearer." }],
+        isError: true,
+      };
+    }
+  } else {
+    // Basic auth — user/password required
+    if (!args.user && !config.filemaker.user) {
+      return {
+        content: [{ type: "text", text: "Error: user is required for Basic auth." }],
+        isError: true,
+      };
+    }
+    if (!args.password && !config.filemaker.password) {
+      return {
+        content: [{ type: "text", text: "Error: password is required for Basic auth." }],
+        isError: true,
+      };
+    }
+  }
+
   const connection: Connection = {
     server: args.server,
     database: args.database,
-    user: args.user,
-    password: args.password,
+    user: args.user || config.filemaker.user || "",
+    password: args.password || config.filemaker.password || "",
     verifySsl: args.verifySsl !== undefined ? args.verifySsl : config.filemaker.verifySsl,
+    authType: authType as "basic" | "bearer",
+    bearerToken: args.bearerToken || config.filemaker.bearerToken,
   };
 
   const { client, name: clientName } = connectionManager.createInlineClientNamed(
@@ -285,8 +349,9 @@ async function handleConnect(args: any) {
   const result = await client.testConnectionDetailed();
 
   if (result.ok) {
+    const authNote = authType === "bearer" ? " (Bearer token)" : ` as ${connection.user}`;
     return {
-      content: [{ type: "text", text: `Connected to ${args.server}/${args.database} as ${args.user}` }],
+      content: [{ type: "text", text: `Connected to ${args.server}/${args.database}${authNote}` }],
     };
   } else {
     connectionManager.removeClient(clientName);
@@ -308,6 +373,23 @@ async function handleConnectMulti(args: any) {
     databases,
     verifySsl,
   } = args;
+
+  const sharedAuthType = (args.authType || config.filemaker.authType || "basic") as "basic" | "bearer";
+  const sharedBearerToken = args.bearerToken || config.filemaker.bearerToken;
+
+  // Validate shared auth requirements
+  if (sharedAuthType === "bearer" && !sharedBearerToken) {
+    return {
+      content: [{ type: "text", text: "Error: bearerToken is required when authType=bearer." }],
+      isError: true,
+    };
+  }
+  if (sharedAuthType === "basic" && !sharedUser && !config.filemaker.user) {
+    return {
+      content: [{ type: "text", text: "Error: user is required for Basic auth." }],
+      isError: true,
+    };
+  }
 
   const resolvedVerifySsl =
     verifySsl !== undefined ? verifySsl : config.filemaker.verifySsl;
@@ -343,12 +425,27 @@ async function handleConnectMulti(args: any) {
   const results = await Promise.all(
     (databases as any[]).map(async (entry) => {
       const alias: string = (entry.alias || entry.database).trim();
+      const entryAuthType = (entry.authType || sharedAuthType) as "basic" | "bearer";
+      const entryBearerToken = entry.bearerToken || sharedBearerToken;
+      const entryUser = entry.user || sharedUser || config.filemaker.user || "";
+      const entryPassword = entry.password || sharedPassword || config.filemaker.password || "";
+
+      // Per-entry auth validation
+      if (entryAuthType === "bearer" && !entryBearerToken) {
+        return { alias, database: entry.database, ok: false, error: "bearerToken required for bearer auth", primary: !!entry.primary };
+      }
+      if (entryAuthType === "basic" && !entryUser) {
+        return { alias, database: entry.database, ok: false, error: "user required for basic auth", primary: !!entry.primary };
+      }
+
       const connection: Connection = {
         server,
         database: entry.database,
-        user: entry.user || sharedUser,
-        password: entry.password || sharedPassword,
+        user: entryUser,
+        password: entryPassword,
         verifySsl: resolvedVerifySsl,
+        authType: entryAuthType,
+        bearerToken: entryBearerToken,
       };
 
       const { client, name: clientName } = connectionManager.createInlineClientNamed(

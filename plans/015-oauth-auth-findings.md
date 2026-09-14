@@ -262,3 +262,44 @@ a password.
 9. **Token validation**: Should the MCP server validate the Bearer token
    format before sending it to FileMaker? (e.g., check it's a non-empty
    string, maybe check JWT structure if it looks like a JWT)
+
+## Implementation status (Phase 1)
+
+**Implemented and tested against a live FileMaker Server.**
+
+### Live test results (2026-09-14)
+
+Tested against FileMaker Server at `nbcn.ddns.net` with the `Contacts` database:
+
+| Test | authType | Token | Result |
+|------|----------|-------|--------|
+| Basic auth (backward compatible) | not set | n/a | `{"ok":true}` — works unchanged |
+| Bearer auth (fake token) | bearer | `fake-token-for-testing` | Error 212 "Invalid account/password" — proves Bearer header IS sent |
+| Bearer authType but no token | bearer | undefined | `{"ok":true}` — falls back to Basic auth |
+
+### What was implemented (Phase 1)
+
+- `ODataClientConfig` and `Connection` interfaces now carry optional
+  `authType` ("basic" | "bearer") and `bearerToken` fields
+- `getAuthHeader()` sends `Authorization: Bearer <token>` when
+  `authType=bearer` and a token is present; otherwise falls back to Basic
+- `FM_AUTH_TYPE` and `FM_BEARER_TOKEN` env vars added
+- `fm_odata_connect` and `fm_odata_connect_multi` tool schemas updated
+  with `authType` and `bearerToken` parameters
+- Handler validation: `bearerToken` required when `authType=bearer`,
+  `user`/`password` required when `authType=basic`
+- `bearerToken` is redacted in debug logs (like `password`)
+- Backward compatible: no `authType` = Basic Auth (unchanged behavior)
+- Bearer tokens are NOT persisted in the config file (security + 1-hour expiry)
+
+### Decisions made
+
+| Question | Decision |
+|----------|----------|
+| Phase 1 only (pre-existing token)? | **Yes** — no auto-refresh |
+| Persist bearer tokens in config file? | **No** — tokens expire, leak risk |
+| Add authType to both connect tools? | **Yes** — consistency |
+| External IdP tokens (Keycloak/Auth0)? | **Support any Bearer token** |
+| Token expiry handling? | **Surface 401 to agent** |
+| Token format validation? | **No** — just check non-empty |
+| Mixed auth types per session? | **Yes** — each session carries its own authType |

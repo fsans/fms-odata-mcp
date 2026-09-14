@@ -27,6 +27,10 @@ export interface FileMakerConfig {
   batchMaxItems?: number;
   /** Server-wide cap on total records returned by queryAllRecords (default: 10000). */
   maxRecords?: number;
+  /** Authentication method: "basic" (default) or "bearer" (token-based). */
+  authType?: "basic" | "bearer";
+  /** Bearer token (when authType === "bearer"). */
+  bearerToken?: string;
 }
 
 export interface SecurityConfig {
@@ -41,6 +45,10 @@ export interface Connection {
   user: string;
   password: string;
   verifySsl?: boolean;
+  /** Authentication method: "basic" (default) or "bearer" (token-based). */
+  authType?: "basic" | "bearer";
+  /** Bearer token (required when authType === "bearer"). */
+  bearerToken?: string;
 }
 
 export interface AppConfig {
@@ -151,6 +159,11 @@ export function getConfig(): AppConfig {
       timeout: parseIntSafe(process.env.FM_TIMEOUT || String(fileConfig.filemaker?.timeout || 30000), 30000),
       batchMaxItems: parseIntSafe(process.env.FM_BATCH_MAX_ITEMS || String(fileConfig.filemaker?.batchMaxItems || 100), 100),
       maxRecords: parseIntSafe(process.env.FM_MAX_RECORDS || String(fileConfig.filemaker?.maxRecords || 10000), 10000),
+      authType:
+        (process.env.FM_AUTH_TYPE as "basic" | "bearer") ||
+        fileConfig.filemaker?.authType ||
+        "basic",
+      bearerToken: process.env.FM_BEARER_TOKEN || fileConfig.filemaker?.bearerToken,
     },
     security: {
       certPath: process.env.MCP_CERT_PATH || fileConfig.security?.certPath,
@@ -305,6 +318,8 @@ function mergeWithDefaults(partial: Partial<AppConfig>): AppConfig {
       timeout: partial.filemaker?.timeout,
       batchMaxItems: partial.filemaker?.batchMaxItems,
       maxRecords: partial.filemaker?.maxRecords,
+      authType: partial.filemaker?.authType,
+      bearerToken: partial.filemaker?.bearerToken,
     },
     security: partial.security,
     connections: partial.connections,
