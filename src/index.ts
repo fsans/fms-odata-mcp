@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FMS-ODATA-MCP Server
+ * fms-odata-mcp Server
  * MCP server for FileMaker Server OData 4.01 API
  */
 
@@ -10,6 +10,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { setupTransport, getTransportConfig } from "./transport.js";
+import { closeHttpServer } from "./simple-http-transport.js";
 import { getConfig, validateConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { getAllTools, handleToolCall } from "./tools/index.js";
@@ -48,6 +49,7 @@ export class FileMakerODataServer {
       logger.info(`Received ${signal}, shutting down server...`);
       try {
         await this.server.close();
+        await closeHttpServer();
       } finally {
         process.exit(0);
       }
@@ -118,7 +120,7 @@ export class FileMakerODataServer {
         throw new Error(`Invalid configuration: ${validation.errors.join("; ")}`);
       }
 
-      logger.info(`Starting FMS-ODATA-MCP Server v${PACKAGE_VERSION}...`);
+      logger.info(`Starting fms-odata-mcp Server v${PACKAGE_VERSION}...`);
       logger.info(`Transport: ${transportConfig.type}`);
 
       await setupTransport(this.server, transportConfig);

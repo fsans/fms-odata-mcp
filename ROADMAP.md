@@ -22,6 +22,7 @@
 - **v0.8.2** — Enhanced v26 metadata parsing: child annotations inside `<Property>`, automatic
   FMFID resolution for non-ASCII field names in `$filter`, `fm_odata_describe_table`.
   35 tools total (29 standard + 6 optional schema editing).
+  (Note: v0.8.4 adds 3 bulk tools + 1 pagination helper — 39 tools total / 33 standard + 6 schema editing.)
 - **v0.8.3** — Bug-fix and consistency release: Dockerfile healthcheck (ESM `require`),
   logger path, multi-field `groupBy` client-side fallback, `$` injection in
   `buildParameterizedFilter`, aggregate filter normalization, `http-server.ts`
@@ -37,7 +38,7 @@
 
 - **HTTP/HTTPS Transport** — Standalone server mode (`MCP_TRANSPORT=http|https`)
 - **Docker Deployment** — Full Docker and Docker Compose support with health checks
-- **CLI Binary** — `filemaker-odata-mcp` command, installable via `npm install -g` or `npx`
+- **CLI Binary** — `fms-odata-mcp` command, installable via `npm install -g` or `npx`
 - **19 MCP Tools** — Discovery, Queries, CRUD, Connection, and Configuration
 - **Saved Connections** — Persisted connection config in `~/.fms-odata-mcp/config.json`
 - **Debug Logging** — `DEBUG=fms-odata-mcp:*` support with password redaction
@@ -303,8 +304,8 @@ Want to help implement these features? See [CONTRIBUTING.md](../CONTRIBUTING.md)
 ## 📞 Feedback
 
 Have suggestions for the roadmap?
-- Open a [GitHub Issue](https://github.com/fsans/FMS-ODATA-MCP/issues)
-- Start a [Discussion](https://github.com/fsans/FMS-ODATA-MCP/discussions)
+- Open a [GitHub Issue](https://github.com/fsans/fms-odata-mcp/issues)
+- Start a [Discussion](https://github.com/fsans/fms-odata-mcp/discussions)
 - Submit a Pull Request
 
 ---

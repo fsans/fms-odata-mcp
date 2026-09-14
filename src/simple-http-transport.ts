@@ -2,10 +2,13 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { HttpTransport } from "./working-http-transport.js";
 import { PACKAGE_VERSION } from "./version.js";
 import { DEFAULT_HTTP_PORT, DEFAULT_HTTPS_PORT } from "./config.js";
-import express, { Request, Response } from "express";
+import { logger } from "./logger.js";
+import express, { Request, Response, NextFunction } from "express";
 import https from "https";
 import http from "http";
 import fs from "fs";
+
+let httpServer: http.Server | https.Server | null = null;
 
 export interface HttpTransportConfig {
   port?: number;
@@ -43,6 +46,38 @@ function warnIfDockerLocalhost(host: string): void {
 }
 
 /**
+ * Create an Express authentication middleware that checks for a Bearer token
+ * matching MCP_AUTH_TOKEN. Returns null if no token is configured (auth disabled).
+ */
+export function createAuthMiddleware(): ((req: Request, res: Response, next: NextFunction) => void) | null {
+  const authToken = process.env.MCP_AUTH_TOKEN;
+  if (!authToken) {
+    console.error(
+      "[WARN] HTTP transport has no authentication. Set MCP_AUTH_TOKEN to secure the /mcp endpoint."
+    );
+    return null;
+  }
+  console.error("HTTP transport authentication enabled (MCP_AUTH_TOKEN set)");
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.method === "GET") {
+      return next();
+    }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${authToken}`) {
+      res.status(401).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: "Unauthorized: valid Bearer token required",
+        },
+      });
+      return;
+    }
+    next();
+  };
+}
+
+/**
  * Simple HTTP transport that processes MCP requests directly
  * This implementation handles JSON-RPC 2.0 requests without streaming
  */
@@ -69,6 +104,12 @@ export async function setupSimpleHttpTransport(
 
   // Body parser
   app.use(express.json());
+
+  // Authentication (optional — enabled when MCP_AUTH_TOKEN env var is set)
+  const authMiddleware = createAuthMiddleware();
+  if (authMiddleware) {
+    app.use("/mcp", authMiddleware);
+  }
 
   // Create HTTP transport instance
   const transport = new HttpTransport();
@@ -107,8 +148,9 @@ export async function setupSimpleHttpTransport(
   const host = config.host || "localhost";
   warnIfDockerLocalhost(host);
 
-  http.createServer(app).listen(port, host, () => {
-    console.error(`FMS-ODATA-MCP Server running on http://${host}:${port}`);
+  httpServer = http.createServer(app);
+  httpServer.listen(port, host, () => {
+    console.error(`fms-odata-mcp Server running on http://${host}:${port}`);
     console.error(`MCP endpoint: http://${host}:${port}/mcp`);
     console.error(`Health check: http://${host}:${port}/health`);
     console.error(`Transport: HTTP (JSON-RPC 2.0)`);
@@ -140,6 +182,12 @@ export async function setupSimpleHttpsTransport(
 
   // Body parser
   app.use(express.json());
+
+  // Authentication (optional — enabled when MCP_AUTH_TOKEN env var is set)
+  const authMiddleware = createAuthMiddleware();
+  if (authMiddleware) {
+    app.use("/mcp", authMiddleware);
+  }
 
   // Create HTTP transport instance
   const transport = new HttpTransport();
@@ -185,10 +233,25 @@ export async function setupSimpleHttpsTransport(
   const host = config.host || "localhost";
   warnIfDockerLocalhost(host);
   
-  https.createServer({ cert, key }, app).listen(port, host, () => {
-    console.error(`FMS-ODATA-MCP Server running on https://${host}:${port}`);
+  httpServer = https.createServer({ cert, key }, app);
+  httpServer.listen(port, host, () => {
+    console.error(`fms-odata-mcp Server running on https://${host}:${port}`);
     console.error(`MCP endpoint: https://${host}:${port}/mcp`);
     console.error(`Health check: https://${host}:${port}/health`);
     console.error(`Transport: HTTPS (JSON-RPC 2.0)`);
   });
+}
+
+/**
+ * Close the HTTP/HTTPS server listener if one is active.
+ * Called during graceful shutdown to release the bound port.
+ */
+export async function closeHttpServer(): Promise<void> {
+  if (httpServer) {
+    await new Promise<void>((resolve) => {
+      httpServer!.close(() => resolve());
+    });
+    httpServer = null;
+    logger.info("HTTP server closed");
+  }
 }

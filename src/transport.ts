@@ -65,5 +65,5 @@ export async function setupTransport(
 async function setupStdioTransport(server: Server): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("FMS-ODATA-MCP Server running on stdio");
+  console.error("fms-odata-mcp Server running on stdio");
 }
