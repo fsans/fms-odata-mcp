@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ENV_FILE=".env"
-IMAGE="filemaker-odata-mcp:latest"
-CONTAINER="filemaker-odata-mcp"
+IMAGE="fms-odata-mcp:latest"
+CONTAINER="fms-odata-mcp"
 
 # Require .env
 if [ ! -f "$ENV_FILE" ]; then

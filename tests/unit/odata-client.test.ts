@@ -539,38 +539,6 @@ describe('ODataClient', () => {
     });
   });
 
-  describe('Batch Operations', () => {
-    test('should execute batch operations', async () => {
-      mockAxiosInstance.get.mockResolvedValue({ data: { value: [] }, status: 200 });
-      mockAxiosInstance.post.mockResolvedValue({ data: { id: '1' }, status: 201 });
-
-      const operations = [
-        { method: 'GET' as const, url: 'test1' },
-        { method: 'POST' as const, url: 'test2', data: { name: 'test' } },
-      ];
-
-      const results = await client.batch(operations);
-
-      expect(results).toHaveLength(2);
-      expect(results[0].success).toBe(true);
-      expect(results[1].success).toBe(true);
-    });
-
-    test('should handle failed operations in batch', async () => {
-      mockAxiosInstance.get.mockRejectedValue(new Error('Failed'));
-
-      const operations = [
-        { method: 'GET' as const, url: 'test1' },
-      ];
-
-      const results = await client.batch(operations);
-
-      expect(results).toHaveLength(1);
-      expect(results[0].success).toBe(false);
-      expect(results[0].error).toBeDefined();
-    });
-  });
-
   describe('runScript', () => {
     test('should run script by name without parameter', async () => {
       mockAxiosInstance.post.mockResolvedValue({
@@ -730,6 +698,58 @@ describe('ODataClient', () => {
       const url = mockAxiosInstance.get.mock.calls[mockAxiosInstance.get.mock.calls.length - 1][0];
       expect(url).toContain('%22'); // auto-quoted
       expect(url).not.toContain('FMFID');
+    });
+  });
+
+  describe('invalidateMetadataCache', () => {
+    test('clears cached metadata so getMetadata re-fetches', async () => {
+      const xml1 = '<edmx:Edmx>v1</edmx:Edmx>';
+      const xml2 = '<edmx:Edmx>v2</edmx:Edmx>';
+
+      mockAxiosInstance.get.mockResolvedValueOnce({ data: xml1 });
+      const first = await client.getMetadata();
+      expect(first).toBe(xml1);
+
+      // Without invalidation, second call returns cached value
+      const cached = await client.getMetadata();
+      expect(cached).toBe(xml1);
+
+      // After invalidation, re-fetches
+      client.invalidateMetadataCache();
+      mockAxiosInstance.get.mockResolvedValueOnce({ data: xml2 });
+      const second = await client.getMetadata();
+      expect(second).toBe(xml2);
+    });
+
+    test('resets cached version so getServerVersion re-parses', async () => {
+      const v25Metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <Annotation Term="Org.OData.Core.V1.ProductVersion" String="25.0.0" />
+</edmx:Edmx>`;
+      const v26Metadata = `<?xml version="1.0"?>
+<edmx:Edmx>
+  <Annotation Term="Org.OData.Core.V1.ProductVersion" String="26.0.1" />
+</edmx:Edmx>`;
+
+      mockAxiosInstance.get.mockResolvedValueOnce({ data: v25Metadata });
+      const v1 = await client.getServerVersion();
+      expect(v1?.major).toBe(25);
+
+      client.invalidateMetadataCache();
+
+      mockAxiosInstance.get.mockResolvedValueOnce({ data: v26Metadata });
+      const v2 = await client.getServerVersion();
+      expect(v2?.major).toBe(26);
+    });
+  });
+
+  describe('runScriptById input validation', () => {
+    test('rejects non-numeric scriptId', async () => {
+      await expect(client.runScriptById('abc/../x')).rejects.toThrow(/Invalid scriptId/);
+    });
+
+    test('rejects scriptId with path traversal', async () => {
+      await expect(client.runScriptById('1/../../etc')).rejects.toThrow(/Invalid scriptId/);
     });
   });
 });

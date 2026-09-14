@@ -1,6 +1,6 @@
 # FileMaker Server OData MCP
 
-[![npm version](https://img.shields.io/npm/v/filemaker-odata-mcp.svg)](https://www.npmjs.com/package/filemaker-odata-mcp)
+[![npm version](https://img.shields.io/npm/v/fms-odata-mcp.svg)](https://www.npmjs.com/package/fms-odata-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration
@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- **35 MCP Tools** for FileMaker database operations (29 standard + 6 optional schema editing)
+- **39 MCP Tools** for FileMaker database operations (33 standard + 6 optional schema editing)
 - **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
 - **Session Management** - List and target active sessions per call
   (`fm_odata_list_active_sessions`, per-call `connection` param)
@@ -41,14 +41,19 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ```bash
 # Via NPM (recommended)
-npm install -g filemaker-odata-mcp
+npm install -g fms-odata-mcp
 
 # Or local development
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm install
 npm run build
 ```
+
+> **Note:** This package was previously published as `filemaker-odata-mcp`. It has been
+> renamed to `fms-odata-mcp` to align with the related `fms-*` repositories
+> (`fms-odata-js`, `fms-odata-spec`). The old name is deprecated on npm; update your
+> installs to `fms-odata-mcp`.
 
 ## Deployment Modes
 
@@ -69,7 +74,7 @@ For use with AI assistants that support MCP (Claude Desktop, Windsurf, Cursor, C
   "mcpServers": {
     "filemaker-odata": {
       "command": "npx",
-      "args": ["-y", "filemaker-odata-mcp"],
+      "args": ["-y", "fms-odata-mcp"],
       "env": {
         "FM_SERVER": "https://your-filemaker-server.com",
         "FM_DATABASE": "YourDatabase",
@@ -108,7 +113,7 @@ export MCP_PORT=3333
 export MCP_HOST=0.0.0.0  # Listen on all interfaces
 
 # Run the server
-filemaker-odata-mcp
+fms-odata-mcp
 ```
 
 The server will start on `http://localhost:3333` with the following endpoints:
@@ -138,6 +143,25 @@ export MCP_PORT=3443
 export MCP_CERT_PATH=/path/to/cert.pem
 export MCP_KEY_PATH=/path/to/key.pem
 ```
+
+#### HTTP/HTTPS Authentication
+
+When the server is accessible on a non-localhost network, set `MCP_AUTH_TOKEN` to require Bearer token authentication for `/mcp` POST requests. This prevents unauthorized tool invocation.
+
+```bash
+# Generate a random token
+export MCP_AUTH_TOKEN=$(openssl rand -hex 32)
+
+# Clients must now send the token in the Authorization header:
+curl -X POST http://localhost:3333/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $MCP_AUTH_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+- When `MCP_AUTH_TOKEN` is set, POST requests to `/mcp` without a valid `Authorization: Bearer <token>` header receive a 401 response.
+- The `/health` endpoint and `GET /mcp` (server info) remain open — no auth required.
+- When unset, a warning is logged and the endpoint is open (suitable for local development only).
 
 #### Integration Examples
 
@@ -202,8 +226,8 @@ const response = await fetch('http://localhost:3333/mcp', {
 The included `start.sh` script handles building, credential injection from `.env`, and container lifecycle:
 
 ```bash
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 cp .env.example .env
 # Edit .env with your FileMaker credentials and set MCP_TRANSPORT=http, MCP_HOST=0.0.0.0
 ./start.sh
@@ -216,14 +240,14 @@ and start a fresh one. Logs are tailed automatically.
 
 ```bash
 # Clone and build
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm run build
-docker build -t filemaker-odata-mcp:latest .
+docker build -t fms-odata-mcp:latest .
 
 # Run the container
 docker run -d \
-  --name filemaker-odata-mcp \
+  --name fms-odata-mcp \
   -p 3333:3333 \
   -e FM_SERVER=https://your-filemaker-server.com \
   -e FM_DATABASE=YourDatabase \
@@ -233,7 +257,7 @@ docker run -d \
   -e MCP_TRANSPORT=http \
   -e MCP_HOST=0.0.0.0 \
   -v ~/.fms-odata-mcp:/home/mcp/.fms-odata-mcp \
-  filemaker-odata-mcp:latest
+  fms-odata-mcp:latest
 ```
 
 > **Important:** Set `MCP_HOST=0.0.0.0` when running in a container. Using `localhost` binds only to the container's loopback interface and makes the port unreachable from outside.
@@ -243,8 +267,8 @@ docker run -d \
 1. **Clone and build:**
 
 ```bash
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 npm run build
 ```
 
@@ -268,7 +292,11 @@ docker-compose -f my-docker-compose.yml up -d
 docker-compose -f docker-compose.yml --profile https up -d
 ```
 
-Place your SSL certificates in the `./ssl` directory:
+Generate your own SSL certificates and place them in the `./ssl` directory:
+```bash
+mkdir -p ssl
+openssl req -x509 -newkey rsa:4096 -keyout ssl/key.pem -out ssl/cert.pem -days 365 -nodes
+```
 - `ssl/cert.pem` - SSL certificate
 - `ssl/key.pem` - SSL private key
 
@@ -320,9 +348,6 @@ Create a new contact with name "John Doe" and email "john@example.com"
 
 ## Documentation
 
-- **[Quick Reference](./dev_stuf/QUICK_REFERENCE.md)** - One-page setup guide
-- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference
-- **[Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)** - Detailed configuration
 - **[Docker Deployment](./DOCKER.md)** - Complete Docker guide with production examples
 - **[Roadmap](./ROADMAP.md)** - Planned features and version history
 - **[Changelog](./CHANGELOG.md)** - Detailed release notes
@@ -387,6 +412,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | `MCP_HOST`      | Host to bind to                                | No       | `localhost`                       |
 | `MCP_CERT_PATH` | Path to SSL certificate (HTTPS only)           | No       | -                                 |
 | `MCP_KEY_PATH`  | Path to SSL private key (HTTPS only)           | No       | -                                 |
+| `MCP_AUTH_TOKEN`| Bearer token for `/mcp` auth (HTTP/HTTPS)      | No       | - (open endpoint, warning logged) |
 
 ## OData Query Syntax
 
@@ -525,8 +551,8 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/fsans/FMS-ODATA-MCP/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/fsans/FMS-ODATA-MCP/discussions)
+- **Issues**: [GitHub Issues](https://github.com/fsans/fms-odata-mcp/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/fsans/fms-odata-mcp/discussions)
 
 ## Changelog
 

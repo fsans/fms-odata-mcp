@@ -1,4 +1,4 @@
-# Contributing to FMS-ODATA-MCP
+# Contributing to fms-odata-mcp
 
 Thank you for your interest in contributing! This guide will help you set up your
 development environment and understand the project structure.
@@ -16,8 +16,8 @@ development environment and understand the project structure.
 
 ```bash
 # Clone the repository
-git clone https://github.com/fsans/FMS-ODATA-MCP.git
-cd FMS-ODATA-MCP
+git clone https://github.com/fsans/fms-odata-mcp.git
+cd fms-odata-mcp
 
 # Install dependencies
 npm install
@@ -35,7 +35,7 @@ npm run test:coverage
 ## Project Structure
 
 ```
-FMS-ODATA-MCP/
+fms-odata-mcp/
 ├── src/
 │   ├── index.ts           # MCP server entry point
 │   ├── config.ts          # Configuration management
@@ -53,13 +53,6 @@ FMS-ODATA-MCP/
 ├── tests/
 │   ├── unit/              # Unit tests (run by default)
 │   └── integration/       # Integration tests (require live server)
-├── dev_stuf/              # Detailed documentation
-│   ├── QUICK_REFERENCE.md
-│   ├── CLAUDE_DESKTOP_SETUP.md
-│   ├── CLAUDE_DESKTOP_PROMPTS.md
-│   ├── NPM_PUBLISHING.md
-│   ├── DEPLOYMENT_SCENARIOS.md
-│   └── ...
 ├── private/               # Working docs (git-ignored)
 │   └── ...
 └── dist/                  # Compiled JavaScript (git-ignored)
@@ -262,7 +255,7 @@ DEBUG=* node dist/index.js
 # Update claude_desktop_config.json to point to local build
 {
   "command": "node",
-  "args": ["/path/to/FMS-ODATA-MCP/dist/index.js"]
+  "args": ["/path/to/fms-odata-mcp/dist/index.js"]
 }
 ```
 
@@ -277,7 +270,6 @@ DEBUG=* node dist/index.js
 ### User Documentation
 
 - Update `README.md` for user-facing changes
-- Add examples to `dev_stuf/CLAUDE_DESKTOP_PROMPTS.md`
 - Update Quick Reference if needed
 
 ### Developer Documentation
@@ -290,9 +282,7 @@ DEBUG=* node dist/index.js
 
 For more detailed information, see:
 
-- **[NPM Publishing](./dev_stuf/NPM_PUBLISHING.md)** - How to publish new versions
-- **[Roadmap](../ROADMAP.md)** - Completed and planned features
-- **[Implementation Plans](../private/IMPLEMENTATION_PLANS.md)** - Phase-by-phase feature breakdowns (private)
+- **[Roadmap](./ROADMAP.md)** - Completed and planned features
 
 ## Release Process
 
@@ -301,14 +291,14 @@ For more detailed information, see:
 3. Run all tests: `npm test && npm run test:coverage`
 4. Build: `npm run build`
 5. Test package: `npm pack` and inspect contents
-6. Publish: Follow `dev_stuf/NPM_PUBLISHING.md`
+6. Publish: `npm publish`
 7. Tag release: `git tag -a v1.0.0 -m "Release v1.0.0"`
 8. Push: `git push origin master --tags`
 
 ## Getting Help
 
-- **Questions**: Open a [GitHub Discussion](https://github.com/fsans/FMS-ODATA-MCP/discussions)
-- **Bugs**: Open a [GitHub Issue](https://github.com/fsans/FMS-ODATA-MCP/issues)
+- **Questions**: Open a [GitHub Discussion](https://github.com/fsans/fms-odata-mcp/discussions)
+- **Bugs**: Open a [GitHub Issue](https://github.com/fsans/fms-odata-mcp/issues)
 - **Security**: Email security concerns to fsans@ntwk.es
 
 ## Code of Conduct
@@ -324,4 +314,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for contributing to FMS-ODATA-MCP! 🎉
+Thank you for contributing to fms-odata-mcp! 🎉

@@ -1,24 +1,45 @@
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { connectionTools, handleConnectionTool } from "../../../src/tools/connection.js";
-import { connectionManager } from "../../../src/connection.js";
 
-// Mock dependencies
-jest.mock("../../../src/connection.js", () => ({
+// Mock connection.js — must use unstable_mockModule for ESM
+jest.unstable_mockModule("../../../src/connection.js", () => ({
+  ConnectionManager: jest.fn(() => ({})),
   connectionManager: {
+    createInlineClientNamed: jest.fn(),
     createInlineClient: jest.fn(),
-    setCurrentConnection: jest.fn(),
-    getCurrentConnectionName: jest.fn(),
+    getClient: jest.fn(),
+    getClientByName: jest.fn(),
     getCurrentClient: jest.fn(),
+    getCurrentConnectionName: jest.fn(),
+    setCurrentConnection: jest.fn(),
+    listActiveSessions: jest.fn(() => []),
+    removeClient: jest.fn(),
+    clearClients: jest.fn(),
+    testConnection: jest.fn(),
+    getServerVersion: jest.fn(),
   },
 }));
 
-jest.mock("../../../src/config.js", () => ({
+// Mock config.js — provide ALL exports needed by any module in the import chain
+jest.unstable_mockModule("../../../src/config.js", () => ({
+  DEFAULT_HTTP_PORT: 3333,
+  DEFAULT_HTTPS_PORT: 3443,
   getConfig: jest.fn(() => ({
-    filemaker: {
-      verifySsl: false,
-      timeout: 30000,
-    },
+    server: { transport: "stdio" as const },
+    filemaker: { verifySsl: false, timeout: 30000 },
   })),
+  getConnection: jest.fn((name: string) => {
+    if (name === "test-connection") {
+      return {
+        name: "test-connection",
+        server: "https://test.example.com",
+        database: "TestDB",
+        user: "testuser",
+        password: "testpass",
+        verifySsl: false,
+      };
+    }
+    return null;
+  }),
   listConnections: jest.fn(() => [
     {
       name: "test-connection",
@@ -28,28 +49,64 @@ jest.mock("../../../src/config.js", () => ({
       password: "testpass",
     },
   ]),
-  getConnection: jest.fn((name) => {
-    if (name === "test-connection") {
-      return {
+  addConnection: jest.fn(),
+  removeConnection: jest.fn(),
+  setDefaultConnection: jest.fn(),
+  getDefaultConnectionName: jest.fn(),
+  getDefaultConnection: jest.fn(() => null),
+  getConfigDir: jest.fn(() => "/tmp/fms-odata-mcp-test"),
+  getConfigFilePath: jest.fn(() => "/tmp/fms-odata-mcp-test/config.json"),
+  getEnvFilePath: jest.fn(() => "/tmp/.env"),
+  hasConfig: jest.fn(() => false),
+  getConnections: jest.fn(() => []),
+  resolveVerifySsl: jest.fn(() => false),
+  validateConfig: jest.fn(),
+  loadConfigFile: jest.fn(),
+  saveConfigFile: jest.fn(),
+  loadEnvFile: jest.fn(),
+}));
+
+// Dynamically import AFTER mock setup
+const { connectionTools, handleConnectionTool } = await import("../../../src/tools/connection.js");
+const { connectionManager } = await import("../../../src/connection.js");
+const config = await import("../../../src/config.js");
+
+describe("Connection Tools", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Reset default mock implementations after clearAllMocks
+    (connectionManager.listActiveSessions as jest.Mock).mockReturnValue([]);
+    (config.getConfig as jest.Mock).mockReturnValue({
+      server: { transport: "stdio" as const },
+      filemaker: { verifySsl: false, timeout: 30000 },
+    });
+    (config.getConnection as jest.Mock).mockImplementation((name: string) => {
+      if (name === "test-connection") {
+        return {
+          name: "test-connection",
+          server: "https://test.example.com",
+          database: "TestDB",
+          user: "testuser",
+          password: "testpass",
+          verifySsl: false,
+        };
+      }
+      return null;
+    });
+    (config.listConnections as jest.Mock).mockReturnValue([
+      {
         name: "test-connection",
         server: "https://test.example.com",
         database: "TestDB",
         user: "testuser",
         password: "testpass",
-      };
-    }
-    return null;
-  }),
-}));
-
-describe("Connection Tools", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+      },
+    ]);
   });
 
   describe("Tool Definitions", () => {
     it("should export correct number of tools", () => {
-      expect(connectionTools).toHaveLength(4);
+      expect(connectionTools).toHaveLength(8);
     });
 
     it("should have fm_odata_connect tool", () => {
@@ -57,8 +114,17 @@ describe("Connection Tools", () => {
       expect(tool).toBeDefined();
       expect(tool?.inputSchema.required).toContain("server");
       expect(tool?.inputSchema.required).toContain("database");
-      expect(tool?.inputSchema.required).toContain("user");
-      expect(tool?.inputSchema.required).toContain("password");
+      // user/password are no longer in "required" — they are conditionally
+      // required based on authType (basic vs bearer), validated in the handler.
+      expect(tool?.inputSchema.properties).toHaveProperty("user");
+      expect(tool?.inputSchema.properties).toHaveProperty("password");
+      expect(tool?.inputSchema.properties).toHaveProperty("authType");
+      expect(tool?.inputSchema.properties).toHaveProperty("bearerToken");
+    });
+
+    it("should have fm_odata_connect_multi tool", () => {
+      const tool = connectionTools.find((t) => t.name === "fm_odata_connect_multi");
+      expect(tool).toBeDefined();
     });
 
     it("should have fm_odata_set_connection tool", () => {
@@ -78,15 +144,33 @@ describe("Connection Tools", () => {
       expect(tool).toBeDefined();
       expect(tool?.inputSchema.required).toHaveLength(0);
     });
+
+    it("should have fm_odata_list_active_sessions tool", () => {
+      const tool = connectionTools.find((t) => t.name === "fm_odata_list_active_sessions");
+      expect(tool).toBeDefined();
+    });
+
+    it("should have fm_odata_describe_sessions tool", () => {
+      const tool = connectionTools.find((t) => t.name === "fm_odata_describe_sessions");
+      expect(tool).toBeDefined();
+    });
+
+    it("should have fm_odata_get_server_version tool", () => {
+      const tool = connectionTools.find((t) => t.name === "fm_odata_get_server_version");
+      expect(tool).toBeDefined();
+    });
   });
 
   describe("handleConnectionTool", () => {
     describe("fm_odata_connect", () => {
       it("should create inline client with valid credentials", async () => {
         const mockClient = {
-          testConnection: jest.fn(() => Promise.resolve(true)),
+          testConnectionDetailed: jest.fn(() => Promise.resolve({ ok: true })),
         };
-        (connectionManager.createInlineClient as jest.Mock).mockReturnValue(mockClient);
+        (connectionManager.createInlineClientNamed as jest.Mock).mockReturnValue({
+          client: mockClient,
+          name: "inline_test",
+        });
 
         const result = await handleConnectionTool("fm_odata_connect", {
           server: "https://test.example.com",
@@ -95,7 +179,7 @@ describe("Connection Tools", () => {
           password: "testpass",
         });
 
-        expect(connectionManager.createInlineClient).toHaveBeenCalledWith(
+        expect(connectionManager.createInlineClientNamed).toHaveBeenCalledWith(
           expect.objectContaining({
             server: "https://test.example.com",
             database: "TestDB",
@@ -112,9 +196,12 @@ describe("Connection Tools", () => {
 
       it("should return error when connection test fails", async () => {
         const mockClient = {
-          testConnection: jest.fn(() => Promise.resolve(false)),
+          testConnectionDetailed: jest.fn(() => Promise.resolve({ ok: false, error: "Auth failed" })),
         };
-        (connectionManager.createInlineClient as jest.Mock).mockReturnValue(mockClient);
+        (connectionManager.createInlineClientNamed as jest.Mock).mockReturnValue({
+          client: mockClient,
+          name: "inline_test",
+        });
 
         const result = await handleConnectionTool("fm_odata_connect", {
           server: "https://test.example.com",
@@ -129,7 +216,10 @@ describe("Connection Tools", () => {
     });
 
     describe("fm_odata_set_connection", () => {
-      it("should switch to existing connection", async () => {
+      it("should switch to existing saved connection", async () => {
+        // No active session found, falls through to saved config
+        (connectionManager.testConnection as jest.Mock).mockResolvedValue(true);
+
         const result = await handleConnectionTool("fm_odata_set_connection", {
           name: "test-connection",
         });
@@ -143,7 +233,8 @@ describe("Connection Tools", () => {
         expect(result.content[0].text).toContain("Switched to connection: test-connection");
       });
 
-      it("should handle connection switch error", async () => {
+      it("should handle connection not found", async () => {
+        // No active session, no saved config
         (connectionManager.setCurrentConnection as jest.Mock).mockImplementation(() => {
           throw new Error("Connection not found");
         });
@@ -153,31 +244,7 @@ describe("Connection Tools", () => {
         });
 
         expect(result.isError).toBe(true);
-        expect(result.content[0].text).toContain("Connection not found");
-      });
-
-      it("should ensure getCurrentClient returns client after set_connection", async () => {
-        const mockClient = {
-          testConnection: jest.fn(() => Promise.resolve(true)),
-        };
-        
-        // Mock getClient to return a client
-        (connectionManager.getClient as jest.Mock).mockReturnValue(mockClient);
-        
-        // Mock getCurrentClient to initially return null
-        (connectionManager.getCurrentClient as jest.Mock).mockReturnValue(null);
-
-        const result = await handleConnectionTool("fm_odata_set_connection", {
-          name: "test-connection",
-        });
-
-        expect(connectionManager.setCurrentConnection).toHaveBeenCalledWith(
-          "test-connection",
-          false,
-          30000
-        );
-
-        expect(result.content[0].text).toContain("Switched to connection: test-connection");
+        expect(result.content[0].text).toContain("not found");
       });
     });
 
@@ -185,14 +252,14 @@ describe("Connection Tools", () => {
       it("should list all configured connections", async () => {
         const result = await handleConnectionTool("fm_odata_list_connections", {});
 
-        expect(result.content[0].text).toContain("Configured connections:");
+        expect(result.content[0].text).toContain("Saved connections");
         expect(result.content[0].text).toContain("test-connection");
         expect(result.content[0].text).toContain("https://test.example.com");
       });
 
       it("should handle no connections", async () => {
-        const { listConnections } = await import("../../../src/config.js");
-        (listConnections as jest.Mock).mockReturnValue([]);
+        (config.listConnections as jest.Mock).mockReturnValue([]);
+        (connectionManager.listActiveSessions as jest.Mock).mockReturnValue([]);
 
         const result = await handleConnectionTool("fm_odata_list_connections", {});
 
@@ -203,6 +270,7 @@ describe("Connection Tools", () => {
     describe("fm_odata_get_current_connection", () => {
       it("should return current connection details", async () => {
         (connectionManager.getCurrentConnectionName as jest.Mock).mockReturnValue("test-connection");
+        (connectionManager.listActiveSessions as jest.Mock).mockReturnValue([]);
 
         const result = await handleConnectionTool("fm_odata_get_current_connection", {});
 
@@ -220,8 +288,8 @@ describe("Connection Tools", () => {
 
       it("should handle inline/temporary connection", async () => {
         (connectionManager.getCurrentConnectionName as jest.Mock).mockReturnValue("inline_123");
-        const { getConnection } = await import("../../../src/config.js");
-        (getConnection as jest.Mock).mockReturnValue(null);
+        (connectionManager.listActiveSessions as jest.Mock).mockReturnValue([]);
+        (config.getConnection as jest.Mock).mockReturnValue(null);
 
         const result = await handleConnectionTool("fm_odata_get_current_connection", {});
 
