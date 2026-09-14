@@ -114,8 +114,12 @@ describe("Connection Tools", () => {
       expect(tool).toBeDefined();
       expect(tool?.inputSchema.required).toContain("server");
       expect(tool?.inputSchema.required).toContain("database");
-      expect(tool?.inputSchema.required).toContain("user");
-      expect(tool?.inputSchema.required).toContain("password");
+      // user/password are no longer in "required" — they are conditionally
+      // required based on authType (basic vs bearer), validated in the handler.
+      expect(tool?.inputSchema.properties).toHaveProperty("user");
+      expect(tool?.inputSchema.properties).toHaveProperty("password");
+      expect(tool?.inputSchema.properties).toHaveProperty("authType");
+      expect(tool?.inputSchema.properties).toHaveProperty("bearerToken");
     });
 
     it("should have fm_odata_connect_multi tool", () => {

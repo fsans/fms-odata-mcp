@@ -9,6 +9,10 @@ export interface ODataClientConfig {
   database: string;
   user: string;
   password: string;
+  /** Authentication method: "basic" (default) or "bearer" (token-based). */
+  authType?: "basic" | "bearer";
+  /** Bearer token (required when authType === "bearer"). */
+  bearerToken?: string;
   timeout?: number;
   verifySsl?: boolean;
 }
@@ -174,9 +178,16 @@ export class ODataClient {
   }
 
   /**
-   * Generate Basic Auth header
+   * Generate Authorization header.
+   *
+   * When authType is "bearer", sends `Authorization: Bearer <token>` for
+   * FileMaker Cloud / OAuth / reverse-proxy setups. Otherwise falls back
+   * to Basic Auth with user:password.
    */
   private getAuthHeader(): string {
+    if (this.config.authType === "bearer" && this.config.bearerToken) {
+      return `Bearer ${this.config.bearerToken}`;
+    }
     const credentials = Buffer.from(
       `${this.config.user}:${this.config.password}`
     ).toString("base64");
