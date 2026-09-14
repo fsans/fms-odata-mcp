@@ -152,27 +152,25 @@ HTTP 204 immediately.
   Dify runs in Docker).
 - If Dify returns 403, check the SSRF proxy (Squid): port 3333 must be in the `Safe_ports` ACL in `squid.conf`.
 
-### KNOWN BUG — $filter with spaces in string values (UNRESOLVED)
+### Known FileMaker OData limitations — cannot filter on the `id` field
 **Affects**: `fm_odata_query_records`, `fm_odata_query_all_records`, `fm_odata_count_records`,
 `fm_odata_aggregate` — any tool that sends a `$filter` to FileMaker.
 
-**Symptom**: A filter like `company eq 'Digital Dreams'` (string value containing spaces)
-fails with `OData Error [-1002]: Error: syntax error in URL at: 'Dreams'`. The space inside
-the single-quoted string value is being encoded as `%20` by `odataEncode()`, but FileMaker's
-OData parser rejects `%20` inside string literals — it expects the literal space.
+**Symptom**: Any comparison operator on the `id` field (`id eq N`, `id gt N`, `id lt N`,
+`id ge N`, `id le N`, `id ne N`) fails with `OData Error [-1002]: Error: syntax error in
+URL at: ' eq '` (or `gt`/`lt`/etc.). This is a FileMaker Server OData parser limitation:
+`id` is a reserved internal field and cannot be used in `$filter` expressions.
 
-**Root cause**: `ODataClient.odataEncode()` in `src/odata-client.ts` uses
-`encodeURIComponent(v).replace(/%2C/gi, ",")` which encodes spaces as `%20`. This is correct
-for the URL path but breaks string literals inside `$filter` expressions, where FileMaker
-expects literal spaces inside single quotes.
+**What DOES work**: Filtering on any other field works correctly, including:
+- String values with spaces: `company eq 'Digital Dreams'` ✅
+- Numeric fields: `row_id eq 1`, `update_unix_time gt 0` ✅
+- String functions: `contains(company, 'Digital')`, `startswith(company, 'Digital')` ✅
+- Compound filters on non-`id` fields ✅
 
-**Workaround for users**: Use `$filter` expressions without spaces in string values, or
-use the `fm_odata_build_filter` tool which may avoid the issue (untested). Numeric filters
-(`id gt 100`) are unaffected.
+**Workaround for users**: Use `row_id`, `uuid`, or any business field instead of `id`
+for filtering. To find a record by its internal `id`, use `fm_odata_get_record` which
+takes the record ID directly (not via `$filter`).
 
-**Fix needed**: `odataEncode()` (or `buildUrl()`) must distinguish between:
-1. URL path segments and query parameter values — encode spaces as `%20` (current behavior)
-2. String literals inside `$filter` expressions — keep spaces literal
-
-This is a pre-existing bug, not introduced by Plans 013/014. It should be fixed in a
-dedicated plan. **Do not forget this when working on filter-related code.**
+**This is NOT a code bug** — the `odataEncode()` function correctly encodes spaces as
+`%20` and FileMaker accepts this inside string literals. Verified live against
+FileMaker Server with the `Contacts` database.
