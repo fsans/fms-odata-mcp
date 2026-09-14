@@ -22,13 +22,18 @@
 - **v0.8.2** — Enhanced v26 metadata parsing: child annotations inside `<Property>`, automatic
   FMFID resolution for non-ASCII field names in `$filter`, `fm_odata_describe_table`.
   35 tools total (29 standard + 6 optional schema editing).
-  (Note: v0.8.4 adds 3 bulk tools + 1 pagination helper — 39 tools total / 33 standard + 6 schema editing.)
+  (Note: v0.9.0 adds 3 bulk tools + 1 pagination helper — 39 tools total / 33 standard + 6 schema editing.)
 - **v0.8.3** — Bug-fix and consistency release: Dockerfile healthcheck (ESM `require`),
   logger path, multi-field `groupBy` client-side fallback, `$` injection in
   `buildParameterizedFilter`, aggregate filter normalization, `http-server.ts`
   transport wiring, `countdistinct` null handling, `runScript` URL encoding,
   duplicate alias detection in `connect_multi`, unified error format.
   35 tools total (unchanged).
+- **v0.9.0** — Major improvement release: batch operations (3 tools), pagination
+  helper (1 tool), Bearer token auth (Phase 1), HTTP transport security,
+  graceful shutdown, metadata cache invalidation, NaN guard, dependency patches,
+  Node.js 24 LTS upgrade, dead code removal, expanded test coverage (378 tests).
+  39 tools total (33 standard + 6 optional schema editing).
 
 ---
 
@@ -138,11 +143,31 @@
   table (types, IDs, flags, permissions, comments).
 - **`field_id_in_metadata` feature flag** — Gated at FM Server `26.0.0`.
 
+### v0.9.0 — Batch Operations, Pagination, Bearer Auth, Security & Stability
+
+- **`fm_odata_create_records` / `fm_odata_update_records` / `fm_odata_delete_records`** —
+  Bulk CRUD via OData `$batch` (multipart/mixed) with parallel fallback strategy.
+  Configurable cap via `FM_BATCH_MAX_ITEMS` (default 100).
+- **`fm_odata_query_all_records`** — Pagination helper following `@odata.nextLink`
+  with `$skip` fallback. Default page size 100, hard cap 50,000 records.
+- **Bearer token authentication (Phase 1)** — `authType` + `bearerToken` on
+  `fm_odata_connect` and `fm_odata_connect_multi`. `FM_AUTH_TYPE` / `FM_BEARER_TOKEN`
+  env vars. Backward compatible (Basic Auth default).
+- **MCP transport security** — Optional `MCP_AUTH_TOKEN` for HTTP/HTTPS transport.
+- **Graceful shutdown** — HTTP server listener closed on SIGTERM/SIGINT.
+- **Metadata cache invalidation** — Cached `$metadata` invalidated after schema mutations.
+- **NaN guard** — `parseInt` guarded against non-numeric config values.
+- **Dependency patches** — express, axios, MCP SDK updated to fix vulnerabilities.
+- **Node.js 24 LTS** — Upgraded from EOL Node.js 18.
+- **Dead code removed** — `http-server.ts`, batch stub, `formatBatchResults`.
+- **Test coverage expanded** — 378 tests across 18 suites (up from 251/8).
+- **39 tools total** (33 standard + 6 optional schema editing).
+
 ---
 
 ## 🔧 In Progress / Planned
 
-### 1. Upload Container Data (v0.8.4)
+### 1. Upload Container Data (v0.9.1)
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -174,7 +199,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 2. Enhanced Error Handling (v0.8.5)
+### 2. Enhanced Error Handling (v0.9.2)
 
 **Status**: 📋 Planned  
 **Priority**: High  
@@ -189,28 +214,7 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 3. OData Batch Requests (v0.8.6)
-
-**Status**: 📋 Planned  
-**Priority**: High  
-**Estimated Effort**: 3-4 days  
-**FileMaker Support**: Yes — FileMaker Server supports OData `$batch` via `multipart/mixed`
-(see [Claris docs](https://help.claris.com/en/odata-guide/content/batch-requests.html))
-
-**Current State**: A stub `batch()` method exists in `ODataClient` but executes requests
-sequentially instead of using true OData batch format.
-
-**Implementation Tasks**:
-- [ ] Build proper `multipart/mixed` batch request body per OData 4.01 spec
-- [ ] Add `Content-ID` correlation for change sets (atomic operations)
-- [ ] Parse `multipart/mixed` response boundaries
-- [ ] New tool: `fm_odata_batch` — accept array of operations, return correlated results
-- [ ] Handle batch-level vs operation-level errors
-- [ ] Unit tests for request construction and response parsing
-
----
-
-### 4. Performance Optimization (v0.9.0)
+### 3. Performance Optimization (v1.0.0)
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
@@ -260,7 +264,8 @@ sequentially instead of using true OData batch format.
 
 1. **REST API Wrapper** — Simplified REST endpoints for non-OData users
 2. **Real-time Updates** — WebSocket support for live data / change notifications
-3. **Advanced Security** — OAuth 2.0 / token-based authentication
+3. **Advanced Security** — OAuth 2.0 token refresh flow (Phase 2/3, after Phase 1
+   Bearer token support shipped in v0.9.0)
 4. **Data Transformation Tools** — Built-in field mapping, computed fields
 
 ---
@@ -280,11 +285,10 @@ sequentially instead of using true OData batch format.
 | v0.8.1 | Released | Script execution (`fm_odata_run_script`, call-by-ID on v26+) |
 | v0.8.2 | Released | Enhanced v26 metadata (field IDs, options, permissions, FMFID) |
 | v0.8.3 | Released | Bug fixes and consistency improvements (13 fixes) |
-| v0.8.4 | Planned | Container upload (`fm_odata_upload_container`) |
-| v0.8.5 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
-| v0.8.6 | Planned | OData batch requests (`multipart/mixed`) |
-| v0.9.0 | Planned | Performance optimization (metadata caching, keep-alive) |
-| v1.0.0 | Future | To be disclosed |
+| v0.9.0 | Released | Batch ops, pagination, Bearer auth, security fixes, Node 24, 39 tools |
+| v0.9.1 | Planned | Container upload (`fm_odata_upload_container`) |
+| v0.9.2 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
+| v1.0.0 | Future | Performance optimization, API stability commitment |
 
 ---
 
@@ -310,4 +314,4 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: June 2026 (v0.8.3 released, v0.8.4+ planned)
+**Last Updated**: September 2026 (v0.9.0 released, v0.9.1+ planned)
