@@ -28,6 +28,7 @@ export interface ODataQueryOptions {
 export interface ODataResponse<T = any> {
   "@odata.context": string;
   "@odata.count"?: number;
+  "@odata.nextLink"?: string;
   value: T[];
 }
 
@@ -60,6 +61,20 @@ export interface BatchResult {
     atomic: boolean;
   };
   results: BatchItemResult[];
+}
+
+/**
+ * Result of queryAllRecords — all records accumulated across pages.
+ */
+export interface QueryAllResult<T = any> {
+  records: T[];
+  summary: {
+    totalRecords: number;
+    pagesFetched: number;
+    pageSize: number;
+    truncated: boolean;
+    maxRecords: number;
+  };
 }
 
 /**
@@ -412,6 +427,100 @@ export class ODataClient {
     logger.debug(`Querying records: ${url}`);
     const response = await this.axiosInstance.get<ODataResponse<T>>(url);
     return response.data;
+  }
+
+  /**
+   * Query all matching records, automatically following @odata.nextLink
+   * pagination until all records are retrieved or maxRecords is reached.
+   *
+   * Falls back to $skip-based pagination when the server does not emit
+   * @odata.nextLink (e.g., when the result set fits in one page).
+   *
+   * @param table       Table/entity set name
+   * @param options     Standard OData query options (filter, select, orderby, expand)
+   * @param pageSize    Records per page (default: 100). Uses Prefer: odata.maxpagesize header.
+   * @param maxRecords  Safety cap on total records returned (default: 10000).
+   *                    Hard-capped at 50,000 regardless of this value.
+   */
+  async queryAllRecords<T = any>(
+    table: string,
+    options?: ODataQueryOptions,
+    pageSize: number = 100,
+    maxRecords: number = 10000
+  ): Promise<QueryAllResult<T>> {
+    const HARD_CAP = 50000;
+    const effectiveMax = Math.min(maxRecords, HARD_CAP);
+    const allRecords: T[] = [];
+    let pagesFetched = 0;
+    let truncated = false;
+
+    // First request — use $top to control page size and Prefer header
+    const firstUrl = this.buildUrl(table, { ...options, top: pageSize });
+    logger.debug(`queryAllRecords: first page ${firstUrl} (pageSize=${pageSize}, maxRecords=${effectiveMax})`);
+
+    let response = await this.axiosInstance.get<ODataResponse<T>>(firstUrl, {
+      headers: { Prefer: `odata.maxpagesize=${pageSize}` },
+    });
+    pagesFetched++;
+
+    let nextLink: string | undefined = response.data["@odata.nextLink"];
+    allRecords.push(...(response.data.value || []));
+
+    // Follow @odata.nextLink (Approach A) — server-driven paging
+    while (nextLink && allRecords.length < effectiveMax) {
+      // Handle relative URLs by prepending the base server URL
+      const fullUrl = nextLink.startsWith("http")
+        ? nextLink
+        : `${this.config.server}${nextLink}`;
+
+      logger.debug(`queryAllRecords: following nextLink (page ${pagesFetched + 1})`);
+      response = await this.axiosInstance.get<ODataResponse<T>>(fullUrl, {
+        headers: { Prefer: `odata.maxpagesize=${pageSize}` },
+      });
+      pagesFetched++;
+      allRecords.push(...(response.data.value || []));
+      nextLink = response.data["@odata.nextLink"];
+    }
+
+    // Fallback: $skip-based pagination (Approach B) when no @odata.nextLink
+    // and the first page was full (more records likely exist)
+    if (!nextLink && allRecords.length === pageSize && allRecords.length < effectiveMax) {
+      logger.debug(`queryAllRecords: no @odata.nextLink, falling back to $skip pagination`);
+      let skip = pageSize;
+
+      while (allRecords.length < effectiveMax) {
+        const pageUrl = this.buildUrl(table, { ...options, top: pageSize, skip });
+        logger.debug(`queryAllRecords: $skip page (skip=${skip})`);
+        response = await this.axiosInstance.get<ODataResponse<T>>(pageUrl, {
+          headers: { Prefer: `odata.maxpagesize=${pageSize}` },
+        });
+        pagesFetched++;
+        const pageRecords = response.data.value || [];
+
+        if (pageRecords.length === 0) break; // no more records
+        allRecords.push(...pageRecords);
+
+        if (pageRecords.length < pageSize) break; // last page
+        skip += pageSize;
+      }
+    }
+
+    // Truncate if we exceeded maxRecords
+    if (allRecords.length > effectiveMax) {
+      allRecords.length = effectiveMax;
+      truncated = true;
+    }
+
+    return {
+      records: allRecords,
+      summary: {
+        totalRecords: allRecords.length,
+        pagesFetched,
+        pageSize,
+        truncated,
+        maxRecords: effectiveMax,
+      },
+    };
   }
 
   /**
