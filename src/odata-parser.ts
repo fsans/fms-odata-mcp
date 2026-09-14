@@ -508,17 +508,49 @@ export class ODataParser {
   }
 
   /**
-   * Format batch operation results
+   * Format a batch operation result for MCP tool output.
+   *
+   * Shows a summary line (succeeded/total, strategy used) followed by
+   * per-record results. Failed entries include the error message.
    */
-  static formatBatchResults(results: BatchResult[]): string {
-    const summary = {
-      total: results.length,
-      successful: results.filter((r) => r.success).length,
-      failed: results.filter((r) => !r.success).length,
-      results: results,
-    };
-    
-    return this.formatResponse(summary);
+  static formatBatchResult(result: any): string {
+    const { summary, results } = result;
+    const lines: string[] = [
+      `Batch: ${summary.succeeded}/${summary.total} succeeded (${summary.strategy}, ${summary.atomic ? "atomic" : "non-atomic"})`,
+    ];
+    for (const r of results) {
+      if (r.ok) {
+        lines.push(`  [${r.index}] OK`);
+      } else {
+        lines.push(`  [${r.index}] FAILED: ${r.error}`);
+      }
+    }
+    return lines.join("\n");
+  }
+
+  /**
+   * Format a queryAllRecords result for MCP tool output.
+   *
+   * Shows a summary line (total records, pages fetched, truncated flag)
+   * followed by the records as JSON. When truncated, includes a notice
+   * telling the agent to refine the filter or raise maxRecords.
+   */
+  static formatQueryAllResponse(result: any): string {
+    const { summary, records } = result;
+    const lines: string[] = [
+      `Query all records: ${summary.totalRecords} records in ${summary.pagesFetched} page(s) ` +
+      `(pageSize=${summary.pageSize}, maxRecords=${summary.maxRecords})`,
+    ];
+    if (summary.truncated) {
+      lines.push(
+        `Result truncated at maxRecords (${summary.maxRecords}). ` +
+        `Use fm_odata_query_records with $skip to retrieve remaining records, ` +
+        `or raise maxRecords (up to 50000).`
+      );
+    }
+    lines.push("");
+    lines.push(JSON.stringify(records, null, 2));
+    return lines.join("\n");
   }
 }
 
@@ -555,11 +587,4 @@ export interface ScriptInfo {
   parameterType?: string;
   /** OData return type (e.g. Edm.String). */
   returnType?: string;
-}
-
-export interface BatchResult {
-  success: boolean;
-  status: number;
-  data?: any;
-  error?: string;
 }

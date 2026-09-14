@@ -64,9 +64,10 @@ FileMaker Server OData 4.01 API
 - `http` — binds on `MCP_PORT` (default 3333)
 - `https` — binds on `MCP_PORT` (default 3443); requires `MCP_CERT_PATH` / `MCP_KEY_PATH`
 
-**35 MCP tools** in four categories (29 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
-- `src/tools/odata.ts` — 16 tools for OData operations (list tables, describe_table, query/get/create/update/delete
-  records, metadata, count, service doc, aggregate, cast, build_filter, run_script, list_scripts). All
+**39 MCP tools** in four categories (33 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
+- `src/tools/odata.ts` — 20 tools for OData operations (list tables, describe_table, query/get/create/update/delete
+  records, query_all_records, metadata, count, service doc, aggregate, cast, build_filter, run_script, list_scripts,
+  bulk create/update/delete records). All
   connection-dependent tools accept an optional `connection` param for per-call session targeting without
   changing the active session.
 - `src/tools/connection.ts` — 8 tools: connect, connect_multi, set_connection, list_connections,
@@ -102,16 +103,21 @@ FileMaker Server OData 4.01 API
 ```
 FM_SERVER          FileMaker Server URL (required)
 FM_DATABASE        Database name (required)
-FM_USER            Username (required)
-FM_PASSWORD        Password (required)
+FM_USER            Username (required for Basic auth)
+FM_PASSWORD        Password (required for Basic auth)
+FM_AUTH_TYPE       Authentication method: "basic" (default) or "bearer"
+FM_BEARER_TOKEN    Bearer token (required when FM_AUTH_TYPE=bearer)
 FM_VERIFY_SSL      Verify SSL cert (default: true)
 FM_TIMEOUT         Request timeout ms (default: 30000)
+FM_BATCH_MAX_ITEMS Max records per batch operation (default: 100)
+FM_MAX_RECORDS     Max records from query_all_records (default: 10000, hard cap 50000)
 FM_ALLOW_SCHEMA_EDITS  Enable schema (DDL) tools (default: false)
 MCP_TRANSPORT      stdio|http|https (default: stdio)
 MCP_PORT           HTTP/HTTPS port
 MCP_HOST           Bind host (default: localhost)
 MCP_CERT_PATH      SSL cert path (https only)
 MCP_KEY_PATH       SSL key path (https only)
+MCP_AUTH_TOKEN     Bearer token for MCP transport auth (optional, Plan 006)
 MCP_LOG_FILE       Enable file logging (true/false)
 DEBUG              Debug namespace (e.g. fms-odata-mcp:*)
 ```
@@ -145,3 +151,26 @@ HTTP 204 immediately.
   `http://host.docker.internal:3333/mcp` (use `host.docker.internal`, not `localhost`, when
   Dify runs in Docker).
 - If Dify returns 403, check the SSRF proxy (Squid): port 3333 must be in the `Safe_ports` ACL in `squid.conf`.
+
+### Known FileMaker OData limitations — cannot filter on the `id` field
+**Affects**: `fm_odata_query_records`, `fm_odata_query_all_records`, `fm_odata_count_records`,
+`fm_odata_aggregate` — any tool that sends a `$filter` to FileMaker.
+
+**Symptom**: Any comparison operator on the `id` field (`id eq N`, `id gt N`, `id lt N`,
+`id ge N`, `id le N`, `id ne N`) fails with `OData Error [-1002]: Error: syntax error in
+URL at: ' eq '` (or `gt`/`lt`/etc.). This is a FileMaker Server OData parser limitation:
+`id` is a reserved internal field and cannot be used in `$filter` expressions.
+
+**What DOES work**: Filtering on any other field works correctly, including:
+- String values with spaces: `company eq 'Digital Dreams'` ✅
+- Numeric fields: `row_id eq 1`, `update_unix_time gt 0` ✅
+- String functions: `contains(company, 'Digital')`, `startswith(company, 'Digital')` ✅
+- Compound filters on non-`id` fields ✅
+
+**Workaround for users**: Use `row_id`, `uuid`, or any business field instead of `id`
+for filtering. To find a record by its internal `id`, use `fm_odata_get_record` which
+takes the record ID directly (not via `$filter`).
+
+**This is NOT a code bug** — the `odataEncode()` function correctly encodes spaces as
+`%20` and FileMaker accepts this inside string literals. Verified live against
+FileMaker Server with the `Contacts` database.

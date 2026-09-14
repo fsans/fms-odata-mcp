@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import https from "https";
+import crypto from "crypto";
 import { logger } from "./logger.js";
 import { FMServerVersion, parseServerVersion, isFeatureSupported } from "./fm-version.js";
 
@@ -8,6 +9,10 @@ export interface ODataClientConfig {
   database: string;
   user: string;
   password: string;
+  /** Authentication method: "basic" (default) or "bearer" (token-based). */
+  authType?: "basic" | "bearer";
+  /** Bearer token (required when authType === "bearer"). */
+  bearerToken?: string;
   timeout?: number;
   verifySsl?: boolean;
 }
@@ -27,6 +32,7 @@ export interface ODataQueryOptions {
 export interface ODataResponse<T = any> {
   "@odata.context": string;
   "@odata.count"?: number;
+  "@odata.nextLink"?: string;
   value: T[];
 }
 
@@ -34,6 +40,44 @@ export interface ODataError {
   error: {
     code: string;
     message: string;
+  };
+}
+
+/**
+ * Result of a single operation within a batch.
+ */
+export interface BatchItemResult {
+  index: number;
+  ok: boolean;
+  data?: any;
+  error?: string;
+}
+
+/**
+ * Result of a batch operation (bulk create/update/delete).
+ */
+export interface BatchResult {
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    strategy: "batch" | "parallel";
+    atomic: boolean;
+  };
+  results: BatchItemResult[];
+}
+
+/**
+ * Result of queryAllRecords — all records accumulated across pages.
+ */
+export interface QueryAllResult<T = any> {
+  records: T[];
+  summary: {
+    totalRecords: number;
+    pagesFetched: number;
+    pageSize: number;
+    truncated: boolean;
+    maxRecords: number;
   };
 }
 
@@ -134,9 +178,16 @@ export class ODataClient {
   }
 
   /**
-   * Generate Basic Auth header
+   * Generate Authorization header.
+   *
+   * When authType is "bearer", sends `Authorization: Bearer <token>` for
+   * FileMaker Cloud / OAuth / reverse-proxy setups. Otherwise falls back
+   * to Basic Auth with user:password.
    */
   private getAuthHeader(): string {
+    if (this.config.authType === "bearer" && this.config.bearerToken) {
+      return `Bearer ${this.config.bearerToken}`;
+    }
     const credentials = Buffer.from(
       `${this.config.user}:${this.config.password}`
     ).toString("base64");
@@ -366,6 +417,17 @@ export class ODataClient {
   }
 
   /**
+   * Invalidate the cached $metadata, parsed server version, and FMFID map.
+   * Must be called after any schema mutation (create/delete table/field/index)
+   * so subsequent getMetadata()/getServerVersion() calls re-fetch fresh XML.
+   */
+  invalidateMetadataCache(): void {
+    this._cachedMetadata = undefined;
+    this._cachedVersion = undefined;
+    this._fieldIdMap = undefined;
+  }
+
+  /**
    * Query records from a table
    */
   async queryRecords<T = any>(
@@ -376,6 +438,100 @@ export class ODataClient {
     logger.debug(`Querying records: ${url}`);
     const response = await this.axiosInstance.get<ODataResponse<T>>(url);
     return response.data;
+  }
+
+  /**
+   * Query all matching records, automatically following @odata.nextLink
+   * pagination until all records are retrieved or maxRecords is reached.
+   *
+   * Falls back to $skip-based pagination when the server does not emit
+   * @odata.nextLink (e.g., when the result set fits in one page).
+   *
+   * @param table       Table/entity set name
+   * @param options     Standard OData query options (filter, select, orderby, expand)
+   * @param pageSize    Records per page (default: 100). Uses Prefer: odata.maxpagesize header.
+   * @param maxRecords  Safety cap on total records returned (default: 10000).
+   *                    Hard-capped at 50,000 regardless of this value.
+   */
+  async queryAllRecords<T = any>(
+    table: string,
+    options?: ODataQueryOptions,
+    pageSize: number = 100,
+    maxRecords: number = 10000
+  ): Promise<QueryAllResult<T>> {
+    const HARD_CAP = 50000;
+    const effectiveMax = Math.min(maxRecords, HARD_CAP);
+    const allRecords: T[] = [];
+    let pagesFetched = 0;
+    let truncated = false;
+
+    // First request — use $top to control page size and Prefer header
+    const firstUrl = this.buildUrl(table, { ...options, top: pageSize });
+    logger.debug(`queryAllRecords: first page ${firstUrl} (pageSize=${pageSize}, maxRecords=${effectiveMax})`);
+
+    let response = await this.axiosInstance.get<ODataResponse<T>>(firstUrl, {
+      headers: { Prefer: `odata.maxpagesize=${pageSize}` },
+    });
+    pagesFetched++;
+
+    let nextLink: string | undefined = response.data["@odata.nextLink"];
+    allRecords.push(...(response.data.value || []));
+
+    // Follow @odata.nextLink (Approach A) — server-driven paging
+    while (nextLink && allRecords.length < effectiveMax) {
+      // Handle relative URLs by prepending the base server URL
+      const fullUrl = nextLink.startsWith("http")
+        ? nextLink
+        : `${this.config.server}${nextLink}`;
+
+      logger.debug(`queryAllRecords: following nextLink (page ${pagesFetched + 1})`);
+      response = await this.axiosInstance.get<ODataResponse<T>>(fullUrl, {
+        headers: { Prefer: `odata.maxpagesize=${pageSize}` },
+      });
+      pagesFetched++;
+      allRecords.push(...(response.data.value || []));
+      nextLink = response.data["@odata.nextLink"];
+    }
+
+    // Fallback: $skip-based pagination (Approach B) when no @odata.nextLink
+    // and the first page was full (more records likely exist)
+    if (!nextLink && allRecords.length === pageSize && allRecords.length < effectiveMax) {
+      logger.debug(`queryAllRecords: no @odata.nextLink, falling back to $skip pagination`);
+      let skip = pageSize;
+
+      while (allRecords.length < effectiveMax) {
+        const pageUrl = this.buildUrl(table, { ...options, top: pageSize, skip });
+        logger.debug(`queryAllRecords: $skip page (skip=${skip})`);
+        response = await this.axiosInstance.get<ODataResponse<T>>(pageUrl, {
+          headers: { Prefer: `odata.maxpagesize=${pageSize}` },
+        });
+        pagesFetched++;
+        const pageRecords = response.data.value || [];
+
+        if (pageRecords.length === 0) break; // no more records
+        allRecords.push(...pageRecords);
+
+        if (pageRecords.length < pageSize) break; // last page
+        skip += pageSize;
+      }
+    }
+
+    // Truncate if we exceeded maxRecords
+    if (allRecords.length > effectiveMax) {
+      allRecords.length = effectiveMax;
+      truncated = true;
+    }
+
+    return {
+      records: allRecords,
+      summary: {
+        totalRecords: allRecords.length,
+        pagesFetched,
+        pageSize,
+        truncated,
+        maxRecords: effectiveMax,
+      },
+    };
   }
 
   /**
@@ -427,6 +583,300 @@ export class ODataClient {
     await this.axiosInstance.delete(url);
   }
 
+  // -------------------------------------------------------------------------
+  // Batch / bulk operations (Plan 013)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Result of a single operation within a batch.
+   */
+  async batchCreateRecords(
+    table: string,
+    records: any[],
+    strategy: "batch" | "parallel" = "batch"
+  ): Promise<BatchResult> {
+    if (strategy === "batch") {
+      try {
+        return await this._batchViaODataBatch(
+          records.map((data, i) => ({
+            method: "POST" as const,
+            url: `${this.baseUrl}/${table}`,
+            body: data,
+            index: i,
+          }))
+        );
+      } catch (error: any) {
+        logger.debug(`$batch failed (${error.message}), falling back to parallel`);
+        return await this._batchViaParallel(
+          records.map((data, i) => ({
+            fn: () => this.createRecord(table, data),
+            index: i,
+          }))
+        );
+      }
+    }
+    return await this._batchViaParallel(
+      records.map((data, i) => ({
+        fn: () => this.createRecord(table, data),
+        index: i,
+      }))
+    );
+  }
+
+  async batchUpdateRecords(
+    table: string,
+    updates: { recordId: string; data: any }[],
+    strategy: "batch" | "parallel" = "batch"
+  ): Promise<BatchResult> {
+    if (strategy === "batch") {
+      try {
+        return await this._batchViaODataBatch(
+          updates.map((u, i) => ({
+            method: "PATCH" as const,
+            url: `${this.baseUrl}/${table}${this.entityKey(u.recordId)}`,
+            body: u.data,
+            index: i,
+          }))
+        );
+      } catch (error: any) {
+        logger.debug(`$batch failed (${error.message}), falling back to parallel`);
+        return await this._batchViaParallel(
+          updates.map((u, i) => ({
+            fn: () => this.updateRecord(table, u.recordId, u.data).then(() => undefined),
+            index: i,
+          }))
+        );
+      }
+    }
+    return await this._batchViaParallel(
+      updates.map((u, i) => ({
+        fn: () => this.updateRecord(table, u.recordId, u.data).then(() => undefined),
+        index: i,
+      }))
+    );
+  }
+
+  async batchDeleteRecords(
+    table: string,
+    recordIds: string[],
+    strategy: "batch" | "parallel" = "batch"
+  ): Promise<BatchResult> {
+    if (strategy === "batch") {
+      try {
+        return await this._batchViaODataBatch(
+          recordIds.map((id, i) => ({
+            method: "DELETE" as const,
+            url: `${this.baseUrl}/${table}${this.entityKey(id)}`,
+            body: undefined,
+            index: i,
+          }))
+        );
+      } catch (error: any) {
+        logger.debug(`$batch failed (${error.message}), falling back to parallel`);
+        return await this._batchViaParallel(
+          recordIds.map((id, i) => ({
+            fn: () => this.deleteRecord(table, id).then(() => undefined),
+            index: i,
+          }))
+        );
+      }
+    }
+    return await this._batchViaParallel(
+      recordIds.map((id, i) => ({
+        fn: () => this.deleteRecord(table, id).then(() => undefined),
+        index: i,
+      }))
+    );
+  }
+
+  /**
+   * Send operations as a real OData `$batch` (multipart/mixed) request.
+   *
+   * All operations are placed in a single changeset (atomic). If the server
+   * rejects the batch or returns an HTTP error, the caller falls back to
+   * the parallel strategy.
+   */
+  private async _batchViaODataBatch(
+    ops: { method: string; url: string; body?: any; index: number }[]
+  ): Promise<BatchResult> {
+    const boundary = `batch_${crypto.randomUUID()}`;
+    const changesetBoundary = `changeset_${crypto.randomUUID()}`;
+
+    // Build multipart/mixed body — changeset first (defensive against the
+    // FileMaker GET-before-changeset ordering bug).
+    // MIME requires CRLF line endings and blank lines between headers and content.
+    // FileMaker requires relative URLs in batch sub-requests (not absolute).
+    const lines: string[] = [];
+
+    // Open batch part containing the changeset
+    lines.push(`--${boundary}`);
+    lines.push(`Content-Type: multipart/mixed; boundary=${changesetBoundary}`);
+    lines.push(""); // blank line: end of part headers, start of part body
+
+    for (const op of ops) {
+      // Convert absolute URL to relative path for FileMaker compatibility
+      const url = new URL(op.url);
+      const relativeUrl = url.pathname + url.search;
+
+      lines.push(`--${changesetBoundary}`);
+      lines.push("Content-Type: application/http");
+      lines.push("Content-Transfer-Encoding: binary");
+      lines.push(""); // blank line: end of sub-part headers, start of HTTP request
+      lines.push(`${op.method} ${relativeUrl} HTTP/1.1`);
+      lines.push("Content-Type: application/json");
+      // Note: FileMaker's $batch always returns 204 No Content for POST/PATCH
+      // (ignores Prefer: return=representation). Created record IDs are NOT
+      // available in the $batch response. Use strategy: "parallel" when you
+      // need the created record IDs back.
+      if (op.body !== undefined) {
+        const bodyStr = JSON.stringify(op.body);
+        lines.push(`Content-Length: ${Buffer.byteLength(bodyStr)}`);
+        lines.push(""); // blank line: end of HTTP headers, start of body
+        lines.push(bodyStr);
+      } else {
+        lines.push("Content-Length: 0");
+        lines.push(""); // blank line: end of HTTP headers
+      }
+    }
+
+    // Close changeset — no blank line before batch closing boundary
+    lines.push(`--${changesetBoundary}--`);
+    lines.push(`--${boundary}--`);
+
+    const body = lines.join("\r\n");
+    const batchUrl = `${this.baseUrl}/$batch`;
+
+    logger.debug(`Sending $batch request to ${batchUrl} (${ops.length} operations)`);
+
+    const response = await this.axiosInstance.post(batchUrl, body, {
+      headers: {
+        "Content-Type": `multipart/mixed; boundary=${boundary}`,
+        "OData-Version": "4.0",
+        "OData-MaxVersion": "4.0",
+      },
+    });
+
+    return this._parseBatchResponse(response.data, ops.length);
+  }
+
+  /**
+   * Send operations as parallel individual HTTP requests (fallback).
+   *
+   * Non-atomic: each operation succeeds or fails independently.
+   */
+  private async _batchViaParallel(
+    ops: { fn: () => Promise<any>; index: number }[]
+  ): Promise<BatchResult> {
+    const results = await Promise.allSettled(
+      ops.map((op) => op.fn())
+    );
+
+    const batchResults: BatchItemResult[] = ops.map((op, i) => {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        return { index: op.index, ok: true, data: r.value };
+      }
+      return {
+        index: op.index,
+        ok: false,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      };
+    });
+
+    return this._buildBatchResult(batchResults, "parallel", false);
+  }
+
+  /**
+   * Parse a multipart/mixed $batch response.
+   *
+   * The response is a multipart MIME document where each part contains
+   * an HTTP response (status line + headers + body) for one operation.
+   */
+  private _parseBatchResponse(responseData: any, expectedCount: number): BatchResult {
+    const responseText = typeof responseData === "string" ? responseData : String(responseData);
+    const batchResults: BatchItemResult[] = [];
+
+    // Split on MIME boundaries. The response uses the same boundary we sent
+    // or a new one from the server's Content-Type header.
+    // We look for HTTP status lines within each part.
+    const partRegex = /HTTP\/1\.1 (\d+) ([^\r\n]*)[\r\n]+([\s\S]*?)(?=(?:\r\n)?--|\z)/g;
+    let match: RegExpExecArray | null;
+    let partIndex = 0;
+
+    while ((match = partRegex.exec(responseText)) !== null) {
+      const status = parseInt(match[1], 10);
+      const body = match[3].trim();
+
+      if (status >= 200 && status < 300) {
+        let parsedData: any = undefined;
+        try {
+          // Try to extract JSON body (skip headers)
+          const jsonStart = body.indexOf("{");
+          if (jsonStart !== -1) {
+            parsedData = JSON.parse(body.substring(jsonStart));
+          }
+        } catch {
+          // Non-JSON body (e.g., empty 204 for DELETE) — leave data undefined
+        }
+        batchResults.push({ index: partIndex, ok: true, data: parsedData });
+      } else {
+        let errorMsg = `HTTP ${status}: ${match[2]}`;
+        try {
+          const jsonStart = body.indexOf("{");
+          if (jsonStart !== -1) {
+            const errorJson = JSON.parse(body.substring(jsonStart));
+            if (errorJson?.error?.message) {
+              errorMsg = errorJson.error.message;
+            }
+          }
+        } catch {
+          // Keep the status-line error message
+        }
+        batchResults.push({ index: partIndex, ok: false, error: errorMsg });
+      }
+      partIndex++;
+    }
+
+    // If we couldn't parse any parts, treat as a total failure
+    if (batchResults.length === 0) {
+      return {
+        summary: {
+          total: expectedCount,
+          succeeded: 0,
+          failed: expectedCount,
+          strategy: "batch",
+          atomic: true,
+        },
+        results: Array.from({ length: expectedCount }, (_, i) => ({
+          index: i,
+          ok: false,
+          error: "Failed to parse batch response",
+        })),
+      };
+    }
+
+    return this._buildBatchResult(batchResults, "batch", true);
+  }
+
+  private _buildBatchResult(
+    results: BatchItemResult[],
+    strategy: string,
+    atomic: boolean
+  ): BatchResult {
+    const succeeded = results.filter((r) => r.ok).length;
+    const failed = results.length - succeeded;
+    return {
+      summary: {
+        total: results.length,
+        succeeded,
+        failed,
+        strategy: strategy as "batch" | "parallel",
+        atomic,
+      },
+      results,
+    };
+  }
+
   /**
    * Count records
    *
@@ -456,54 +906,6 @@ export class ODataClient {
     logger.debug(`Aggregating records: ${url}`);
     const response = await this.axiosInstance.get(url);
     return response.data;
-  }
-
-  /**
-   * Execute batch operations
-   */
-  async batch(operations: BatchOperation[]): Promise<BatchResponse[]> {
-    // OData batch implementation
-    // This is a simplified version - full batch requires multipart/mixed format
-    logger.debug(`Executing batch with ${operations.length} operations`);
-    
-    const results: BatchResponse[] = [];
-    
-    for (const op of operations) {
-      try {
-        let result: any;
-        
-        switch (op.method) {
-          case "GET":
-            result = await this.axiosInstance.get(op.url);
-            break;
-          case "POST":
-            result = await this.axiosInstance.post(op.url, op.data);
-            break;
-          case "PATCH":
-            result = await this.axiosInstance.patch(op.url, op.data);
-            break;
-          case "DELETE":
-            result = await this.axiosInstance.delete(op.url);
-            break;
-          default:
-            throw new Error(`Unsupported method: ${op.method}`);
-        }
-        
-        results.push({
-          success: true,
-          status: result.status,
-          data: result.data,
-        });
-      } catch (error: any) {
-        results.push({
-          success: false,
-          status: error.response?.status || 500,
-          error: error.message,
-        });
-      }
-    }
-    
-    return results;
   }
 
   /**
@@ -594,7 +996,11 @@ export class ODataClient {
    * Calling by ID avoids breakage when scripts are renamed.
    */
   async runScriptById(scriptId: number | string, scriptParam?: any): Promise<ScriptResult> {
-    const url = `${this.baseUrl}/Script.FMSID:${scriptId}`;
+    const id = String(scriptId);
+    if (!/^\d+$/.test(id)) {
+      throw new Error(`Invalid scriptId "${scriptId}": FMSID must be numeric`);
+    }
+    const url = `${this.baseUrl}/Script.FMSID:${id}`;
     const body = scriptParam !== undefined ? { scriptParameterValue: scriptParam } : undefined;
     logger.debug(`Running script by ID: ${scriptId}`);
     const response = await this.axiosInstance.post(url, body);
@@ -637,6 +1043,7 @@ export class ODataClient {
     }
 
     const map = new Map<string, string>();
+    const ambiguous = new Set<string>();
     // Match block-style <Property> elements that contain a FieldID annotation
     const propertyRegex =
       /<Property\s+Name="([^"]+)"\s+Type="[^"]+"[^>]*>[\s\S]*?<Annotation\s+Term="com\.filemaker\.odata\.FieldID"[^>]*String="FMFID:([^"]+)"\s*\/>?[\s\S]*?<\/Property>/g;
@@ -644,7 +1051,21 @@ export class ODataClient {
     while ((match = propertyRegex.exec(this._cachedMetadata)) !== null) {
       const fieldName = match[1];
       const fmfid = `FMFID:${match[2]}`;
-      map.set(fieldName, fmfid);
+      const existing = map.get(fieldName);
+      if (existing !== undefined && existing !== fmfid) {
+        // Same field name in multiple EntityTypes with different FMFIDs —
+        // the map is not table-scoped, so substitution would be ambiguous.
+        ambiguous.add(fieldName);
+      } else {
+        map.set(fieldName, fmfid);
+      }
+    }
+    for (const name of ambiguous) {
+      map.delete(name);
+      logger.debug(
+        `Field "${name}" maps to multiple FMFIDs across tables — ` +
+        `falling back to quoted-identifier filtering for this name.`
+      );
     }
 
     this._fieldIdMap = map;
@@ -679,17 +1100,4 @@ export class ODataClient {
       return { ok: false, error: message };
     }
   }
-}
-
-export interface BatchOperation {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
-  url: string;
-  data?: any;
-}
-
-export interface BatchResponse {
-  success: boolean;
-  status: number;
-  data?: any;
-  error?: string;
 }

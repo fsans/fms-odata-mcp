@@ -38,6 +38,12 @@ coverage/
 # Private / working docs (not for publication)
 private/
 
+# SSL certificates and keys (never commit private keys)
+ssl/
+*.pem
+*.key
+*.crt
+
 # Misc
 *.bak
 *.tmp

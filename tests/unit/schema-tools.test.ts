@@ -303,6 +303,31 @@ describe("Schema DDL tools", () => {
         expect(result.isError).toBe(true);
         expect(result.content?.[0]?.text).toMatch(/8309|privileges/);
       });
+
+      test("fm_odata_create_table invalidates the metadata cache after success", async () => {
+        mockAxiosInstance.post.mockResolvedValue({ data: { tableName: "Company" } });
+        // Populate the metadata cache first
+        mockAxiosInstance.get.mockResolvedValue({ data: "<edmx:Edmx>v1</edmx:Edmx>" });
+        const client = connectionManager.getCurrentClient()!;
+        await client.getMetadata();
+        // Cache should be populated
+        await client.getMetadata(); // second call should NOT hit axios
+        const callsBefore = mockAxiosInstance.get.mock.calls.length;
+        expect(mockAxiosInstance.get.mock.calls.length).toBe(1);
+
+        // Now create a table — this should invalidate the cache
+        const result: any = await handleToolCall("fm_odata_create_table", {
+          tableName: "NewTable",
+          fields: [{ name: "ID", type: "int", primary: true }],
+        });
+        expect(result.isError).toBeUndefined();
+
+        // After create_table, getMetadata should re-fetch (cache was invalidated)
+        mockAxiosInstance.get.mockResolvedValue({ data: "<edmx:Edmx>v2</edmx:Edmx>" });
+        const xml = await client.getMetadata();
+        expect(xml).toBe("<edmx:Edmx>v2</edmx:Edmx>");
+        expect(mockAxiosInstance.get.mock.calls.length).toBeGreaterThan(callsBefore);
+      });
     });
   });
 });
