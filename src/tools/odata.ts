@@ -466,6 +466,61 @@ export const odataTools = [
     },
   },
 
+  // Pagination Helper (Plan 014)
+  {
+    name: "fm_odata_query_all_records",
+    description:
+      "Query all matching records from a table, automatically following " +
+      "@odata.nextLink pagination until all records are retrieved or maxRecords " +
+      "is reached. Use this instead of fm_odata_query_records when you need the " +
+      "complete result set and don't want to manually paginate with $top/$skip. " +
+      "Falls back to $skip-based pagination when the server does not emit " +
+      "@odata.nextLink. Default page size is 100 records; hard cap at 50,000 " +
+      "records regardless of maxRecords. Server-wide cap configurable via " +
+      "FM_MAX_RECORDS env var.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        filter: {
+          type: "string",
+          description: "OData $filter expression (e.g. \"Status eq 'Active'\")",
+        },
+        select: {
+          type: "string",
+          description: "Comma-separated list of fields to return (reduces payload size)",
+        },
+        orderby: {
+          type: "string",
+          description: "OData $orderby expression (e.g. 'Name asc')",
+        },
+        expand: {
+          type: "string",
+          description: "Related records to expand",
+        },
+        pageSize: {
+          type: "number",
+          description:
+            "Records per page (default: 100). Each page is a separate HTTP request. " +
+            "Smaller pages = lower memory but more round-trips.",
+          default: 100,
+        },
+        maxRecords: {
+          type: "number",
+          description:
+            "Safety cap on total records returned (default: 10000, server-wide cap via " +
+            "FM_MAX_RECORDS env var, hard maximum 50000). Prevents unbounded fetches.",
+          default: 10000,
+        },
+        ...connectionParam,
+      },
+      required: ["table"],
+    },
+  },
+
   // Bulk CRUD Tools (Plan 013)
   {
     name: "fm_odata_create_records",
@@ -657,6 +712,10 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
 
       case "fm_odata_aggregate":
         return await handleAggregate(client, args);
+
+      // Pagination Helper (Plan 014)
+      case "fm_odata_query_all_records":
+        return await handleQueryAllRecords(client, args);
 
       // CRUD Tools
       case "fm_odata_create_record":
@@ -1082,6 +1141,39 @@ async function handleAggregate(client: any, args: any) {
         text: `${notice}\n\n${JSON.stringify({ "@odata.context": `client-side`, value: result }, null, 2)}`,
       },
     ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pagination Helper Handler (Plan 014)
+// ---------------------------------------------------------------------------
+
+async function handleQueryAllRecords(client: any, args: any) {
+  const { getConfig } = require("../config.js");
+  const config = getConfig();
+  // Server-wide cap from env var (default 10000). Tool param can lower it
+  // but not raise it above the server cap. Hard maximum is 50000.
+  const serverCap = config.filemaker.maxRecords ?? 10000;
+  const HARD_CAP = 50000;
+  const requestedMax = args.maxRecords ?? serverCap;
+  const effectiveMax = Math.min(requestedMax, serverCap, HARD_CAP);
+  const pageSize = args.pageSize ?? 100;
+
+  const options: any = {};
+  if (args.filter) options.filter = args.filter;
+  if (args.select) options.select = args.select;
+  if (args.orderby) options.orderby = args.orderby;
+  if (args.expand) options.expand = args.expand;
+
+  const result = await client.queryAllRecords(
+    args.table,
+    options,
+    pageSize,
+    effectiveMax
+  );
+
+  return {
+    content: [{ type: "text", text: ODataParser.formatQueryAllResponse(result) }],
   };
 }
 

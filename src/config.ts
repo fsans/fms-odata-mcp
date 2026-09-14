@@ -25,6 +25,8 @@ export interface FileMakerConfig {
   timeout?: number;
   /** Maximum records per batch operation (default: 100). */
   batchMaxItems?: number;
+  /** Server-wide cap on total records returned by queryAllRecords (default: 10000). */
+  maxRecords?: number;
 }
 
 export interface SecurityConfig {
@@ -148,6 +150,7 @@ export function getConfig(): AppConfig {
         : resolveVerifySsl(fileConfig.filemaker?.verifySsl),
       timeout: parseIntSafe(process.env.FM_TIMEOUT || String(fileConfig.filemaker?.timeout || 30000), 30000),
       batchMaxItems: parseIntSafe(process.env.FM_BATCH_MAX_ITEMS || String(fileConfig.filemaker?.batchMaxItems || 100), 100),
+      maxRecords: parseIntSafe(process.env.FM_MAX_RECORDS || String(fileConfig.filemaker?.maxRecords || 10000), 10000),
     },
     security: {
       certPath: process.env.MCP_CERT_PATH || fileConfig.security?.certPath,
@@ -301,6 +304,7 @@ function mergeWithDefaults(partial: Partial<AppConfig>): AppConfig {
       verifySsl: partial.filemaker?.verifySsl,
       timeout: partial.filemaker?.timeout,
       batchMaxItems: partial.filemaker?.batchMaxItems,
+      maxRecords: partial.filemaker?.maxRecords,
     },
     security: partial.security,
     connections: partial.connections,

@@ -230,3 +230,50 @@ with the correct page size baked in.
 9. **`@odata.nextLink` in `ODataResponse` interface**: The current interface
    lacks this field. Should the build plan add it, or should the pagination
    helper access it via `(response as any)["@odata.nextLink"]`?
+
+## Implementation status
+
+**Implemented and tested against a live FileMaker Server.**
+
+### Live test results (2026-09-14)
+
+Tested against FileMaker Server at `nbcn.ddns.net` with the `Contacts` database:
+
+| Test | pageSize | maxRecords | Result |
+|------|----------|------------|--------|
+| Multi-page following @odata.nextLink | 5 | 15 | 15 records, 3 pages, not truncated |
+| Truncation at maxRecords | 5 | 3 | 3 records, 1 page, truncated=true |
+| Single page (small table) | 100 | 10000 | All records, 1 page |
+
+### Key findings from live testing
+
+1. **FileMaker emits `@odata.nextLink`** — confirmed. The server provides
+   opaque URLs containing `$skiptoken` for server-driven paging.
+
+2. **`Prefer: odata.maxpagesize=N` header works** — controls the page size
+   as expected. Combined with `$top`, this gives full control over page size.
+
+3. **`$skip` fallback is needed** — when the result set fits in one page,
+   FileMaker does NOT emit `@odata.nextLink`. The `$skip` fallback handles
+   this case correctly.
+
+4. **Default page size of 100** — works well. Smaller pages mean lower
+   memory spikes and more granular progress, at the cost of more HTTP
+   round-trips. The user chose 100 (over the recommended 1000) to minimize
+   response size.
+
+5. **Hard cap at 50,000** — enforced in code regardless of the `maxRecords`
+   parameter. The server-wide `FM_MAX_RECORDS` env var (default 10,000)
+   provides an additional deployment-level cap.
+
+### Decisions made
+
+| Question | Decision |
+|----------|----------|
+| $skip fallback when no @odata.nextLink? | **Yes** — implemented |
+| Default page size | **100** (user choice, smaller than recommended 1000) |
+| Hard cap regardless of maxRecords | **Yes — 50,000** |
+| Server-wide cap via env var | **Yes — FM_MAX_RECORDS** (default 10000) |
+| @odata.nextLink in interface | **Yes** — added to ODataResponse |
+| $count pre-check | **No** — extra round-trip not worth it |
+| Progress reporting | **Yes** — pagesFetched in summary |
