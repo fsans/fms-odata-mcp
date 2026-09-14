@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { configurationTools, handleConfigurationTool } from "../../../src/tools/configuration.js";
 
-// Mock config functions
-jest.mock("../../../src/config.js", () => ({
+// Mock config functions — must use unstable_mockModule for ESM.
+// Provide ALL exports needed by any module in the import chain.
+jest.unstable_mockModule("../../../src/config.js", () => ({
+  // Constants
+  DEFAULT_HTTP_PORT: 3333,
+  DEFAULT_HTTPS_PORT: 3443,
+  // Functions used by configuration.ts
   addConnection: jest.fn(),
   removeConnection: jest.fn(),
   listConnections: jest.fn(() => [
@@ -19,7 +23,7 @@ jest.mock("../../../src/config.js", () => ({
       user: "devuser",
     },
   ]),
-  getConnection: jest.fn((name) => {
+  getConnection: jest.fn((name: string) => {
     if (name === "prod") {
       return {
         name: "prod",
@@ -32,11 +36,59 @@ jest.mock("../../../src/config.js", () => ({
   }),
   setDefaultConnection: jest.fn(),
   getDefaultConnectionName: jest.fn(() => "prod"),
+  // Function used by logger.ts (in the import chain)
+  getConfigDir: jest.fn(() => "/tmp/fms-odata-mcp-test"),
+  // Other exports — stubs to satisfy any transitive imports
+  getConfig: jest.fn(() => ({
+    server: { transport: "stdio" as const },
+    filemaker: { verifySsl: false, timeout: 30000 },
+  })),
+  validateConfig: jest.fn(),
+  getConfigFilePath: jest.fn(() => "/tmp/fms-odata-mcp-test/config.json"),
+  getEnvFilePath: jest.fn(() => "/tmp/.env"),
+  hasConfig: jest.fn(() => false),
+  getConnections: jest.fn(() => []),
+  resolveVerifySsl: jest.fn(() => false),
+  getDefaultConnection: jest.fn(() => null),
+  loadConfigFile: jest.fn(),
+  saveConfigFile: jest.fn(),
+  loadEnvFile: jest.fn(),
 }));
+
+// Dynamically import AFTER mock setup
+const { configurationTools, handleConfigurationTool } = await import("../../../src/tools/configuration.js");
+const config = await import("../../../src/config.js");
 
 describe("Configuration Tools", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset default mock implementations after clearAllMocks
+    (config.listConnections as jest.Mock).mockReturnValue([
+      {
+        name: "prod",
+        server: "https://prod.example.com",
+        database: "ProdDB",
+        user: "produser",
+      },
+      {
+        name: "dev",
+        server: "https://dev.example.com",
+        database: "DevDB",
+        user: "devuser",
+      },
+    ]);
+    (config.getConnection as jest.Mock).mockImplementation((name: string) => {
+      if (name === "prod") {
+        return {
+          name: "prod",
+          server: "https://prod.example.com",
+          database: "ProdDB",
+          user: "produser",
+        };
+      }
+      return null;
+    });
+    (config.getDefaultConnectionName as jest.Mock).mockReturnValue("prod");
   });
 
   describe("Tool Definitions", () => {
@@ -90,12 +142,12 @@ describe("Configuration Tools", () => {
           password: "testpass",
         });
 
-        const { addConnection } = await import("../../../src/config.js");
-        expect(addConnection).toHaveBeenCalledWith("test", {
+        expect(config.addConnection).toHaveBeenCalledWith("test", {
           server: "https://test.example.com",
           database: "TestDB",
           user: "testuser",
           password: "testpass",
+          verifySsl: true,
         });
 
         expect(result.content[0].text).toContain('Connection "test" added successfully');
@@ -103,8 +155,7 @@ describe("Configuration Tools", () => {
       });
 
       it("should handle errors when adding connection", async () => {
-        const { addConnection } = await import("../../../src/config.js");
-        (addConnection as jest.Mock).mockImplementation(() => {
+        (config.addConnection as jest.Mock).mockImplementation(() => {
           throw new Error("Connection already exists");
         });
 
@@ -127,15 +178,13 @@ describe("Configuration Tools", () => {
           name: "test",
         });
 
-        const { removeConnection } = await import("../../../src/config.js");
-        expect(removeConnection).toHaveBeenCalledWith("test");
+        expect(config.removeConnection).toHaveBeenCalledWith("test");
 
         expect(result.content[0].text).toContain('Connection "test" removed successfully');
       });
 
       it("should handle errors when removing connection", async () => {
-        const { removeConnection } = await import("../../../src/config.js");
-        (removeConnection as jest.Mock).mockImplementation(() => {
+        (config.removeConnection as jest.Mock).mockImplementation(() => {
           throw new Error("Connection not found");
         });
 
@@ -159,8 +208,7 @@ describe("Configuration Tools", () => {
       });
 
       it("should handle no saved connections", async () => {
-        const { listConnections } = await import("../../../src/config.js");
-        (listConnections as jest.Mock).mockReturnValue([]);
+        (config.listConnections as jest.Mock).mockReturnValue([]);
 
         const result = await handleConfigurationTool("fm_odata_config_list_connections", {});
 
@@ -197,15 +245,13 @@ describe("Configuration Tools", () => {
           name: "dev",
         });
 
-        const { setDefaultConnection } = await import("../../../src/config.js");
-        expect(setDefaultConnection).toHaveBeenCalledWith("dev");
+        expect(config.setDefaultConnection).toHaveBeenCalledWith("dev");
 
         expect(result.content[0].text).toContain("Default connection set to: dev");
       });
 
       it("should handle errors when setting default", async () => {
-        const { setDefaultConnection } = await import("../../../src/config.js");
-        (setDefaultConnection as jest.Mock).mockImplementation(() => {
+        (config.setDefaultConnection as jest.Mock).mockImplementation(() => {
           throw new Error("Connection not found");
         });
 

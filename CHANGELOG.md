@@ -7,6 +7,85 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.9.0] - 2026-09-14
+
+Major improvement release executing 13 vetted plans (004-016). Tool count
+increases from 35 to **39** (33 standard + 6 optional schema editing).
+All changes live-tested against a FileMaker Server with the `Contacts` database.
+
+### Added
+
+- **`fm_odata_create_records`** — Bulk create N records in one call. Supports
+  `$batch` (multipart/mixed, single HTTP round-trip) and `parallel`
+  (Promise.allSettled, per-record error isolation, returns full created records)
+  strategies. Configurable cap via `FM_BATCH_MAX_ITEMS` (default 100).
+
+- **`fm_odata_update_records`** — Bulk update N records by ID. Same strategies
+  as create.
+
+- **`fm_odata_delete_records`** — Bulk delete N records by ID. Same strategies.
+
+- **`fm_odata_query_all_records`** — Pagination helper that automatically
+  follows `@odata.nextLink` to fetch all matching records. Falls back to
+  `$skip`-based pagination when no next link is provided. Default page size
+  100, configurable cap via `FM_MAX_RECORDS` (default 10,000, hard cap 50,000).
+  Reports page count, total records, and truncation state.
+
+- **Bearer token authentication (Phase 1)** — Pre-existing Bearer token support
+  for FileMaker Cloud and OAuth/identity provider setups. Added `authType`
+  ("basic" | "bearer") and `bearerToken` fields to `fm_odata_connect` and
+  `fm_odata_connect_multi`. Environment variables `FM_AUTH_TYPE` and
+  `FM_BEARER_TOKEN`. Backward compatible (no `authType` = Basic Auth). Tokens
+  are NOT persisted in config (security + 1-hour expiry). Redacted in logs.
+
+- **Optional Bearer token auth for MCP HTTP/HTTPS transport** —
+  `MCP_AUTH_TOKEN` env var secures the MCP transport layer (Plan 006).
+
+- **Unit tests for URL building, HTTP transport, and multi-session handlers**
+  (Plan 011) — 32 new tests.
+
+- **Integration tests wired into `npm test`** (Plan 004) — Previously stale
+  integration tests fixed and included in the default test run.
+
+### Fixed
+
+- **HTTP server graceful shutdown** — Close server listener on SIGTERM/SIGINT
+  (Plan 005).
+- **`$metadata` cache invalidation** — Cached metadata is now invalidated after
+  schema mutations (Plan 016).
+- **`parseInt` NaN guard** — Config loading no longer crashes on non-numeric
+  env var values (Plan 012).
+- **Dependency vulnerabilities** — Updated express, axios, and MCP SDK to
+  patched versions (Plan 008).
+
+### Changed
+
+- **Node.js 18 (EOL) upgraded to Node.js 24 LTS** (Plan 007).
+- **Removed dead code** — `http-server.ts`, batch stub, `formatBatchResults`
+  (Plan 009).
+- **Removed `dev_stuf/` cruft** and fixed broken doc links (Plan 010).
+- **`fm_odata_connect` schema** — `user` and `password` are no longer in the
+  unconditional `required` list (they are conditionally required based on
+  `authType`). Runtime handler validates: `bearerToken` required for bearer,
+  `user`/`password` required for basic.
+
+### Documentation
+
+- Spike findings docs for plans 013/014/015 (`plans/013-...`, `014-...`,
+  `015-...`).
+- `CLAUDE.md` and `AGENTS.md` updated with new env vars, tool counts, and
+  known FileMaker OData limitations.
+- Corrected a false "filter encoding bug" — the real limitation is that
+  FileMaker's OData parser rejects comparison operators on the reserved
+  `id` field. Filters with spaces in string values (e.g.
+  `company eq 'Digital Dreams'`) work correctly.
+
+### Tests
+
+- 18 test suites, 378 tests (up from 8 suites, 251 tests in v0.8.3).
+
+---
+
 ## [0.8.3] - 2026-06-22
 
 Bug-fix and consistency release. No new tools; tool count remains 35

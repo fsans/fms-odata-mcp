@@ -122,6 +122,13 @@ services:
       - fms-odata-mcp
 ```
 
+Create the `ssl/` directory and generate your own certificates (do not use
+committed keys — generate a fresh keypair for each deployment):
+```bash
+mkdir -p ssl
+openssl req -x509 -newkey rsa:4096 -keyout ssl/key.pem -out ssl/cert.pem -days 365 -nodes
+```
+
 ## Building from Source
 
 To build the Docker image locally:

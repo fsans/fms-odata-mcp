@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- **35 MCP Tools** for FileMaker database operations (29 standard + 6 optional schema editing)
+- **39 MCP Tools** for FileMaker database operations (33 standard + 6 optional schema editing)
 - **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
 - **Session Management** - List and target active sessions per call
   (`fm_odata_list_active_sessions`, per-call `connection` param)
@@ -144,6 +144,25 @@ export MCP_CERT_PATH=/path/to/cert.pem
 export MCP_KEY_PATH=/path/to/key.pem
 ```
 
+#### HTTP/HTTPS Authentication
+
+When the server is accessible on a non-localhost network, set `MCP_AUTH_TOKEN` to require Bearer token authentication for `/mcp` POST requests. This prevents unauthorized tool invocation.
+
+```bash
+# Generate a random token
+export MCP_AUTH_TOKEN=$(openssl rand -hex 32)
+
+# Clients must now send the token in the Authorization header:
+curl -X POST http://localhost:3333/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $MCP_AUTH_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+- When `MCP_AUTH_TOKEN` is set, POST requests to `/mcp` without a valid `Authorization: Bearer <token>` header receive a 401 response.
+- The `/health` endpoint and `GET /mcp` (server info) remain open — no auth required.
+- When unset, a warning is logged and the endpoint is open (suitable for local development only).
+
 #### Integration Examples
 
 **Python Example:**
@@ -273,7 +292,11 @@ docker-compose -f my-docker-compose.yml up -d
 docker-compose -f docker-compose.yml --profile https up -d
 ```
 
-Place your SSL certificates in the `./ssl` directory:
+Generate your own SSL certificates and place them in the `./ssl` directory:
+```bash
+mkdir -p ssl
+openssl req -x509 -newkey rsa:4096 -keyout ssl/key.pem -out ssl/cert.pem -days 365 -nodes
+```
 - `ssl/cert.pem` - SSL certificate
 - `ssl/key.pem` - SSL private key
 
@@ -325,9 +348,6 @@ Create a new contact with name "John Doe" and email "john@example.com"
 
 ## Documentation
 
-- **[Quick Reference](./dev_stuf/QUICK_REFERENCE.md)** - One-page setup guide
-- **[Prompt Examples](./dev_stuf/CLAUDE_DESKTOP_PROMPTS.md)** - Complete prompt reference
-- **[Claude Desktop Setup](./dev_stuf/CLAUDE_DESKTOP_SETUP.md)** - Detailed configuration
 - **[Docker Deployment](./DOCKER.md)** - Complete Docker guide with production examples
 - **[Roadmap](./ROADMAP.md)** - Planned features and version history
 - **[Changelog](./CHANGELOG.md)** - Detailed release notes
@@ -392,6 +412,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | `MCP_HOST`      | Host to bind to                                | No       | `localhost`                       |
 | `MCP_CERT_PATH` | Path to SSL certificate (HTTPS only)           | No       | -                                 |
 | `MCP_KEY_PATH`  | Path to SSL private key (HTTPS only)           | No       | -                                 |
+| `MCP_AUTH_TOKEN`| Bearer token for `/mcp` auth (HTTP/HTTPS)      | No       | - (open endpoint, warning logged) |
 
 ## OData Query Syntax
 

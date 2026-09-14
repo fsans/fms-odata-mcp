@@ -1,6 +1,6 @@
 {
   "name": "fms-odata-mcp",
-  "version": "0.8.3-beta.0",
+  "version": "0.9.0",
   "description": "Model Context Protocol (MCP) server providing FileMaker Server OData 4.01 API integration with database introspection for AI agents. Compatible with Claude, Windsurf, Cursor, Cline, and other MCP-enabled assistants.",
   "type": "module",
   "main": "dist/index.js",
@@ -14,17 +14,18 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js",
     "watch": "tsc --watch",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && npm run typecheck && npm test",
     "docker:build": "docker build -t fms-odata-mcp:local .",
     "docker:run": "docker run -d --name fms-odata-mcp -p 3333:3333 fms-odata-mcp:local",
-    "docker:stop": "docker stop fms-odata-mcp && docker rm fms-odata-mcp",
-    "docker:test": "./test-docker.sh"
+    "docker:stop": "docker stop fms-odata-mcp && docker rm fms-odata-mcp"
   },
   "keywords": [
     "mcp",
@@ -53,22 +54,22 @@
   },
   "homepage": "https://github.com/fsans/fms-odata-mcp#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "axios": "^1.7.9",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "axios": "^1.20.0",
     "commander": "^12.1.0",
     "debug": "^4.4.3",
     "dotenv": "^16.4.7",
-    "express": "^4.18.2"
+    "express": "^4.22.2"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
     "@types/debug": "^4.1.12",
     "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.10.5",
+    "@types/node": "^24.0.0",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",
     "typescript": "^5.7.3"

@@ -284,6 +284,7 @@ export async function handleSchemaTool(name: string, args: any): Promise<any> {
           tableName: args.tableName,
           fields,
         });
+        client.invalidateMetadataCache();
         return textResult(
           `Table "${args.tableName}" created with ${fields.length} field(s).\n` +
             (result ? JSON.stringify(result, null, 2) : "")
@@ -293,6 +294,7 @@ export async function handleSchemaTool(name: string, args: any): Promise<any> {
       case "fm_odata_add_fields": {
         const fields = args.fields as FMFieldDefinition[];
         const result = await client.addFields(args.table, fields);
+        client.invalidateMetadataCache();
         return textResult(
           `Added ${fields.length} field(s) to table "${args.table}": ` +
             fields.map((f) => f.name).join(", ") +
@@ -310,6 +312,7 @@ export async function handleSchemaTool(name: string, args: any): Promise<any> {
           );
         }
         await client.deleteTable(args.table);
+        client.invalidateMetadataCache();
         return textResult(`Table "${args.table}" and all its records were deleted.`);
       }
 
@@ -323,16 +326,19 @@ export async function handleSchemaTool(name: string, args: any): Promise<any> {
           );
         }
         await client.deleteField(args.table, args.field);
+        client.invalidateMetadataCache();
         return textResult(`Field "${args.field}" was deleted from table "${args.table}".`);
       }
 
       case "fm_odata_create_index": {
         await client.createIndex(args.table, args.field);
+        client.invalidateMetadataCache();
         return textResult(`Index created on "${args.table}"."${args.field}".`);
       }
 
       case "fm_odata_delete_index": {
         await client.deleteIndex(args.table, args.field);
+        client.invalidateMetadataCache();
         return textResult(`Index on "${args.table}"."${args.field}" was deleted.`);
       }
 
