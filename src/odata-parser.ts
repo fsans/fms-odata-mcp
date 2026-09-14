@@ -506,6 +506,27 @@ export class ODataParser {
     const type = targetType.startsWith("Edm.") ? targetType : `Edm.${targetType}`;
     return `${field}/${type}`;
   }
+
+  /**
+   * Format a batch operation result for MCP tool output.
+   *
+   * Shows a summary line (succeeded/total, strategy used) followed by
+   * per-record results. Failed entries include the error message.
+   */
+  static formatBatchResult(result: any): string {
+    const { summary, results } = result;
+    const lines: string[] = [
+      `Batch: ${summary.succeeded}/${summary.total} succeeded (${summary.strategy}, ${summary.atomic ? "atomic" : "non-atomic"})`,
+    ];
+    for (const r of results) {
+      if (r.ok) {
+        lines.push(`  [${r.index}] OK`);
+      } else {
+        lines.push(`  [${r.index}] FAILED: ${r.error}`);
+      }
+    }
+    return lines.join("\n");
+  }
 }
 
 export interface TableInfo {

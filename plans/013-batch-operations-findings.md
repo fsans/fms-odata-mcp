@@ -220,8 +220,36 @@ The maintainer may raise this to 500 or 1000 after testing server capacity.
 
 ## Prototype status
 
-**Deferred to the build plan.** FileMaker `$batch` support is confirmed, so
-the build plan should implement Approach A directly. A prototype would only
-be needed if the multipart/mixed response parsing proves complex — in that
-case, a small prototype in `src/odata-client.ts` (marked experimental) would
-validate the parsing logic before the full implementation.
+**Implemented and tested against a live FileMaker Server.**
+
+### Live test results (2026-09-14)
+
+Tested against FileMaker Server at `nbcn.ddns.net` with the `Contacts` database:
+
+| Strategy | Create | Update | Delete | Notes |
+|----------|--------|--------|--------|-------|
+| **parallel** | 3/3 OK, IDs returned | 3/3 OK | 3/3 OK | Full record data returned for creates |
+| **batch** ($batch) | 2/2 OK, no IDs | 2/2 OK | 2/2 OK | Single HTTP round-trip; 204 No Content for POST |
+
+### Key findings from live testing
+
+1. **FileMaker `$batch` works** — the multipart/mixed format is accepted when:
+   - Using **relative URLs** in sub-requests (not absolute URLs)
+   - No blank line between changeset close (`--changeset_...--`) and batch close (`--batch_...--`)
+   - MIME boundaries use CRLF line endings with blank lines between headers and content
+
+2. **FileMaker returns `204 No Content` for POST in `$batch`** — even with
+   `Prefer: return=representation` at both sub-request and batch level. Created
+   record IDs are NOT available in the `$batch` response. Use `strategy: "parallel"`
+   when you need the created record IDs back.
+
+3. **The implementation falls back to parallel** when `$batch` fails — this
+   happens transparently. The response's `strategy` field indicates which
+   strategy was actually used.
+
+4. **Error code -1033** ("Unexpected batch boundary") was caused by missing
+   blank lines in the MIME structure. Fixed by adding proper CRLF + blank line
+   separators.
+
+5. **Error code -1015** ("Expected batch boundary") was caused by absolute URLs
+   in sub-requests. Fixed by converting to relative URLs.

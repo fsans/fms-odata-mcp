@@ -465,6 +465,110 @@ export const odataTools = [
       required: ["table", "recordId"],
     },
   },
+
+  // Bulk CRUD Tools (Plan 013)
+  {
+    name: "fm_odata_create_records",
+    description:
+      "Create multiple records in a single call. " +
+      "Uses OData $batch (multipart/mixed) for a single HTTP round-trip by default; " +
+      "falls back to parallel HTTP requests if $batch is unavailable. " +
+      "Maximum 100 records per call (configurable via FM_BATCH_MAX_ITEMS env var).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        records: {
+          type: "array",
+          items: {
+            type: "object",
+            description: "Field values for each record (JSON object with field names as keys)",
+          },
+          minItems: 1,
+          maxItems: 100,
+        },
+        strategy: {
+          type: "string",
+          enum: ["batch", "parallel"],
+          description:
+            "batch = OData $batch (single round-trip, default). " +
+            "parallel = Promise.all (non-atomic, per-record error isolation).",
+        },
+        ...connectionParam,
+      },
+      required: ["table", "records"],
+    },
+  },
+  {
+    name: "fm_odata_update_records",
+    description:
+      "Update multiple records in a single call via OData $batch. " +
+      "Maximum 100 records per call (configurable via FM_BATCH_MAX_ITEMS env var).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        updates: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              recordId: { type: "string", description: "Record ID to update" },
+              data: { type: "object", description: "Field values to update" },
+            },
+            required: ["recordId", "data"],
+          },
+          minItems: 1,
+          maxItems: 100,
+        },
+        strategy: {
+          type: "string",
+          enum: ["batch", "parallel"],
+          description:
+            "batch = OData $batch (single round-trip, default). " +
+            "parallel = Promise.all (non-atomic, per-record error isolation).",
+        },
+        ...connectionParam,
+      },
+      required: ["table", "updates"],
+    },
+  },
+  {
+    name: "fm_odata_delete_records",
+    description:
+      "Delete multiple records in a single call via OData $batch. " +
+      "Maximum 100 records per call (configurable via FM_BATCH_MAX_ITEMS env var).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        recordIds: {
+          type: "array",
+          items: { type: "string", description: "Record ID to delete" },
+          minItems: 1,
+          maxItems: 100,
+        },
+        strategy: {
+          type: "string",
+          enum: ["batch", "parallel"],
+          description:
+            "batch = OData $batch (single round-trip, default). " +
+            "parallel = Promise.all (non-atomic, per-record error isolation).",
+        },
+        ...connectionParam,
+      },
+      required: ["table", "recordIds"],
+    },
+  },
 ];
 
 /**
@@ -563,6 +667,16 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
 
       case "fm_odata_delete_record":
         return await handleDeleteRecord(client, args);
+
+      // Bulk CRUD Tools (Plan 013)
+      case "fm_odata_create_records":
+        return await handleCreateRecords(client, args);
+
+      case "fm_odata_update_records":
+        return await handleUpdateRecords(client, args);
+
+      case "fm_odata_delete_records":
+        return await handleDeleteRecords(client, args);
 
       default:
         return {
@@ -1092,4 +1206,58 @@ async function handleDeleteRecord(client: any, args: any) {
       },
     ],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Bulk CRUD Tool Handlers (Plan 013)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the batch max-items cap from config (env var FM_BATCH_MAX_ITEMS,
+ * default 100). The tool schema also enforces maxItems=100, but the env var
+ * allows raising the cap for deployments that need it.
+ */
+function getBatchMaxItems(): number {
+  const { getConfig } = require("../config.js");
+  const config = getConfig();
+  return config.filemaker.batchMaxItems ?? 100;
+}
+
+async function handleCreateRecords(client: any, args: any) {
+  const maxItems = getBatchMaxItems();
+  if (args.records.length > maxItems) {
+    return {
+      content: [{ type: "text", text: `Too many records: ${args.records.length}. Maximum is ${maxItems} (configurable via FM_BATCH_MAX_ITEMS).` }],
+      isError: true,
+    };
+  }
+  const strategy = args.strategy ?? "batch";
+  const result = await client.batchCreateRecords(args.table, args.records, strategy);
+  return { content: [{ type: "text", text: ODataParser.formatBatchResult(result) }] };
+}
+
+async function handleUpdateRecords(client: any, args: any) {
+  const maxItems = getBatchMaxItems();
+  if (args.updates.length > maxItems) {
+    return {
+      content: [{ type: "text", text: `Too many updates: ${args.updates.length}. Maximum is ${maxItems} (configurable via FM_BATCH_MAX_ITEMS).` }],
+      isError: true,
+    };
+  }
+  const strategy = args.strategy ?? "batch";
+  const result = await client.batchUpdateRecords(args.table, args.updates, strategy);
+  return { content: [{ type: "text", text: ODataParser.formatBatchResult(result) }] };
+}
+
+async function handleDeleteRecords(client: any, args: any) {
+  const maxItems = getBatchMaxItems();
+  if (args.recordIds.length > maxItems) {
+    return {
+      content: [{ type: "text", text: `Too many record IDs: ${args.recordIds.length}. Maximum is ${maxItems} (configurable via FM_BATCH_MAX_ITEMS).` }],
+      isError: true,
+    };
+  }
+  const strategy = args.strategy ?? "batch";
+  const result = await client.batchDeleteRecords(args.table, args.recordIds, strategy);
+  return { content: [{ type: "text", text: ODataParser.formatBatchResult(result) }] };
 }
