@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import https from "https";
+import crypto from "crypto";
 import { logger } from "./logger.js";
 import { FMServerVersion, parseServerVersion, isFeatureSupported } from "./fm-version.js";
 
@@ -35,6 +36,30 @@ export interface ODataError {
     code: string;
     message: string;
   };
+}
+
+/**
+ * Result of a single operation within a batch.
+ */
+export interface BatchItemResult {
+  index: number;
+  ok: boolean;
+  data?: any;
+  error?: string;
+}
+
+/**
+ * Result of a batch operation (bulk create/update/delete).
+ */
+export interface BatchResult {
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    strategy: "batch" | "parallel";
+    atomic: boolean;
+  };
+  results: BatchItemResult[];
 }
 
 /**
@@ -436,6 +461,300 @@ export class ODataClient {
     const url = `${this.baseUrl}/${table}${this.entityKey(recordId)}`;
     logger.debug(`Deleting record: ${url}`);
     await this.axiosInstance.delete(url);
+  }
+
+  // -------------------------------------------------------------------------
+  // Batch / bulk operations (Plan 013)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Result of a single operation within a batch.
+   */
+  async batchCreateRecords(
+    table: string,
+    records: any[],
+    strategy: "batch" | "parallel" = "batch"
+  ): Promise<BatchResult> {
+    if (strategy === "batch") {
+      try {
+        return await this._batchViaODataBatch(
+          records.map((data, i) => ({
+            method: "POST" as const,
+            url: `${this.baseUrl}/${table}`,
+            body: data,
+            index: i,
+          }))
+        );
+      } catch (error: any) {
+        logger.debug(`$batch failed (${error.message}), falling back to parallel`);
+        return await this._batchViaParallel(
+          records.map((data, i) => ({
+            fn: () => this.createRecord(table, data),
+            index: i,
+          }))
+        );
+      }
+    }
+    return await this._batchViaParallel(
+      records.map((data, i) => ({
+        fn: () => this.createRecord(table, data),
+        index: i,
+      }))
+    );
+  }
+
+  async batchUpdateRecords(
+    table: string,
+    updates: { recordId: string; data: any }[],
+    strategy: "batch" | "parallel" = "batch"
+  ): Promise<BatchResult> {
+    if (strategy === "batch") {
+      try {
+        return await this._batchViaODataBatch(
+          updates.map((u, i) => ({
+            method: "PATCH" as const,
+            url: `${this.baseUrl}/${table}${this.entityKey(u.recordId)}`,
+            body: u.data,
+            index: i,
+          }))
+        );
+      } catch (error: any) {
+        logger.debug(`$batch failed (${error.message}), falling back to parallel`);
+        return await this._batchViaParallel(
+          updates.map((u, i) => ({
+            fn: () => this.updateRecord(table, u.recordId, u.data).then(() => undefined),
+            index: i,
+          }))
+        );
+      }
+    }
+    return await this._batchViaParallel(
+      updates.map((u, i) => ({
+        fn: () => this.updateRecord(table, u.recordId, u.data).then(() => undefined),
+        index: i,
+      }))
+    );
+  }
+
+  async batchDeleteRecords(
+    table: string,
+    recordIds: string[],
+    strategy: "batch" | "parallel" = "batch"
+  ): Promise<BatchResult> {
+    if (strategy === "batch") {
+      try {
+        return await this._batchViaODataBatch(
+          recordIds.map((id, i) => ({
+            method: "DELETE" as const,
+            url: `${this.baseUrl}/${table}${this.entityKey(id)}`,
+            body: undefined,
+            index: i,
+          }))
+        );
+      } catch (error: any) {
+        logger.debug(`$batch failed (${error.message}), falling back to parallel`);
+        return await this._batchViaParallel(
+          recordIds.map((id, i) => ({
+            fn: () => this.deleteRecord(table, id).then(() => undefined),
+            index: i,
+          }))
+        );
+      }
+    }
+    return await this._batchViaParallel(
+      recordIds.map((id, i) => ({
+        fn: () => this.deleteRecord(table, id).then(() => undefined),
+        index: i,
+      }))
+    );
+  }
+
+  /**
+   * Send operations as a real OData `$batch` (multipart/mixed) request.
+   *
+   * All operations are placed in a single changeset (atomic). If the server
+   * rejects the batch or returns an HTTP error, the caller falls back to
+   * the parallel strategy.
+   */
+  private async _batchViaODataBatch(
+    ops: { method: string; url: string; body?: any; index: number }[]
+  ): Promise<BatchResult> {
+    const boundary = `batch_${crypto.randomUUID()}`;
+    const changesetBoundary = `changeset_${crypto.randomUUID()}`;
+
+    // Build multipart/mixed body — changeset first (defensive against the
+    // FileMaker GET-before-changeset ordering bug).
+    // MIME requires CRLF line endings and blank lines between headers and content.
+    // FileMaker requires relative URLs in batch sub-requests (not absolute).
+    const lines: string[] = [];
+
+    // Open batch part containing the changeset
+    lines.push(`--${boundary}`);
+    lines.push(`Content-Type: multipart/mixed; boundary=${changesetBoundary}`);
+    lines.push(""); // blank line: end of part headers, start of part body
+
+    for (const op of ops) {
+      // Convert absolute URL to relative path for FileMaker compatibility
+      const url = new URL(op.url);
+      const relativeUrl = url.pathname + url.search;
+
+      lines.push(`--${changesetBoundary}`);
+      lines.push("Content-Type: application/http");
+      lines.push("Content-Transfer-Encoding: binary");
+      lines.push(""); // blank line: end of sub-part headers, start of HTTP request
+      lines.push(`${op.method} ${relativeUrl} HTTP/1.1`);
+      lines.push("Content-Type: application/json");
+      // Note: FileMaker's $batch always returns 204 No Content for POST/PATCH
+      // (ignores Prefer: return=representation). Created record IDs are NOT
+      // available in the $batch response. Use strategy: "parallel" when you
+      // need the created record IDs back.
+      if (op.body !== undefined) {
+        const bodyStr = JSON.stringify(op.body);
+        lines.push(`Content-Length: ${Buffer.byteLength(bodyStr)}`);
+        lines.push(""); // blank line: end of HTTP headers, start of body
+        lines.push(bodyStr);
+      } else {
+        lines.push("Content-Length: 0");
+        lines.push(""); // blank line: end of HTTP headers
+      }
+    }
+
+    // Close changeset — no blank line before batch closing boundary
+    lines.push(`--${changesetBoundary}--`);
+    lines.push(`--${boundary}--`);
+
+    const body = lines.join("\r\n");
+    const batchUrl = `${this.baseUrl}/$batch`;
+
+    logger.debug(`Sending $batch request to ${batchUrl} (${ops.length} operations)`);
+
+    const response = await this.axiosInstance.post(batchUrl, body, {
+      headers: {
+        "Content-Type": `multipart/mixed; boundary=${boundary}`,
+        "OData-Version": "4.0",
+        "OData-MaxVersion": "4.0",
+      },
+    });
+
+    return this._parseBatchResponse(response.data, ops.length);
+  }
+
+  /**
+   * Send operations as parallel individual HTTP requests (fallback).
+   *
+   * Non-atomic: each operation succeeds or fails independently.
+   */
+  private async _batchViaParallel(
+    ops: { fn: () => Promise<any>; index: number }[]
+  ): Promise<BatchResult> {
+    const results = await Promise.allSettled(
+      ops.map((op) => op.fn())
+    );
+
+    const batchResults: BatchItemResult[] = ops.map((op, i) => {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        return { index: op.index, ok: true, data: r.value };
+      }
+      return {
+        index: op.index,
+        ok: false,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      };
+    });
+
+    return this._buildBatchResult(batchResults, "parallel", false);
+  }
+
+  /**
+   * Parse a multipart/mixed $batch response.
+   *
+   * The response is a multipart MIME document where each part contains
+   * an HTTP response (status line + headers + body) for one operation.
+   */
+  private _parseBatchResponse(responseData: any, expectedCount: number): BatchResult {
+    const responseText = typeof responseData === "string" ? responseData : String(responseData);
+    const batchResults: BatchItemResult[] = [];
+
+    // Split on MIME boundaries. The response uses the same boundary we sent
+    // or a new one from the server's Content-Type header.
+    // We look for HTTP status lines within each part.
+    const partRegex = /HTTP\/1\.1 (\d+) ([^\r\n]*)[\r\n]+([\s\S]*?)(?=(?:\r\n)?--|\z)/g;
+    let match: RegExpExecArray | null;
+    let partIndex = 0;
+
+    while ((match = partRegex.exec(responseText)) !== null) {
+      const status = parseInt(match[1], 10);
+      const body = match[3].trim();
+
+      if (status >= 200 && status < 300) {
+        let parsedData: any = undefined;
+        try {
+          // Try to extract JSON body (skip headers)
+          const jsonStart = body.indexOf("{");
+          if (jsonStart !== -1) {
+            parsedData = JSON.parse(body.substring(jsonStart));
+          }
+        } catch {
+          // Non-JSON body (e.g., empty 204 for DELETE) — leave data undefined
+        }
+        batchResults.push({ index: partIndex, ok: true, data: parsedData });
+      } else {
+        let errorMsg = `HTTP ${status}: ${match[2]}`;
+        try {
+          const jsonStart = body.indexOf("{");
+          if (jsonStart !== -1) {
+            const errorJson = JSON.parse(body.substring(jsonStart));
+            if (errorJson?.error?.message) {
+              errorMsg = errorJson.error.message;
+            }
+          }
+        } catch {
+          // Keep the status-line error message
+        }
+        batchResults.push({ index: partIndex, ok: false, error: errorMsg });
+      }
+      partIndex++;
+    }
+
+    // If we couldn't parse any parts, treat as a total failure
+    if (batchResults.length === 0) {
+      return {
+        summary: {
+          total: expectedCount,
+          succeeded: 0,
+          failed: expectedCount,
+          strategy: "batch",
+          atomic: true,
+        },
+        results: Array.from({ length: expectedCount }, (_, i) => ({
+          index: i,
+          ok: false,
+          error: "Failed to parse batch response",
+        })),
+      };
+    }
+
+    return this._buildBatchResult(batchResults, "batch", true);
+  }
+
+  private _buildBatchResult(
+    results: BatchItemResult[],
+    strategy: string,
+    atomic: boolean
+  ): BatchResult {
+    const succeeded = results.filter((r) => r.ok).length;
+    const failed = results.length - succeeded;
+    return {
+      summary: {
+        total: results.length,
+        succeeded,
+        failed,
+        strategy: strategy as "batch" | "parallel",
+        atomic,
+      },
+      results,
+    };
   }
 
   /**

@@ -70,7 +70,7 @@ describe("OData Tools", () => {
 
   describe("Tool Definitions", () => {
     it("should export correct number of tools", () => {
-      expect(odataTools).toHaveLength(16);
+      expect(odataTools).toHaveLength(19);
     });
 
     it("should have metadata tools", () => {
