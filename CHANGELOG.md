@@ -7,11 +7,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.9.1] - 2026-10-21
 
 ### Fixed
 
-- **Every request executed twice when started via the `fms-odata-mcp` binary.**
+- **Every request executed twice when started via the `fms-odata-mcp` binary** (#16).
   `dist/bin/cli.js` imported `index.js` (which already starts the server on load)
   and then started a second `FileMakerODataServer`. Both attached a stdio
   transport to the same stdin, so each JSON-RPC message was handled twice:

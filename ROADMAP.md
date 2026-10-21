@@ -34,6 +34,8 @@
   graceful shutdown, metadata cache invalidation, NaN guard, dependency patches,
   Node.js 24 LTS upgrade, dead code removal, expanded test coverage (378 tests).
   39 tools total (33 standard + 6 optional schema editing).
+- **v0.9.1** — Patch release: fix duplicate server startup when launched via the
+  `fms-odata-mcp` CLI binary (#16).
 
 ---
 
@@ -286,8 +288,9 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 | v0.8.2 | Released | Enhanced v26 metadata (field IDs, options, permissions, FMFID) |
 | v0.8.3 | Released | Bug fixes and consistency improvements (13 fixes) |
 | v0.9.0 | Released | Batch ops, pagination, Bearer auth, security fixes, Node 24, 39 tools |
-| v0.9.1 | Planned | Container upload (`fm_odata_upload_container`) |
-| v0.9.2 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
+| v0.9.1 | Released | Fix CLI binary starting two server instances (#16) |
+| v0.9.2 | Planned | Container upload (`fm_odata_upload_container`) |
+| v0.9.3 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
 | v1.0.0 | Future | Performance optimization, API stability commitment |
 
 ---
