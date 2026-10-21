@@ -7,6 +7,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Every request executed twice when started via the `fms-odata-mcp` binary.**
+  `dist/bin/cli.js` imported `index.js` (which already starts the server on load)
+  and then started a second `FileMakerODataServer`. Both attached a stdio
+  transport to the same stdin, so each JSON-RPC message was handled twice:
+  duplicate responses per id, and duplicate OData requests to FileMaker Server
+  (two records from one `fm_odata_create_record`, a second PATCH failing with
+  error 301 "record locked"). The CLI now only imports `index.js`.
+
+---
+
 ## [0.9.0] - 2026-09-14
 
 Major improvement release executing 13 vetted plans (004-016). Tool count
