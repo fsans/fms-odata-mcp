@@ -1,13 +1,6 @@
 #!/usr/bin/env node
 
-import { FileMakerODataServer } from '../index.js';
-
-async function main() {
-  const server = new FileMakerODataServer();
-  await server.run();
-}
-
-main().catch((error) => {
-  console.error('Server error:', error);
-  process.exit(1);
-});
+// index.ts constructs and starts the server when it is loaded, so importing it
+// is all the CLI needs. Starting a second FileMakerODataServer here would
+// attach two stdio transports to the same stdin and execute every request twice.
+import '../index.js';
