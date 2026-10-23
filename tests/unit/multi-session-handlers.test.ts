@@ -7,6 +7,7 @@ jest.unstable_mockModule('../../src/connection.js', () => ({
     createInlineClientNamed: jest.fn(),
     setCurrentConnection: jest.fn(),
     getCurrentConnectionName: jest.fn(),
+    getCurrentClient: jest.fn(() => null),
     listActiveSessions: jest.fn(() => []),
     getClientByName: jest.fn(),
     removeClient: jest.fn(),
