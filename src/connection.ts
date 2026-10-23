@@ -1,5 +1,11 @@
 import { ODataClient, ODataClientConfig } from "./odata-client.js";
-import { Connection, getDefaultConnection, getConnection } from "./config.js";
+import {
+  Connection,
+  getDefaultConnection,
+  getDefaultConnectionName,
+  getConnection,
+  getConfig,
+} from "./config.js";
 import { logger } from "./logger.js";
 import { FMServerVersion } from "./fm-version.js";
 
@@ -33,9 +39,13 @@ export class ConnectionManager {
   }
 
   /**
-   * Create an OData client from a connection configuration
+   * Create an OData client from a connection configuration.
+   * Falls back to the global FileMaker config (env vars / config.json
+   * `filemaker` section) for verifySsl and timeout when not supplied
+   * explicitly on the call or on the connection object itself.
    */
   private createClient(connection: Connection, verifySsl?: boolean, timeout?: number): ODataClient {
+    const filemakerConfig = getConfig().filemaker;
     const config: ODataClientConfig = {
       server: connection.server,
       database: connection.database,
@@ -43,8 +53,13 @@ export class ConnectionManager {
       password: connection.password,
       authType: connection.authType,
       bearerToken: connection.bearerToken,
-      verifySsl: verifySsl !== undefined ? verifySsl : connection.verifySsl,
-      timeout: timeout,
+      verifySsl:
+        verifySsl !== undefined
+          ? verifySsl
+          : connection.verifySsl !== undefined
+            ? connection.verifySsl
+            : filemakerConfig.verifySsl,
+      timeout: timeout !== undefined ? timeout : filemakerConfig.timeout,
     };
 
     return new ODataClient(config);
@@ -91,12 +106,44 @@ export class ConnectionManager {
   }
 
   /**
-   * Look up a cached client by alias without any side effects (no
-   * currentConnectionName mutation). Returns null if the alias is unknown.
-   * Used for per-call connection targeting in OData tools.
+   * Look up a client by alias for per-call connection targeting.
+   *
+   * Resolution order:
+   *   1. In-memory session cache (inline / multi-connect / previously loaded).
+   *   2. Saved connections in config.json — lazily instantiated and cached on
+   *      first use so a cold-start server can target any saved connection
+   *      without a prior fm_odata_set_connection call.
+   *
+   * Side-effect-free with respect to the active/default session pointer:
+   * this.currentConnectionName is NEVER mutated here.
    */
-  getClientByName(name: string): ODataClient | null {
-    return this.clients.get(name) ?? null;
+  getClientByName(name: string, verifySsl?: boolean, timeout?: number): ODataClient | null {
+    if (this.clients.has(name)) {
+      if (verifySsl !== undefined || timeout !== undefined) {
+        logger.debug(
+          `getClientByName("${name}"): returning cached client; ` +
+          `caller-supplied verifySsl/timeout ignored. ` +
+          `Use removeClient() first to force a fresh client with new options.`
+        );
+      }
+      return this.clients.get(name)!;
+    }
+
+    const connection = getConnection(name);
+    if (!connection) {
+      return null;
+    }
+
+    const client = this.createClient(connection, verifySsl, timeout);
+    this.clients.set(name, client);
+    this.clientMeta.set(name, {
+      server: connection.server,
+      database: connection.database,
+      user: connection.user,
+    });
+
+    logger.debug(`Lazily loaded OData client for saved connection: ${name}`);
+    return client;
   }
 
   /**
@@ -162,15 +209,55 @@ export class ConnectionManager {
   }
 
   /**
-   * Get the current active client
+   * Get the current active client.
+   *
+   * Cold-start resolution when no session has been activated yet:
+   *   1. defaultConnection from config.json (via getClient, which also
+   *      sets this.currentConnectionName).
+   *   2. Environment variables / config.json `filemaker` section
+   *      (FM_SERVER, FM_DATABASE, FM_USER, FM_PASSWORD or bearer token) —
+   *      cached under the "default" alias so env-configured deployments
+   *      work out of the box.
    */
   getCurrentClient(): ODataClient | null {
     if (!this.currentConnectionName) {
-      // Try to use default connection
+      // 1. Try the default connection from config.json
+      const defaultName = getDefaultConnectionName();
       const defaultConn = getDefaultConnection();
-      if (defaultConn && defaultConn.name) {
-        return this.getClient(defaultConn.name);
+      if (defaultName && defaultConn) {
+        return this.getClient(defaultName);
       }
+
+      // 2. Fall back to env vars / global filemaker config
+      const filemaker = getConfig().filemaker;
+      const hasValidCredentials =
+        (filemaker.authType === "bearer" && !!filemaker.bearerToken) ||
+        (!!(filemaker.user && filemaker.password));
+      if (filemaker.server && filemaker.database && hasValidCredentials) {
+        if (!this.clients.has("default")) {
+          const connection: Connection = {
+            name: "default",
+            server: filemaker.server,
+            database: filemaker.database,
+            user: filemaker.user ?? "",
+            password: filemaker.password ?? "",
+            verifySsl: filemaker.verifySsl,
+            authType: filemaker.authType,
+            bearerToken: filemaker.bearerToken,
+          };
+          const client = this.createClient(connection, filemaker.verifySsl, filemaker.timeout);
+          this.clients.set("default", client);
+          this.clientMeta.set("default", {
+            server: connection.server,
+            database: connection.database,
+            user: connection.user,
+          });
+          logger.debug("Created OData client from environment/global config under alias 'default'");
+        }
+        this.currentConnectionName = "default";
+        return this.clients.get("default")!;
+      }
+
       return null;
     }
 
@@ -225,12 +312,13 @@ export class ConnectionManager {
    * in clientMeta so future listActiveSessions() calls can surface it without
    * an extra HTTP round-trip.
    *
-   * @param sessionName  Alias of the in-memory session to query.
+   * @param sessionName  Alias of the in-memory session, or a saved connection
+   *   name from config.json (lazily loaded and cached on first use).
    * @returns The parsed version, or null if the version cannot be determined.
    * @throws Error if the session alias is not found.
    */
   async getServerVersion(sessionName: string): Promise<FMServerVersion | null> {
-    const client = this.clients.get(sessionName);
+    const client = this.getClientByName(sessionName);
     if (!client) {
       throw new Error(`Session "${sessionName}" not found`);
     }

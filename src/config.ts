@@ -250,15 +250,21 @@ export function getConnections(): Record<string, Connection> {
 }
 
 /**
- * Get a specific connection from config
+ * Get a specific connection from config.
+ * The returned object always carries `name` (falling back to the map key) so
+ * hand-edited config.json entries that omit the redundant inner "name" field
+ * still resolve correctly.
  */
 export function getConnection(name: string): Connection | null {
   const connections = getConnections();
-  return connections[name] || null;
+  const conn = connections[name];
+  if (!conn) return null;
+  return { ...conn, name: conn.name || name };
 }
 
 /**
- * Add a connection to config file
+ * Add a connection to config file.
+ * Supports both Basic auth (user + password) and Bearer auth (bearerToken).
  */
 export function addConnection(name: string, connection: Connection): void {
   const config = mergeWithDefaults(loadConfigFile());
@@ -279,11 +285,20 @@ export function addConnection(name: string, connection: Connection): void {
   if (!connection.database || connection.database.trim() === "") {
     throw new Error("Database is required");
   }
-  if (!connection.user || connection.user.trim() === "") {
-    throw new Error("User is required");
-  }
-  if (!connection.password || connection.password.trim() === "") {
-    throw new Error("Password is required");
+
+  const authType = connection.authType || "basic";
+
+  if (authType === "bearer") {
+    if (!connection.bearerToken || connection.bearerToken.trim() === "") {
+      throw new Error("Bearer token is required when authType is 'bearer'");
+    }
+  } else {
+    if (!connection.user || connection.user.trim() === "") {
+      throw new Error("User is required");
+    }
+    if (!connection.password || connection.password.trim() === "") {
+      throw new Error("Password is required");
+    }
   }
 
   // Store trimmed values (matches the validation above).
@@ -291,9 +306,11 @@ export function addConnection(name: string, connection: Connection): void {
     name,
     server: connection.server.trim(),
     database: connection.database.trim(),
-    user: connection.user.trim(),
-    password: connection.password,
+    user: connection.user?.trim() ?? "",
+    password: connection.password ?? "",
     verifySsl: connection.verifySsl,
+    ...(authType !== "basic" ? { authType } : {}),
+    ...(connection.bearerToken ? { bearerToken: connection.bearerToken } : {}),
   };
   saveConfigFile(config);
 }
@@ -370,11 +387,15 @@ export function removeConnection(name: string): void {
 }
 
 /**
- * List all connections from config
+ * List all connections from config.
+ * Each entry always carries `name` (falling back to its map key).
  */
 export function listConnections(): Connection[] {
   const connections = getConnections();
-  return Object.values(connections);
+  return Object.entries(connections).map(([key, conn]) => ({
+    ...conn,
+    name: conn.name || key,
+  }));
 }
 
 /**

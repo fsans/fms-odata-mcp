@@ -98,7 +98,7 @@ describe("Schema DDL tools", () => {
         connection: "nope",
       });
       expect(result.isError).toBe(true);
-      expect(result.content?.[0]?.text).toMatch(/Session "nope" not found/);
+      expect(result.content?.[0]?.text).toMatch(/Connection or session "nope" not found/);
     });
   });
 
