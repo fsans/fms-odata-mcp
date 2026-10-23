@@ -1,6 +1,10 @@
-import { describe, test, expect, beforeEach } from "@jest/globals";
+import { describe, test, expect, beforeEach, afterEach } from "@jest/globals";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { connectionManager } from "../../src/connection";
 import { handleToolCall } from "../../src/tools/index";
+import { getConnection } from "../../src/config";
 
 /**
  * Multi-session unit tests.
@@ -251,5 +255,292 @@ describe("fm_odata_set_connection — runtime alias support", () => {
     const text = result.content?.[0]?.text ?? "";
     expect(result.isError).toBe(true);
     expect(text).toMatch(/phantom/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lazy resolution of saved named connections (cold start)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fixture config.json written in "hand-edited" style: the inner connection
+ * objects intentionally OMIT the redundant "name" field to verify that
+ * getConnection() normalizes name from the map key.
+ */
+function writeTestConfig(home: string, extra?: Record<string, unknown>): void {
+  const configDir = path.join(home, ".fms-odata-mcp");
+  fs.mkdirSync(configDir, { recursive: true });
+  const config = {
+    connections: {
+      "conn-a": {
+        server: "https://fms-a.example.com",
+        database: "Contacts",
+        user: "user_a",
+        password: "pass_a",
+        verifySsl: false,
+      },
+      "conn-b": {
+        server: "https://fms-b.example.com",
+        database: "Contacts",
+        user: "user_b",
+        password: "pass_b",
+        verifySsl: false,
+      },
+    },
+    defaultConnection: "conn-a",
+    ...extra,
+  };
+  fs.writeFileSync(path.join(configDir, "config.json"), JSON.stringify(config, null, 2));
+}
+
+describe("Lazy resolution of saved named connections (cold start)", () => {
+  const fileHome = process.env.HOME;
+  const savedFmEnv: Record<string, string | undefined> = {};
+  let testHome: string;
+
+  beforeEach(() => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("FM_")) {
+        savedFmEnv[key] = process.env[key];
+        delete process.env[key];
+      }
+    }
+    testHome = fs.mkdtempSync(path.join(os.tmpdir(), "fms-odata-lazy-"));
+    process.env.HOME = testHome;
+    writeTestConfig(testHome);
+    connectionManager.clearClients();
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedFmEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    if (fileHome) process.env.HOME = fileHome;
+    fs.rmSync(testHome, { recursive: true, force: true });
+    connectionManager.clearClients();
+  });
+
+  test("getConnection normalizes name from the map key for hand-edited config", () => {
+    const conn = getConnection("conn-b");
+    expect(conn).not.toBeNull();
+    expect(conn!.name).toBe("conn-b");
+    expect(conn!.server).toBe("https://fms-b.example.com");
+  });
+
+  test("getCurrentClient resolves defaultConnection and sets the active pointer", () => {
+    const client = connectionManager.getCurrentClient();
+    expect(client).not.toBeNull();
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+  });
+
+  test("getClientByName lazily loads a saved connection WITHOUT changing the active pointer", () => {
+    connectionManager.getCurrentClient();
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+
+    const client = connectionManager.getClientByName("conn-b");
+    expect(client).not.toBeNull();
+    // Cached and visible in session listing
+    expect(connectionManager.getClientByName("conn-b")).toBe(client);
+    const sessions = connectionManager.listActiveSessions();
+    const targetSession = sessions.find((s) => s.name === "conn-b");
+    expect(targetSession).toBeDefined();
+    expect(targetSession!.server).toBe("https://fms-b.example.com");
+    expect(targetSession!.database).toBe("Contacts");
+    expect(targetSession!.user).toBe("user_b");
+    // Active pointer untouched
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+  });
+
+  test("getClientByName returns null for names that are neither sessions nor saved connections", () => {
+    expect(connectionManager.getClientByName("no-such-connection")).toBeNull();
+  });
+
+  test("OData tool with connection param uses the saved connection on cold start (no set_connection needed)", async () => {
+    const result: any = await handleToolCall("fm_odata_create_record", {
+      table: "Test",
+      data: { Name: "x" },
+      connection: "conn-b",
+    });
+    // No real server behind fms-b.example.com — reaching the HTTP layer
+    // proves the conn-b client was resolved and used.
+    expect(result.isError).toBe(true);
+    expect(result.content?.[0]?.text).toMatch(/No response from server/i);
+    // conn-b was lazily instantiated and cached
+    const targetSession = connectionManager.listActiveSessions().find((s) => s.name === "conn-b");
+    expect(targetSession).toBeDefined();
+    expect(targetSession!.server).toBe("https://fms-b.example.com");
+    // Per-call targeting must NOT change the active pointer
+    expect(connectionManager.getCurrentConnectionName()).toBeUndefined();
+  });
+
+  test("subsequent calls without connection param continue to use the default connection", async () => {
+    // Activate default (conn-a)
+    connectionManager.getCurrentClient();
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+
+    // Per-call conn-b targeting
+    await handleToolCall("fm_odata_count_records", {
+      table: "Test",
+      connection: "conn-b",
+    });
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+
+    // Default call still uses conn-a (its session is active)
+    const result: any = await handleToolCall("fm_odata_count_records", { table: "Test" });
+    expect(result.isError).toBe(true);
+    expect(result.content?.[0]?.text).toMatch(/No response from server/i);
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+  });
+});
+
+describe("Cold-start fm_odata_get_server_version and fm_odata_get_current_connection", () => {
+  const fileHome = process.env.HOME;
+  const savedFmEnv: Record<string, string | undefined> = {};
+  let testHome: string;
+
+  beforeEach(() => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("FM_")) {
+        savedFmEnv[key] = process.env[key];
+        delete process.env[key];
+      }
+    }
+    testHome = fs.mkdtempSync(path.join(os.tmpdir(), "fms-odata-coldstart-"));
+    process.env.HOME = testHome;
+    writeTestConfig(testHome);
+    connectionManager.clearClients();
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedFmEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    if (fileHome) process.env.HOME = fileHome;
+    fs.rmSync(testHome, { recursive: true, force: true });
+    connectionManager.clearClients();
+  });
+
+  test("fm_odata_get_server_version resolves defaultConnection on cold start", async () => {
+    const result: any = await handleToolCall("fm_odata_get_server_version", {});
+    // Must NOT report "No active connection" — the default connection is
+    // lazily initialized. getServerVersion() swallows the network failure
+    // and reports version null with a notice.
+    expect(result.isError).toBeFalsy();
+    const payload = JSON.parse(result.content?.[0]?.text ?? "{}");
+    expect(payload.session).toBe("conn-a");
+    expect(payload.version).toBeNull();
+    expect(payload.notice).toMatch(/could not be detected/i);
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+  });
+
+  test("fm_odata_get_server_version lazily resolves a saved connection by name", async () => {
+    const result: any = await handleToolCall("fm_odata_get_server_version", {
+      connection: "conn-b",
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = JSON.parse(result.content?.[0]?.text ?? "{}");
+    expect(payload.session).toBe("conn-b");
+    expect(payload.version).toBeNull();
+    // conn-b lazily loaded; active pointer untouched
+    const targetSession = connectionManager.listActiveSessions().find((s) => s.name === "conn-b");
+    expect(targetSession).toBeDefined();
+    expect(connectionManager.getCurrentConnectionName()).toBeUndefined();
+  });
+
+  test("fm_odata_get_current_connection resolves defaultConnection on cold start", async () => {
+    const result: any = await handleToolCall("fm_odata_get_current_connection", {});
+    const text = result.content?.[0]?.text ?? "";
+    expect(text).toContain("conn-a");
+    expect(text).toContain("https://fms-a.example.com");
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
+  });
+});
+
+describe("Environment variable fallback in getCurrentClient()", () => {
+  const fileHome = process.env.HOME;
+  const savedFmEnv: Record<string, string | undefined> = {};
+  let testHome: string;
+
+  beforeEach(() => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("FM_")) {
+        savedFmEnv[key] = process.env[key];
+        delete process.env[key];
+      }
+    }
+    // Fresh empty home — NO config.json
+    testHome = fs.mkdtempSync(path.join(os.tmpdir(), "fms-odata-env-"));
+    process.env.HOME = testHome;
+    connectionManager.clearClients();
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedFmEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    if (fileHome) process.env.HOME = fileHome;
+    fs.rmSync(testHome, { recursive: true, force: true });
+    connectionManager.clearClients();
+  });
+
+  test("initializes the default client from FM_* env vars on cold start", () => {
+    process.env.FM_SERVER = "https://env-fms.example.com";
+    process.env.FM_DATABASE = "EnvDB";
+    process.env.FM_USER = "env_user";
+    process.env.FM_PASSWORD = "env_pass";
+
+    const client = connectionManager.getCurrentClient();
+    expect(client).not.toBeNull();
+    expect(connectionManager.getCurrentConnectionName()).toBe("default");
+
+    const session = connectionManager
+      .listActiveSessions()
+      .find((s) => s.name === "default");
+    expect(session).toBeDefined();
+    expect(session!.server).toBe("https://env-fms.example.com");
+    expect(session!.database).toBe("EnvDB");
+    expect(session!.user).toBe("env_user");
+  });
+
+  test("supports Bearer auth env configuration (FM_AUTH_TYPE=bearer)", () => {
+    process.env.FM_SERVER = "https://env-fms.example.com";
+    process.env.FM_DATABASE = "EnvDB";
+    process.env.FM_AUTH_TYPE = "bearer";
+    process.env.FM_BEARER_TOKEN = "env-token";
+
+    const client = connectionManager.getCurrentClient();
+    expect(client).not.toBeNull();
+    expect(connectionManager.getCurrentConnectionName()).toBe("default");
+  });
+
+  test("returns null when env vars are incomplete (no credentials)", () => {
+    process.env.FM_SERVER = "https://env-fms.example.com";
+    process.env.FM_DATABASE = "EnvDB";
+
+    expect(connectionManager.getCurrentClient()).toBeNull();
+    expect(connectionManager.getCurrentConnectionName()).toBeUndefined();
+  });
+
+  test("saved defaultConnection takes precedence over env vars", () => {
+    process.env.FM_SERVER = "https://env-fms.example.com";
+    process.env.FM_DATABASE = "EnvDB";
+    process.env.FM_USER = "env_user";
+    process.env.FM_PASSWORD = "env_pass";
+    writeTestConfig(testHome);
+
+    connectionManager.getCurrentClient();
+    expect(connectionManager.getCurrentConnectionName()).toBe("conn-a");
   });
 });
