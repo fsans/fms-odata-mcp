@@ -12,9 +12,10 @@ const connectionParam = {
   connection: {
     type: "string",
     description:
-      "Optional session alias to use for this call. " +
-      "When omitted the currently active session is used. " +
-      "Use fm_odata_list_active_sessions to see available aliases.",
+      "Optional connection name or session alias to use for this call. " +
+      "When omitted the currently active connection is used. " +
+      "Accepts both saved connection names (see fm_odata_list_connections) " +
+      "and active session aliases (see fm_odata_list_active_sessions).",
   },
 };
 
@@ -629,8 +630,9 @@ export const odataTools = [
 /**
  * Resolve the OData client for a tool call.
  *
- * When args.connection is provided the named session is looked up directly
- * (side-effect-free — does NOT change the active session pointer).
+ * When args.connection is provided the named session or saved connection is
+ * looked up directly (saved connections are lazily loaded from config.json;
+ * this does NOT change the active session pointer).
  * Otherwise the currently active session is used.
  */
 function resolveClient(args: any) {
@@ -639,7 +641,9 @@ function resolveClient(args: any) {
     if (!named) {
       return {
         client: null,
-        error: `Session "${args.connection}" not found. Use fm_odata_list_active_sessions to see available aliases.`,
+        error:
+          `Connection or session "${args.connection}" not found. ` +
+          `Use fm_odata_list_connections or fm_odata_list_active_sessions to see available connections.`,
       };
     }
     return { client: named, error: null };

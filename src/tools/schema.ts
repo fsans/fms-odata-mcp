@@ -28,9 +28,10 @@ const connectionParam = {
   connection: {
     type: "string",
     description:
-      "Optional session alias to use for this call. " +
-      "When omitted the currently active session is used. " +
-      "Use fm_odata_list_active_sessions to see available aliases.",
+      "Optional connection name or session alias to use for this call. " +
+      "When omitted the currently active connection is used. " +
+      "Accepts both saved connection names (see fm_odata_list_connections) " +
+      "and active session aliases (see fm_odata_list_active_sessions).",
   },
 };
 
@@ -244,7 +245,9 @@ function resolveClient(args: any) {
     if (!named) {
       return {
         client: null,
-        error: `Session "${args.connection}" not found. Use fm_odata_list_active_sessions to see available aliases.`,
+        error:
+          `Connection or session "${args.connection}" not found. ` +
+          `Use fm_odata_list_connections or fm_odata_list_active_sessions to see available connections.`,
       };
     }
     return { client: named, error: null };

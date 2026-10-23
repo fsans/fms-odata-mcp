@@ -223,7 +223,10 @@ export const connectionTools = [
         connection: {
           type: "string",
           description:
-            "Optional session alias to check. When omitted the currently active session is used.",
+            "Optional connection name or session alias to check. " +
+            "Accepts both saved connection names (see fm_odata_list_connections) " +
+            "and active session aliases (see fm_odata_list_active_sessions). " +
+            "When omitted the currently active connection is used.",
         },
       },
       required: [],
@@ -590,6 +593,11 @@ async function handleListConnections() {
 }
 
 async function handleGetCurrentConnection() {
+  // Cold start: lazily initialize the default connection (from config.json
+  // defaultConnection or env vars) before reading the active pointer.
+  if (!connectionManager.getCurrentConnectionName()) {
+    connectionManager.getCurrentClient();
+  }
   const connectionName = connectionManager.getCurrentConnectionName();
 
   if (!connectionName) {
@@ -783,6 +791,11 @@ async function handleGetServerVersion(args: any) {
   if (args?.connection) {
     sessionName = args.connection;
   } else {
+    // Cold start: lazily initialize the default connection (from config.json
+    // defaultConnection or env vars) before reading the active pointer.
+    if (!connectionManager.getCurrentConnectionName()) {
+      connectionManager.getCurrentClient();
+    }
     sessionName = connectionManager.getCurrentConnectionName();
   }
 

@@ -5,6 +5,7 @@ import {
   getConnection,
   setDefaultConnection,
   getDefaultConnectionName,
+  Connection,
 } from "../config.js";
 import { logger } from "../logger.js";
 
@@ -36,7 +37,21 @@ export const configurationTools = [
         },
         password: {
           type: "string",
-          description: "Password",
+          description: "Password (required for Basic auth, ignored when authType=bearer)",
+        },
+        authType: {
+          type: "string",
+          enum: ["basic", "bearer"],
+          description:
+            "Authentication method (default: basic). " +
+            "Use 'bearer' for FileMaker Cloud or OAuth/identity provider setups.",
+        },
+        bearerToken: {
+          type: "string",
+          description:
+            "Bearer token (required when authType=bearer). " +
+            "Obtain from Claris ID, OAuth provider, or a token-issuing reverse proxy. " +
+            "Tokens expire (typically 1 hour) — the AI agent will surface 401 errors when expired.",
         },
         verifySsl: {
           type: "boolean",
@@ -109,6 +124,7 @@ function redactArgs(args: any): any {
   if (!args || typeof args !== "object") return args;
   const out: Record<string, any> = { ...args };
   if ("password" in out) out.password = "***";
+  if ("bearerToken" in out) out.bearerToken = "***";
   return out;
 }
 
@@ -159,19 +175,25 @@ export async function handleConfigurationTool(name: string, args: any): Promise<
 
 // Configuration Tool Handlers
 async function handleAddConnection(args: any) {
-  addConnection(args.name, {
+  const connection: Connection = {
     server: args.server,
     database: args.database,
     user: args.user,
     password: args.password,
     verifySsl: args.verifySsl !== undefined ? args.verifySsl : true,
-  });
+    ...(args.authType !== undefined ? { authType: args.authType } : {}),
+    ...(args.bearerToken !== undefined ? { bearerToken: args.bearerToken } : {}),
+  };
+  addConnection(args.name, connection);
+
+  const authNote =
+    args.authType === "bearer" ? "Bearer token" : `Basic auth as ${args.user}`;
 
   return {
     content: [
       {
         type: "text",
-        text: `Connection "${args.name}" added successfully.\nServer: ${args.server}\nDatabase: ${args.database}\nUser: ${args.user}\nSSL Verification: ${args.verifySsl !== undefined ? args.verifySsl : true}`,
+        text: `Connection "${args.name}" added successfully.\nServer: ${args.server}\nDatabase: ${args.database}\nUser: ${args.user}\nAuth: ${authNote}\nSSL Verification: ${args.verifySsl !== undefined ? args.verifySsl : true}`,
       },
     ],
   };
