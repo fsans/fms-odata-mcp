@@ -55,6 +55,7 @@ Replace `NNN` in the prompt with the plan number, e.g.:
 | 2 | 008 express-dep-upgrades | `Execute plans/008-express-dep-upgrades.md` |
 | 2 | 012 parseint-nan-guard | `Execute plans/012-parseint-nan-guard.md` |
 | 2 | 016 metadata-cache-invalidation | `Execute plans/016-metadata-cache-invalidation.md` |
+| 2 | 017 tls-handshake-decode-error | `Execute plans/017-tls-handshake-decode-error.md` |
 | 3 | 006 http-transport-auth | `Execute plans/006-http-transport-auth.md` |
 | 3 | 007 node18-eol-upgrade | `Execute plans/007-node18-eol-upgrade.md` |
 | 4 | 009 remove-dead-code | `Execute plans/009-remove-dead-code.md` |

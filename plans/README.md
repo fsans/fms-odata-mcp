@@ -74,7 +74,8 @@ verification commands, and stop conditions.
                               ├── 008 (Express dep upgrades)
                               ├── 009 (remove dead code) ───── 013 (batch spike)
                               ├── 012 (parseInt NaN guard)
-                              └── 016 (metadata cache invalidation)
+                              ├── 016 (metadata cache invalidation)
+                              └── 017 (TLS handshake decode_error)
 
 002 (scrub TLS key) ── (independent, no dependencies)
 
@@ -108,37 +109,41 @@ verification commands, and stop conditions.
 8. **016** — Metadata cache invalidation (depends on 001). Fixes the
    stale-schema bug introduced by the v0.8.3 metadata cache; small
    fix, high user-visible impact for anyone using the schema tools.
+9. **017** — TLS handshake decode_error fix (depends on 001). P1 bug:
+   OpenSSL 3.5+ clients (Homebrew Node 24+/26+) fail the TLS handshake
+   against FileMaker Server with SSL alert 50; small fix in
+   `httpsAgent` config plus better error surfacing.
 
 ### Wave 3 — Medium-effort security and migration (depends on Wave 1)
 
-9. **006** — HTTP transport auth (depends on 001). Adds Bearer token
-   auth for the `/mcp` endpoint.
-10. **007** — Node 18 EOL upgrade (depends on 001). Updates Dockerfile,
+10. **006** — HTTP transport auth (depends on 001). Adds Bearer token
+    auth for the `/mcp` endpoint.
+11. **007** — Node 18 EOL upgrade (depends on 001). Updates Dockerfile,
     CI, and engines to Node 24 LTS.
 
 ### Wave 4 — Cleanup and test coverage (depends on Wave 1+2)
 
-11. **009** — Remove dead code (depends on 001). Deletes
+12. **009** — Remove dead code (depends on 001). Deletes
     `http-server.ts` and the batch stub.
-12. **010** — Clean dev_stuf docs (depends on 003). Removes cruft and
+13. **010** — Clean dev_stuf docs (depends on 003). Removes cruft and
     fixes broken links.
-13. **011** — Critical path tests (depends on 001 + 004). Adds tests
+14. **011** — Critical path tests (depends on 001 + 004). Adds tests
     for URL building, transport, and multi-session handlers.
 
 ### Wave 5 — Direction spikes (can be done anytime)
 
-14. **013** — Batch operations spike (depends on 009). Investigates
+15. **013** — Batch operations spike (depends on 009). Investigates
     real OData batch vs parallel Promise.all.
-15. **014** — Pagination helper spike. Investigates @odata.nextLink
+16. **014** — Pagination helper spike. Investigates @odata.nextLink
     auto-following.
-16. **015** — OAuth auth spike. Investigates token-based auth for
+17. **015** — OAuth auth spike. Investigates token-based auth for
     FileMaker OData.
 
 ## Summary statistics
 
-- **Total plans**: 16 (13 fix plans + 3 direction spikes)
+- **Total plans**: 17 (14 fix plans + 3 direction spikes)
 - **Critical security**: 2 (TLS key, test credentials)
-- **High-priority**: 4 (verification baseline, integration tests, TLS key, credentials)
+- **High-priority**: 5 (verification baseline, integration tests, TLS key, credentials, TLS handshake fix)
 - **Total effort**: 4M + 8S + 4M = ~16 person-days (rough estimate)
 - **Independent plans** (no dependencies): 002, 003, 014, 015 — can start immediately
 - **Plans that block others**: 001 (blocks 10 plans), 003 (blocks 010), 004 (blocks 011), 009 (blocks 013)
