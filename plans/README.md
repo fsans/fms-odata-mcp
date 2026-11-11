@@ -62,6 +62,7 @@ verification commands, and stop conditions.
 | 014 | [pagination-helper-spike](014-pagination-helper-spike.md) | direction | P3 | S | LOW | — | not started |
 | 015 | [oauth-auth-spike](015-oauth-auth-spike.md) | direction | P3 | M | LOW | — | not started |
 | 016 | [metadata-cache-invalidation](016-metadata-cache-invalidation.md) | bug | P2 | S | LOW | 001 | not started |
+| 017 | [tls-handshake-decode-error](017-tls-handshake-decode-error.md) | bug | P1 | S | LOW | 001 | not started |
 
 ## Dependency graph
 
