@@ -7,6 +7,50 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.9.2] - 2026-11-19
+
+### Added
+
+- **Lazy resolution of saved named connections** — `getClientByName()` now
+  instantiates and caches saved connections from `~/.fms-odata-mcp/config.json`
+  on first use, without mutating the active session pointer. The per-call
+  `connection` parameter on all OData and Schema tools now accepts both saved
+  connection names (`fm_odata_list_connections`) and active session aliases
+  (`fm_odata_list_active_sessions`), so a saved connection can be targeted on a
+  cold start without calling `fm_odata_set_connection` first.
+
+- **Cold-start default connection fallback** — `getCurrentClient()` resolves
+  `defaultConnection` from `config.json`, then falls back to `FM_*` environment
+  variables / global filemaker config under the `"default"` alias.
+  Env-configured deployments now work out of the box without an interactive
+  `fm_odata_connect` call.
+
+- **Bearer auth in saved connections** — `addConnection()` and
+  `fm_odata_config_add_connection` now persist `authType` and `bearerToken`, so
+  Bearer-auth connections can be saved to `config.json`.
+
+### Fixed
+
+- **`fm_odata_get_server_version` and `fm_odata_get_current_connection` on cold
+  start** — both now lazily initialize the default connection instead of
+  returning `"No active connection"`. `getServerVersion()` resolves saved
+  connections via `getClientByName()`, so
+  `fm_odata_get_server_version({ connection: "..." })` works on a saved
+  connection that is not yet an in-memory session.
+
+- **Hand-edited `config.json` entries without an inner `name` field** —
+  `getConnection()` and `listConnections()` normalize the connection name from
+  the map key.
+
+- **`createClient()`** — falls back to global `verifySsl` / `timeout` config
+  when not specified per connection.
+
+- **Test suite determinism** — jest `setupFiles` isolate `HOME`, `FM_*`, and
+  `MCP_*` per test file so the suite passes on machines with a real
+  `~/.fms-odata-mcp` config.
+
+---
+
 ## [0.9.1] - 2026-10-21
 
 ### Fixed

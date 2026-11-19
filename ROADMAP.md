@@ -36,6 +36,11 @@
   39 tools total (33 standard + 6 optional schema editing).
 - **v0.9.1** — Patch release: fix duplicate server startup when launched via the
   `fms-odata-mcp` CLI binary (#16).
+- **v0.9.2** — Patch release: lazy resolution of saved named connections
+  (per-call `connection` param works on cold start without
+  `fm_odata_set_connection`), env-var default connection fallback, Bearer auth
+  persistence in saved connections, cold-start fixes for
+  `fm_odata_get_server_version` / `fm_odata_get_current_connection`.
 
 ---
 
