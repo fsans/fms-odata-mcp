@@ -81,6 +81,17 @@ describe('ODataClient', () => {
       // Should create agent with rejectUnauthorized: true (default)
       expect(createCall.httpsAgent).toBeDefined();
     });
+
+    test('should configure httpsAgent with classical ECDH curves for OpenSSL 3.5+ compatibility', () => {
+      const createCall = (mockedAxios.create as jest.Mock).mock.calls[0][0] as any;
+      expect(createCall.httpsAgent).toBeDefined();
+      expect(createCall.httpsAgent.options.ecdhCurve).toBe('X25519:P-256:P-384');
+    });
+
+    test('should default maxVersion to TLSv1.2, overridable via FM_TLS_MAX_VERSION', () => {
+      const createCall = (mockedAxios.create as jest.Mock).mock.calls[0][0] as any;
+      expect(createCall.httpsAgent.options.maxVersion).toBe('TLSv1.2');
+    });
   });
 
   describe('getServiceDocument', () => {
@@ -536,6 +547,19 @@ describe('ODataClient', () => {
       } catch (e) {
         expect(e).toBeDefined();
       }
+    });
+
+    test('should surface underlying TLS/socket error message on connection failure', async () => {
+      const errorHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][1];
+      const error = {
+        request: {},
+        message: 'write EPROTO 1234:error:0A00041A:SSL routines:ssl3_read_bytes:tlsv1 alert decode error',
+      };
+
+      await expect(errorHandler(error)).rejects.toThrow(
+        'No response from server - connection failed'
+      );
+      await expect(errorHandler(error)).rejects.toThrow('EPROTO');
     });
   });
 

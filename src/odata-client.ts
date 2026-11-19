@@ -152,6 +152,14 @@ export class ODataClient {
       // Set to false for self-signed certificates (development/local networks)
       httpsAgent: new https.Agent({
         rejectUnauthorized: config.verifySsl !== false, // true by default
+        // OpenSSL 3.5+ advertises hybrid post-quantum key shares
+        // (X25519MLKEM768) that FileMaker Server's Apache/mod_ssl rejects
+        // with SSL alert 50 (decode_error); pin classical curves.
+        ecdhCurve: "X25519:P-256:P-384",
+        // TLS 1.2 is verified against FileMaker Server; allow opt-in to
+        // 1.3 via FM_TLS_MAX_VERSION for servers that handle it.
+        maxVersion:
+          process.env.FM_TLS_MAX_VERSION === "TLSv1.3" ? "TLSv1.3" : "TLSv1.2",
       }),
     });
 
@@ -210,7 +218,8 @@ export class ODataClient {
       );
     }
     if (error.request) {
-      return new Error("No response from server - connection failed");
+      const detail = error.message ? ` (${error.message})` : "";
+      return new Error(`No response from server - connection failed${detail}`);
     }
     return error;
   }
