@@ -7,6 +7,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.9.3] - 2026-11-19
+
+### Fixed
+
+- **TLS handshake `decode_error` (SSL alert 50) against FileMaker Server on
+  OpenSSL 3.5+** (#18). OpenSSL 3.5+ (e.g. Homebrew Node 24+ on macOS)
+  advertises the hybrid post-quantum key share `X25519MLKEM768` in TLS 1.3
+  `ClientHello` by default; FileMaker Server's Apache/`mod_ssl` cannot decode
+  it and aborts the handshake. `ODataClient`'s `https.Agent` now pins classical
+  curves `X25519:P-256:P-384` and defaults `maxVersion` to TLS 1.2 (verified
+  against FileMaker Server 26.0.2). Opt back into TLS 1.3 with
+  `FM_TLS_MAX_VERSION=TLSv1.3`.
+
+- **Connection-failure errors now surface the underlying cause** —
+  `handleError()` includes the socket/TLS error message (e.g. `write EPROTO`,
+  `ECONNREFUSED`) instead of only `"No response from server - connection
+  failed"`.
+
+---
+
 ## [0.9.2] - 2026-11-19
 
 ### Added
