@@ -41,6 +41,10 @@
   `fm_odata_set_connection`), env-var default connection fallback, Bearer auth
   persistence in saved connections, cold-start fixes for
   `fm_odata_get_server_version` / `fm_odata_get_current_connection`.
+- **v0.9.3** — Patch release: fix TLS handshake `decode_error` (SSL alert 50)
+  on OpenSSL 3.5+ hosts against FileMaker Server (#18), new
+  `FM_TLS_MAX_VERSION` env var; surface underlying socket/TLS error details in
+  connection failures.
 
 ---
 
