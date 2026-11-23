@@ -47,7 +47,7 @@ verification commands, and stop conditions.
 | # | Plan | Category | Priority | Effort | Risk | Depends on | Status |
 |---|------|----------|----------|--------|------|------------|--------|
 | 001 | [verification-baseline](001-verification-baseline.md) | dx | P1 | M | LOW | — | done |
-| 002 | [scrub-tls-private-key](002-scrub-tls-private-key.md) | security | P1 | M | LOW | — | done — key untracked; **maintainer action still required: rotate cert + scrub git history** |
+| 002 | [scrub-tls-private-key](002-scrub-tls-private-key.md) | security | P1 | M | LOW | — | done — history scrubbed via filter-repo + force-pushed (2026-11-23), 11 stale branches deleted, cert rotated; residual: GitHub cache/PR-ref purge via support request |
 | 003 | [scrub-test-credentials](003-scrub-test-credentials.md) | security | P1 | S | LOW | — | done — working tree clean; **maintainer action still required: rotate creds if real + history scrub** |
 | 004 | [wire-integration-tests](004-wire-integration-tests.md) | tests | P1 | S | LOW | 001 | not started |
 | 005 | [http-server-graceful-shutdown](005-http-server-graceful-shutdown.md) | bug | P2 | S | LOW | 001 | not started |
