@@ -18,7 +18,12 @@
 
 ## How to use this index
 
-Each plan is a self-contained markdown file in this directory. An executor
+> **All plans complete (2026-11-24).** The individual plan files were removed
+> after every done criterion was verified — git history retains them if ever
+> needed. This index remains as the record of what was audited and fixed.
+> `EXECUTE.md` is kept as a reusable dispatch template for future plan programs.
+
+Each plan was a self-contained markdown file in this directory. An executor
 (another agent or a human developer) can pick up any plan and execute it
 without needing context from the audit conversation — every plan includes
 the relevant code excerpts, scope boundaries, step-by-step instructions,
@@ -50,23 +55,23 @@ verification commands, and stop conditions.
 
 | # | Plan | Category | Priority | Effort | Risk | Depends on | Status |
 |---|------|----------|----------|--------|------|------------|--------|
-| 001 | [verification-baseline](001-verification-baseline.md) | dx | P1 | M | LOW | — | done |
-| 002 | [scrub-tls-private-key](002-scrub-tls-private-key.md) | security | P1 | M | LOW | — | done — history scrubbed via filter-repo + force-pushed (2026-11-23), 11 stale branches deleted, cert rotated; residual: GitHub cache/PR-ref purge via support request |
-| 003 | [scrub-test-credentials](003-scrub-test-credentials.md) | security | P1 | S | LOW | — | done — password redacted from all history via filter-repo --replace-text + force-pushed (2026-11-23); **maintainer action still required: rotate the real FM password** |
-| 004 | [wire-integration-tests](004-wire-integration-tests.md) | tests | P1 | S | LOW | 001 | done — integration tests wired into `npm test` (`e7abfcb`), verified 2026-11-24 |
-| 005 | [http-server-graceful-shutdown](005-http-server-graceful-shutdown.md) | bug | P2 | S | LOW | 001 | done — `closeHttpServer()` exported and called from `index.ts` shutdown, verified 2026-11-24 |
-| 006 | [http-transport-auth](006-http-transport-auth.md) | security | P2 | M | MED | 001 | done — `MCP_AUTH_TOKEN` Bearer auth on `/mcp` for http+https transports, `/health` open, docs in `.env.example`+`README.md` (`7355675`), verified 2026-11-24 |
-| 007 | [node18-eol-upgrade](007-node18-eol-upgrade.md) | migration | P2 | M | MED | 001 | done — Node 24 LTS in Dockerfile/engines (`e76708b`), verified 2026-11-24 |
-| 008 | [express-dep-upgrades](008-express-dep-upgrades.md) | migration | P2 | S | MED | 001 | done — `npm audit --omit=dev` = 0 vulns (express `^4.22.3`, axios `^1.20.0`, sdk `^1.30.0`) — `2f5211e`, 2026-11-24 |
-| 009 | [remove-dead-code](009-remove-dead-code.md) | tech-debt | P3 | S | LOW | 001 | done — `http-server.ts` + batch stub removed (`78acf14`, `bdf8c9b`); remaining `BatchResult` refs are plan 013's real `$batch` feature, verified 2026-11-24 |
-| 010 | [clean-dev-stuf-docs](010-clean-dev-stuf-docs.md) | docs | P3 | S | LOW | 003 | done — `dev_stuf/` + `bump.md` deleted, CONTRIBUTING links fixed, `docker:test` removed (`b62a2bc`), all criteria verified 2026-11-24 |
-| 011 | [critical-path-tests](011-critical-path-tests.md) | tests | P2 | M | LOW | 001, 004 | done — URL-building/transport/multi-session coverage added (`014330c`), verified 2026-11-24 |
-| 012 | [parseint-nan-guard](012-parseint-nan-guard.md) | bug | P3 | S | LOW | 001 | done — `parseIntSafe` + `isNaN` port validation in `config.ts`, NaN tests present, verified 2026-11-24 |
-| 013 | [batch-operations-spike](013-batch-operations-spike.md) | direction | P3 | M | LOW | 009 | done — real `$batch` create/update/delete tools implemented (`e6fc95d`) |
-| 014 | [pagination-helper-spike](014-pagination-helper-spike.md) | direction | P3 | S | LOW | — | done — `fm_odata_query_all_records` pagination helper (`b18de7e`) |
-| 015 | [oauth-auth-spike](015-oauth-auth-spike.md) | direction | P3 | M | LOW | — | done — Phase 1 Bearer token auth (`da18f90`); auto-refresh deliberately out of scope per findings decisions |
-| 016 | [metadata-cache-invalidation](016-metadata-cache-invalidation.md) | bug | P2 | S | LOW | 001 | done — `invalidateMetadataCache()` clears all three caches, all 6 schema handlers call it, numeric scriptId check + ambiguity-skip verified 2026-11-24 |
-| 017 | [tls-handshake-decode-error](017-tls-handshake-decode-error.md) | bug | P1 | S | LOW | 001 | done |
+| 001 | verification-baseline | dx | P1 | M | LOW | — | done |
+| 002 | scrub-tls-private-key | security | P1 | M | LOW | — | done — history scrubbed via filter-repo + force-pushed (2026-11-23), 11 stale branches deleted, cert rotated; residual: GitHub cache/PR-ref purge via support request |
+| 003 | scrub-test-credentials | security | P1 | S | LOW | — | done — password redacted from all history via filter-repo --replace-text + force-pushed (2026-11-23); password rotation waived by maintainer (default/test credential, no live exposure) |
+| 004 | wire-integration-tests | tests | P1 | S | LOW | 001 | done — integration tests wired into `npm test` (`e7abfcb`), verified 2026-11-24 |
+| 005 | http-server-graceful-shutdown | bug | P2 | S | LOW | 001 | done — `closeHttpServer()` exported and called from `index.ts` shutdown, verified 2026-11-24 |
+| 006 | http-transport-auth | security | P2 | M | MED | 001 | done — `MCP_AUTH_TOKEN` Bearer auth on `/mcp` for http+https transports, `/health` open, docs in `.env.example`+`README.md` (`7355675`), verified 2026-11-24 |
+| 007 | node18-eol-upgrade | migration | P2 | M | MED | 001 | done — Node 24 LTS in Dockerfile/engines (`e76708b`), verified 2026-11-24 |
+| 008 | express-dep-upgrades | migration | P2 | S | MED | 001 | done — `npm audit --omit=dev` = 0 vulns (express `^4.22.3`, axios `^1.20.0`, sdk `^1.30.0`) — `2f5211e`, 2026-11-24 |
+| 009 | remove-dead-code | tech-debt | P3 | S | LOW | 001 | done — `http-server.ts` + batch stub removed (`78acf14`, `bdf8c9b`); remaining `BatchResult` refs are plan 013's real `$batch` feature, verified 2026-11-24 |
+| 010 | clean-dev-stuf-docs | docs | P3 | S | LOW | 003 | done — `dev_stuf/` + `bump.md` deleted, CONTRIBUTING links fixed, `docker:test` removed (`b62a2bc`), all criteria verified 2026-11-24 |
+| 011 | critical-path-tests | tests | P2 | M | LOW | 001, 004 | done — URL-building/transport/multi-session coverage added (`014330c`), verified 2026-11-24 |
+| 012 | parseint-nan-guard | bug | P3 | S | LOW | 001 | done — `parseIntSafe` + `isNaN` port validation in `config.ts`, NaN tests present, verified 2026-11-24 |
+| 013 | batch-operations-spike | direction | P3 | M | LOW | 009 | done — real `$batch` create/update/delete tools implemented (`e6fc95d`) |
+| 014 | pagination-helper-spike | direction | P3 | S | LOW | — | done — `fm_odata_query_all_records` pagination helper (`b18de7e`) |
+| 015 | oauth-auth-spike | direction | P3 | M | LOW | — | done — Phase 1 Bearer token auth (`da18f90`); auto-refresh deliberately out of scope per findings decisions |
+| 016 | metadata-cache-invalidation | bug | P2 | S | LOW | 001 | done — `invalidateMetadataCache()` clears all three caches, all 6 schema handlers call it, numeric scriptId check + ambiguity-skip verified 2026-11-24 |
+| 017 | tls-handshake-decode-error | bug | P1 | S | LOW | 001 | done |
 
 ## Dependency graph
 
