@@ -45,6 +45,9 @@
   on OpenSSL 3.5+ hosts against FileMaker Server (#18), new
   `FM_TLS_MAX_VERSION` env var; surface underlying socket/TLS error details in
   connection failures.
+- **v0.9.4** — Patch release: dependency security updates (`npm audit` clean;
+  express 4.22.3, axios 1.20, MCP SDK 1.30+); git history scrubbed of a
+  committed TLS private key and test credential (re-clone advised).
 
 ---
 

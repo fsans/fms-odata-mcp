@@ -7,6 +7,30 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.9.4] - 2026-11-24
+
+### Security
+
+- **Dependency vulnerability cleanup** — `npm audit --omit=dev` now reports 0
+  vulnerabilities (previously 10: 1 critical, 4 high, 5 moderate). Bumps
+  `express` to ^4.22.3 (patched `qs` DoS via body-parser, GHSA-4mjr-xmp4-gh2g
+  and GHSA-6pq8-jhm2-2vcw), `axios` to ^1.20.0,
+  `@modelcontextprotocol/sdk` to ^1.30.0, plus transitive fixes (zod, qs).
+
+- **Git history scrubbed of sensitive material** — the sample TLS private key
+  committed back in v0.2.0 (`ssl/key.pem`) and a hardcoded test password were
+  removed from all branches and tags via `git filter-repo` and force-pushed.
+  The TLS keypair was rotated and the password redacted to `***REMOVED***`
+  in all blobs. **If you have an existing clone, re-clone** — history was
+  rewritten.
+
+### Chore
+
+- Removed completed advisor plan documents from `plans/`; the index
+  (`plans/README.md`) and dispatch template (`plans/EXECUTE.md`) are retained.
+
+---
+
 ## [0.9.3] - 2026-11-19
 
 ### Fixed
