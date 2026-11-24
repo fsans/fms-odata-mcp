@@ -22,7 +22,6 @@
 - **v0.8.2** — Enhanced v26 metadata parsing: child annotations inside `<Property>`, automatic
   FMFID resolution for non-ASCII field names in `$filter`, `fm_odata_describe_table`.
   35 tools total (29 standard + 6 optional schema editing).
-  (Note: v0.9.0 adds 3 bulk tools + 1 pagination helper — 39 tools total / 33 standard + 6 schema editing.)
 - **v0.8.3** — Bug-fix and consistency release: Dockerfile healthcheck (ESM `require`),
   logger path, multi-field `groupBy` client-side fallback, `$` injection in
   `buildParameterizedFilter`, aggregate filter normalization, `http-server.ts`
@@ -32,7 +31,7 @@
 - **v0.9.0** — Major improvement release: batch operations (3 tools), pagination
   helper (1 tool), Bearer token auth (Phase 1), HTTP transport security,
   graceful shutdown, metadata cache invalidation, NaN guard, dependency patches,
-  Node.js 24 LTS upgrade, dead code removal, expanded test coverage (378 tests).
+  Node.js 24 LTS upgrade, dead code removal, expanded test coverage.
   39 tools total (33 standard + 6 optional schema editing).
 - **v0.9.1** — Patch release: fix duplicate server startup when launched via the
   `fms-odata-mcp` CLI binary (#16).
@@ -91,12 +90,6 @@
 - **`metadata_comments` feature flag** — Gated at FM Server `26.0.0`
 - **`fm_odata_list_tables` — `includeDetails`** — Returns table comments on v26+
 - **`fm_odata_describe_sessions`** — Enriched with `comment` and `aiAnnotation`
-
-> **Note (v26 metadata gap):** The v0.6.x implementation only parses `comment` and
-> `aiAnnotation`. FileMaker Server 26 exposes significantly richer field metadata
-> as child `<Annotation>` elements inside `<Property>` tags. See "Enhanced v26
-> Metadata Parsing" in the Planned section below for the full list of annotations
-> to be added.
 
 ### v0.7.0 — Schema Editing (DDL)
 
@@ -163,7 +156,8 @@
   Bulk CRUD via OData `$batch` (multipart/mixed) with parallel fallback strategy.
   Configurable cap via `FM_BATCH_MAX_ITEMS` (default 100).
 - **`fm_odata_query_all_records`** — Pagination helper following `@odata.nextLink`
-  with `$skip` fallback. Default page size 100, hard cap 50,000 records.
+  with `$skip` fallback. Default page size 100 via `Prefer: odata.maxpagesize`,
+  hard cap 50,000 records.
 - **Bearer token authentication (Phase 1)** — `authType` + `bearerToken` on
   `fm_odata_connect` and `fm_odata_connect_multi`. `FM_AUTH_TYPE` / `FM_BEARER_TOKEN`
   env vars. Backward compatible (Basic Auth default).
@@ -177,47 +171,70 @@
 - **Test coverage expanded** — 378 tests across 18 suites (up from 251/8).
 - **39 tools total** (33 standard + 6 optional schema editing).
 
+### v0.9.1 – v0.9.4 — Patch releases
+
+- **v0.9.1** — Fixed duplicate server startup via `fms-odata-mcp` CLI binary (#16).
+- **v0.9.2** — Lazy resolution of saved named connections; cold-start fixes.
+- **v0.9.3** — TLS handshake `decode_error` fix on OpenSSL 3.5+; `FM_TLS_MAX_VERSION`;
+  underlying error details surfaced in connection failures.
+- **v0.9.4** — `npm audit` clean (0 vulnerabilities); git history scrubbed of a
+  committed TLS private key (rotated) and test credential (redacted).
+- **Current state**: 394 tests across 18 suites.
+
 ---
 
 ## 🔧 In Progress / Planned
 
-### 1. Upload Container Data (v0.9.1)
+### 1. Container Field Support — Upload & Download (v0.9.5)
 
 **Status**: 📋 Planned  
-**Priority**: Medium  
+**Priority**: High  
 **Estimated Effort**: 2-3 days  
-**FileMaker Support**: Yes — confirmed via Claris docs. Two methods available:
-- **Base64 inline** — include base64 string + `@com.filemaker.odata.Filename` /
-  `@com.filemaker.odata.ContentType` annotation properties in POST (create) or PATCH
-  (update record) JSON body
-- **Binary upload** — `PATCH /{table}({id})/{containerField}` with raw binary body,
-  `Content-Type` header, and `Content-Disposition: inline; filename=...` header
+**FileMaker Support**: Yes — confirmed via Claris docs / fms-odata-spec.
+Three relevant endpoints:
 
-**Description**: Upload files into FileMaker container fields via OData. Supports both
-base64-encoded data (simpler, works with MCP text-only protocol) and direct binary upload
-(for larger files when using HTTP transport).
+- **Base64 inline (create/update)** — include base64 string + `@com.filemaker.odata.Filename` /
+  `@com.filemaker.odata.ContentType` annotation properties in POST/PATCH JSON body.
+  Only GIF, PNG, JPEG, TIFF, PDF are supported; media type is inferred from the first bytes.
+- **Binary upload** — `PATCH /{table}({id})/{containerField}` with raw binary body,
+  `Content-Type` header, and `Content-Disposition: inline; filename=...` header.
+- **Binary download** — `GET /{table}({id})/{field}/$value` returns the raw bytes
+  (also works for plain fields — returns the value as text). Container fields are
+  **excluded** from normal record responses, so this is the only way to read them.
+
+**Description**: Full container field lifecycle. Today the MCP can neither upload
+nor download container data — agents must fall back to FileMaker scripts or the
+Data API. Base64 keeps the protocol text-only (works over stdio); binary
+upload/download applies to the HTTP transport path.
 
 **Implementation Tasks**:
-- [ ] Add `uploadContainerBase64(table, recordId, field, base64Data, filename, contentType)`
+- [ ] `uploadContainerBase64(table, recordId, field, base64Data, filename, contentType)`
   to `ODataClient` — PATCH JSON body with base64 value + annotation properties
-- [ ] Add `uploadContainerBinary(table, recordId, field, binaryData, filename, contentType)`
-  to `ODataClient` — PATCH binary body to `/{table}({id})/{field}` with proper headers
-- [ ] New tool: `fm_odata_upload_container` — accepts `table`, `recordId`, `field`,
-  `base64Data` (string), `filename`, `contentType`. Uses base64 path by default.
-- [ ] New tool: `fm_odata_create_record_with_container` — extends `create_record` to accept
-  container fields as base64 + metadata
-- [ ] Validate base64 input; reject if not valid base64 string
-- [ ] Handle media type inference failures (FileMaker infers from first bytes;
-  misidentification can occur with base64)
+- [ ] `uploadContainerBinary(table, recordId, field, binaryData, filename, contentType)`
+  to `ODataClient` — PATCH binary body with proper headers
+- [ ] `getFieldValue(table, recordId, field)` / `downloadContainer(...)` to
+  `ODataClient` — GET `/{table}({id})/{field}/$value`, return base64 + detected
+  content type (MCP responses are JSON; raw bytes must be base64-wrapped)
+- [ ] New tool: `fm_odata_upload_container` — `table`, `recordId`, `field`,
+  `base64Data`, `filename`, `contentType`
+- [ ] New tool: `fm_odata_download_container` — `table`, `recordId`, `field`;
+  returns `{ base64Data, filename?, contentType }`
+- [ ] New tool (or extend `get_record`): `fm_odata_get_field_value` for scalar
+  fields (text/number returned unwrapped)
+- [ ] Validate base64 input; warn about media-type inference (FileMaker infers
+  from first bytes — misidentification is possible)
 - [ ] Unit tests for base64 construction, binary path (mocked), error handling
 
 ---
 
-### 2. Enhanced Error Handling (v0.9.2)
+### 2. Enhanced Error Handling (v0.9.5)
 
-**Status**: 📋 Planned  
+**Status**: 📋 Planned — partially delivered  
 **Priority**: High  
 **Estimated Effort**: 2-3 days
+
+**Already done**: underlying socket/TLS error details are surfaced in connection
+failures (v0.9.3). Remaining work:
 
 **Implementation Tasks**:
 - [ ] Structured error codes (e.g., `FM_AUTH_ERROR`, `FM_NOT_FOUND`, `FM_SCHEMA_ERROR`)
@@ -228,59 +245,125 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 
 ---
 
-### 3. Performance Optimization (v1.0.0)
+### 3. FileMaker `Prefer` Headers & Record IDs (v0.9.5 / v1.0.0)
+
+**Status**: 📋 Planned  
+**Priority**: Medium  
+**Estimated Effort**: 1-2 days  
+**FileMaker Support**: Yes — three FileMaker-specific `Prefer` values documented
+in fms-odata-spec.
+
+FileMaker ignores `Prefer: return=representation`, so create/update responses
+don't include the new record's internal ID. FileMaker-specific Prefer headers
+may close that gap:
+
+**Implementation Tasks**:
+- [ ] Test `Prefer: fmodata.entity-ids` on create/update — if it returns record
+  IDs, expose them in `create_record` / `create_records` responses
+- [ ] Test `Prefer: fmodata.basic-timestamp` and `fmodata.gmtoffset` — expose as
+  optional request options on write tools if they change timestamp semantics
+- [ ] Confirm `Prefer: return=representation` is truly ignored (already noted in
+  code) — document the limitation for users
+
+---
+
+### 4. MCP Protocol Surface (v1.0.0)
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
 **Estimated Effort**: 3-4 days
 
+The server currently declares empty `resources: {}` and uses no annotations or
+structured output. MCP 2025-spec additions would improve agent UX:
+
 **Implementation Tasks**:
-- [ ] Metadata caching (cache `$metadata` XML per session with TTL)
-- [ ] Connection keep-alive / pooling optimization
-- [ ] Request/response compression (`Accept-Encoding: gzip`)
-- [ ] Cache server version detection result (already done in v0.5.1)
-- [ ] Batch operation optimization (depends on Batch Requests feature above)
+- [ ] **Tool annotations** — `readOnlyHint` on query/describe tools,
+  `destructiveHint` on delete/schema tools (helps clients auto-confirm)
+- [ ] **`outputSchema` + `structuredContent`** — typed tool responses per MCP
+  2025-06-18 spec (record objects, table lists, metadata)
+- [ ] **MCP Resources** — expose `$metadata`, table lists, and record pages as
+  `mcp://` resources for clients that support resource subscriptions
+- [ ] **Progress notifications** — `notifications/progress` during
+  `query_all_records` pagination
+- [ ] **Completion** — `completion/complete` for table/field/script name args
 
 ---
 
-### 5. Integration Testing with Live Servers
+### 5. Performance Optimization (v1.0.0)
 
-**Status**: � Planned  
+**Status**: 📋 Planned — partially delivered  
+**Priority**: Medium  
+**Estimated Effort**: 2-3 days
+
+**Already done**: `$metadata` caching per session (with invalidation on schema
+mutations), `Prefer: odata.maxpagesize` server-driven paging, server version
+detection cached (v0.5.1). Remaining work:
+
+**Implementation Tasks**:
+- [ ] Connection keep-alive / pooling optimization (axios agent config)
+- [ ] Request/response compression (`Accept-Encoding: gzip`)
+- [ ] Metadata cache TTL / refresh strategy (currently invalidated only on
+  schema edits — stale on out-of-band schema changes)
+
+---
+
+### 6. Integration Testing with Live Servers
+
+**Status**: 📋 Planned  
 **Priority**: High  
 **Estimated Effort**: 5-7 days
 
+**Already done**: integration test suites are wired into `npm test` (3 files,
+tool-level, mocked transport). Remaining work needs a real server:
+
 **Implementation Tasks**:
-- [ ] Docker-based FileMaker Server test fixture (if available / license permitting)
-- [ ] Integration test suite: connect → query → create → update → delete → metadata
-- [ ] Schema editing integration tests (destructive tests isolated to throwaway DB)
+- [ ] Live-server test fixture (FM Server for Linux in Docker if license permits,
+  or documented setup for a dedicated test server)
+- [ ] Integration suite: connect → query → create → update → delete → metadata
+- [ ] Schema editing integration tests (destructive tests on throwaway DB)
 - [ ] Multi-session integration tests
 - [ ] Version-gated feature matrix verification against real FM servers
-- [ ] CI pipeline integration (GitHub Actions) for integration tests
+- [ ] CI pipeline (GitHub Actions) — currently only `docker.yml` exists;
+  add a `test` job running `npm run typecheck && npm test`, plus
+  `npm audit --audit-level=high`
 
 ---
 
-### 6. Documentation & Examples
+### 7. Documentation & Examples
 
 **Status**: 📋 Planned  
 **Priority**: Medium  
 **Estimated Effort**: Ongoing
 
 **Implementation Tasks**:
-- [ ] Comprehensive `$filter` expression cookbook (common patterns, pitfalls)
+- [ ] Comprehensive `$filter` expression cookbook (common patterns, pitfalls —
+  include the `id`-field limitation and `row_id`/`uuid` workarounds)
 - [ ] Advanced query patterns (nested `$expand`, `$apply` pipelines)
 - [ ] Schema editing cookbook (create-table workflows, field type reference)
-- [ ] Troubleshooting guide (401, 404, 500 errors, SSL issues)
+- [ ] Troubleshooting guide (401, 404, 500 errors, SSL issues, TLS alert 50)
 - [ ] Video tutorials (low priority)
 
 ---
 
 ## 🎯 Future Considerations (Not Committed)
 
-1. **REST API Wrapper** — Simplified REST endpoints for non-OData users
-2. **Real-time Updates** — WebSocket support for live data / change notifications
-3. **Advanced Security** — OAuth 2.0 token refresh flow (Phase 2/3, after Phase 1
-   Bearer token support shipped in v0.9.0)
-4. **Data Transformation Tools** — Built-in field mapping, computed fields
+1. **OAuth 2.0 token refresh (Phase 2/3)** — auto-refresh Bearer tokens via an
+   IdP flow. Phase 1 (pre-existing token passthrough) shipped in v0.9.0.
+2. **Express 5 migration** — stayed on 4.x for plan 008; E5 has breaking changes
+   (query parser defaults, removed methods). Evaluate when 4.x approaches EOL.
+3. **`$ref` relationship helpers** — link/unlink related records via
+   `/{table}({id})/{nav}/$ref`. Supported by FileMaker; niche use case.
+4. **REST API Wrapper** — Simplified REST endpoints for non-OData users.
+5. **Real-time updates** — FileMaker OData has no delta/sync token, so this
+   would be polling-based change detection at best. Low value; revisit only if
+   a concrete use case appears.
+6. **Data transformation tools** — Built-in field mapping, computed fields.
+
+### Explicitly unsupported by FileMaker OData (do NOT plan)
+
+- `$search`, `$compute`, lambda operators (`any`/`all`), `id`-field filtering
+  (internal `id` is reserved — use `row_id`/`uuid` or `fm_odata_get_record`),
+  `Prefer: return=representation` (ignored server-side), delta/sync tokens.
 
 ---
 
@@ -301,22 +384,24 @@ base64-encoded data (simpler, works with MCP text-only protocol) and direct bina
 | v0.8.3 | Released | Bug fixes and consistency improvements (13 fixes) |
 | v0.9.0 | Released | Batch ops, pagination, Bearer auth, security fixes, Node 24, 39 tools |
 | v0.9.1 | Released | Fix CLI binary starting two server instances (#16) |
-| v0.9.2 | Planned | Container upload (`fm_odata_upload_container`) |
-| v0.9.3 | Planned | Enhanced error handling (structured codes, retry, timeouts) |
-| v1.0.0 | Future | Performance optimization, API stability commitment |
+| v0.9.2 | Released | Lazy saved-connection resolution, cold-start fixes |
+| v0.9.3 | Released | TLS handshake decode_error fix on OpenSSL 3.5+ |
+| v0.9.4 | Released | Dependency security updates (audit clean), git history scrub |
+| v0.9.5 | Planned | Container upload/download, FM Prefer headers, error handling |
+| v1.0.0 | Future | MCP protocol surface (resources, annotations, structured output), perf |
 
 ---
 
 ## 🤝 Contributing
 
-Want to help implement these features? See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+Want to help implement these features? See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Priority Areas for Contributors**:
-1. Integration testing with live FileMaker Server
-2. Documentation and examples
-3. Performance optimization
-4. OData batch request implementation (`multipart/mixed`)
-5. Container upload tool (`fm_odata_upload_container`)
+1. Container field tools (upload + `/$value` download)
+2. Integration testing with live FileMaker Server
+3. Structured error handling and retry logic
+4. MCP protocol surface (tool annotations, `outputSchema`, resources)
+5. Documentation and examples
 
 ---
 
@@ -329,4 +414,4 @@ Have suggestions for the roadmap?
 
 ---
 
-**Last Updated**: September 2026 (v0.9.0 released, v0.9.1+ planned)
+**Last Updated**: November 2026 (v0.9.4 released; v0.9.5+ planned)
