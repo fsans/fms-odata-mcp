@@ -8,7 +8,7 @@ for AI assistants like Claude Desktop, Windsurf, Cursor, and Cline.
 
 ## Features
 
-- **39 MCP Tools** for FileMaker database operations (33 standard + 6 optional schema editing)
+- **42 MCP Tools** for FileMaker database operations (36 standard + 6 optional schema editing)
 - **Multi-File Support** - Connect to multiple databases simultaneously (`fm_odata_connect_multi`)
 - **Session Management** - List and target active sessions per call
   (`fm_odata_list_active_sessions`, per-call `connection` param)
@@ -364,6 +364,7 @@ Create a new contact with name "John Doe" and email "john@example.com"
 | **Sessions**      | `fm_odata_list_active_sessions`, `fm_odata_describe_sessions` |
 | **Diagnostics**   | `fm_odata_get_server_version` |
 | **Config**        | `fm_odata_config_add_connection`, `fm_odata_config_remove_connection`, `fm_odata_config_list_connections`, `fm_odata_config_get_connection`, `fm_odata_config_set_default_connection` |
+| **Containers**    | `fm_odata_upload_container`, `fm_odata_download_container`, `fm_odata_get_field_value` |
 | **Schema (DDL)**  | `fm_odata_create_table`, `fm_odata_add_fields`, `fm_odata_delete_table`, `fm_odata_delete_field`, `fm_odata_create_index`, `fm_odata_delete_index` |
 
 > The **FM 2024/2025+** tools are connection-free expression builders. `fm_odata_cast` and

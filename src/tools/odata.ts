@@ -2,6 +2,10 @@ import { connectionManager } from "../connection.js";
 import { ODataParser } from "../odata-parser.js";
 import { logger } from "../logger.js";
 import { featureWarning, isFeatureSupported } from "../fm-version.js";
+import {
+  SUPPORTED_CONTAINER_TYPES,
+  normalizeAndValidateBase64,
+} from "../odata-client.js";
 import type { ScriptResult } from "../odata-client.js";
 
 /**
@@ -625,6 +629,124 @@ export const odataTools = [
       required: ["table", "recordIds"],
     },
   },
+
+  // Container & Field Value Tools (Plan 018)
+  {
+    name: "fm_odata_upload_container",
+    description:
+      "Upload an image or PDF into a FileMaker container field on an existing record. " +
+      "Supported media types: image/gif, image/png, image/jpeg, image/tiff, application/pdf. " +
+      "mode 'base64' (default) sends an inline JSON PATCH with @com.filemaker.odata.Filename / " +
+      "@com.filemaker.odata.ContentType annotations — FileMaker infers the media type from the " +
+      "first bytes of the data. mode 'binary' decodes the base64 and sends a raw binary PATCH " +
+      "with explicit Content-Type and Content-Disposition headers — use it if FileMaker " +
+      "misidentifies the media type.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        recordId: {
+          type: "string",
+          description: "Record ID containing the target container field",
+        },
+        field: {
+          type: "string",
+          description:
+            "Container field name (note: repeating container index is not supported on upload by FileMaker OData)",
+        },
+        base64Data: {
+          type: "string",
+          description:
+            "Base64-encoded file content (raw base64 or data:...;base64,... URI)",
+        },
+        filename: {
+          type: "string",
+          description:
+            "Filename to store in the container (e.g. 'invoice.pdf', 'photo.png')",
+        },
+        contentType: {
+          type: "string",
+          description:
+            "MIME media type (supported by FileMaker OData: image/gif, image/png, image/jpeg, image/tiff, application/pdf)",
+        },
+        mode: {
+          type: "string",
+          enum: ["base64", "binary"],
+          default: "base64",
+          description:
+            "'base64' (default): inline JSON PATCH with @com.filemaker.odata annotations. " +
+            "'binary': decodes base64 and sends raw binary PATCH with Content-Type and Content-Disposition headers.",
+        },
+        ...connectionParam,
+      },
+      required: ["table", "recordId", "field", "base64Data", "filename", "contentType"],
+    },
+  },
+  {
+    name: "fm_odata_download_container",
+    description:
+      "Download binary content from a FileMaker container field via " +
+      "GET /{table}({id})/{field}/$value. Container fields are excluded from normal " +
+      "query/get record responses, so this tool is required to read them. " +
+      "Returns { table, recordId, field, base64Data, contentType, sizeBytes, filename? }.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        recordId: {
+          type: "string",
+          description: "Record ID",
+        },
+        field: {
+          type: "string",
+          description: "Container field name or FMFID",
+        },
+        repetition: {
+          type: "number",
+          description:
+            "Optional 1-based repetition index for repeating container fields (defaults to first repetition)",
+        },
+        ...connectionParam,
+      },
+      required: ["table", "recordId", "field"],
+    },
+  },
+  {
+    name: "fm_odata_get_field_value",
+    description:
+      "Get the raw unwrapped value of a single scalar field (text, number, date, timestamp) via " +
+      "GET /{table}({id})/{field}/$value. Avoids fetching the entire record when only one field " +
+      "value is needed. For container fields, use fm_odata_download_container instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        table: {
+          type: "string",
+          description: "Table/entity set name",
+        },
+        recordId: {
+          type: "string",
+          description: "Record ID",
+        },
+        field: {
+          type: "string",
+          description: "Field name or FMFID",
+        },
+        repetition: {
+          type: "number",
+          description: "Optional 1-based repetition index for repeating fields",
+        },
+        ...connectionParam,
+      },
+      required: ["table", "recordId", "field"],
+    },
+  },
 ];
 
 /**
@@ -740,6 +862,16 @@ export async function handleODataTool(name: string, args: any): Promise<any> {
 
       case "fm_odata_delete_records":
         return await handleDeleteRecords(client, args);
+
+      // Container & Field Value Tools (Plan 018)
+      case "fm_odata_upload_container":
+        return await handleUploadContainer(client, args);
+
+      case "fm_odata_download_container":
+        return await handleDownloadContainer(client, args);
+
+      case "fm_odata_get_field_value":
+        return await handleGetFieldValue(client, args);
 
       default:
         return {
@@ -1356,4 +1488,129 @@ async function handleDeleteRecords(client: any, args: any) {
   const strategy = args.strategy ?? "batch";
   const result = await client.batchDeleteRecords(args.table, args.recordIds, strategy);
   return { content: [{ type: "text", text: ODataParser.formatBatchResult(result) }] };
+}
+
+// ---------------------------------------------------------------------------
+// Container & Field Value Tool Handlers (Plan 018)
+// ---------------------------------------------------------------------------
+
+async function handleUploadContainer(client: any, args: any) {
+  const mode = args.mode ?? "base64";
+  if (mode !== "base64" && mode !== "binary") {
+    return {
+      content: [{ type: "text", text: `Error: invalid mode "${args.mode}". Expected "base64" or "binary".` }],
+      isError: true,
+    };
+  }
+
+  const warnings: string[] = [];
+  const normalizedType = String(args.contentType ?? "").trim().toLowerCase();
+  if (!(SUPPORTED_CONTAINER_TYPES as readonly string[]).includes(normalizedType)) {
+    warnings.push(
+      `Content-Type '${args.contentType}' is outside FileMaker OData's documented container types ` +
+      `(image/gif, image/png, image/jpeg, image/tiff, application/pdf); the server may reject the upload.`
+    );
+  }
+
+  if (mode === "base64") {
+    const res = await client.uploadContainerBase64(
+      args.table,
+      args.recordId,
+      args.field,
+      args.base64Data,
+      args.filename,
+      args.contentType
+    );
+    if (res.detectedMime === null) {
+      warnings.push(
+        "FileMaker OData infers base64 container media types from the first bytes of the data, " +
+        "and these bytes did not match a standard GIF/PNG/JPEG/TIFF/PDF signature. " +
+        "If the media type is misidentified, retry with mode: 'binary'."
+      );
+    } else if (res.detectedMime !== normalizedType) {
+      warnings.push(
+        `Declared contentType '${args.contentType}' differs from magic-byte signature '${res.detectedMime}'. ` +
+        "FileMaker OData infers base64 container media types from the first bytes; " +
+        "retry with mode: 'binary' to force an explicit Content-Type header."
+      );
+    }
+    const output = {
+      ok: true,
+      table: args.table,
+      recordId: args.recordId,
+      field: args.field,
+      filename: args.filename,
+      contentType: args.contentType,
+      mode: "base64",
+      sizeBytes: res.sizeBytes,
+      ...(warnings.length > 0 ? { warning: warnings.join(" ") } : {}),
+    };
+    return { content: [{ type: "text", text: JSON.stringify(output, null, 2) }] };
+  }
+
+  // mode === "binary" — decode base64 and send raw bytes with explicit headers
+  const { buffer } = normalizeAndValidateBase64(args.base64Data);
+  const res = await client.uploadContainerBinary(
+    args.table,
+    args.recordId,
+    args.field,
+    buffer,
+    args.filename,
+    args.contentType
+  );
+  const output = {
+    ok: true,
+    table: args.table,
+    recordId: args.recordId,
+    field: args.field,
+    filename: args.filename,
+    contentType: args.contentType,
+    mode: "binary",
+    sizeBytes: res.sizeBytes,
+    ...(warnings.length > 0 ? { warning: warnings.join(" ") } : {}),
+  };
+  return { content: [{ type: "text", text: JSON.stringify(output, null, 2) }] };
+}
+
+async function handleDownloadContainer(client: any, args: any) {
+  const res = await client.downloadContainer(
+    args.table,
+    args.recordId,
+    args.field,
+    args.repetition
+  );
+  const output = {
+    table: args.table,
+    recordId: args.recordId,
+    field: args.field,
+    ...(args.repetition !== undefined ? { repetition: args.repetition } : {}),
+    base64Data: res.base64Data,
+    contentType: res.contentType,
+    sizeBytes: res.sizeBytes,
+    ...(res.filename ? { filename: res.filename } : {}),
+  };
+  return { content: [{ type: "text", text: JSON.stringify(output, null, 2) }] };
+}
+
+async function handleGetFieldValue(client: any, args: any) {
+  const res = await client.getFieldValue(
+    args.table,
+    args.recordId,
+    args.field,
+    args.repetition
+  );
+  if (res.isBinaryContainer) {
+    return {
+      content: [{
+        type: "text",
+        text:
+          `Field "${args.field}" returned binary media (${res.contentType}). ` +
+          `Use fm_odata_download_container to retrieve container fields as base64.`,
+      }],
+      isError: true,
+    };
+  }
+  return {
+    content: [{ type: "text", text: res.value === null ? "null" : res.value }],
+  };
 }

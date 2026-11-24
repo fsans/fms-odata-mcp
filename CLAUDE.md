@@ -64,10 +64,10 @@ FileMaker Server OData 4.01 API
 - `http` — binds on `MCP_PORT` (default 3333)
 - `https` — binds on `MCP_PORT` (default 3443); requires `MCP_CERT_PATH` / `MCP_KEY_PATH`
 
-**39 MCP tools** in four categories (33 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
-- `src/tools/odata.ts` — 20 tools for OData operations (list tables, describe_table, query/get/create/update/delete
+**42 MCP tools** in four categories (36 standard + 6 optional schema editing when `FM_ALLOW_SCHEMA_EDITS=true`):
+- `src/tools/odata.ts` — 23 tools for OData operations (list tables, describe_table, query/get/create/update/delete
   records, query_all_records, metadata, count, service doc, aggregate, cast, build_filter, run_script, list_scripts,
-  bulk create/update/delete records). All
+  bulk create/update/delete records, upload_container, download_container, get_field_value). All
   connection-dependent tools accept an optional `connection` param for per-call session targeting without
   changing the active session.
 - `src/tools/connection.ts` — 8 tools: connect, connect_multi, set_connection, list_connections,

@@ -187,7 +187,7 @@
 
 ### 1. Container Field Support — Upload & Download (v0.9.5)
 
-**Status**: 📋 Planned  
+**Status**: ✅ Completed (feature/containers)  
 **Priority**: High  
 **Estimated Effort**: 2-3 days  
 **FileMaker Support**: Yes — confirmed via Claris docs / fms-odata-spec.
@@ -208,22 +208,22 @@ Data API. Base64 keeps the protocol text-only (works over stdio); binary
 upload/download applies to the HTTP transport path.
 
 **Implementation Tasks**:
-- [ ] `uploadContainerBase64(table, recordId, field, base64Data, filename, contentType)`
+- [x] `uploadContainerBase64(table, recordId, field, base64Data, filename, contentType)`
   to `ODataClient` — PATCH JSON body with base64 value + annotation properties
-- [ ] `uploadContainerBinary(table, recordId, field, binaryData, filename, contentType)`
+- [x] `uploadContainerBinary(table, recordId, field, binaryData, filename, contentType)`
   to `ODataClient` — PATCH binary body with proper headers
-- [ ] `getFieldValue(table, recordId, field)` / `downloadContainer(...)` to
+- [x] `getFieldValue(table, recordId, field)` / `downloadContainer(...)` to
   `ODataClient` — GET `/{table}({id})/{field}/$value`, return base64 + detected
   content type (MCP responses are JSON; raw bytes must be base64-wrapped)
-- [ ] New tool: `fm_odata_upload_container` — `table`, `recordId`, `field`,
+- [x] New tool: `fm_odata_upload_container` — `table`, `recordId`, `field`,
   `base64Data`, `filename`, `contentType`
-- [ ] New tool: `fm_odata_download_container` — `table`, `recordId`, `field`;
+- [x] New tool: `fm_odata_download_container` — `table`, `recordId`, `field`;
   returns `{ base64Data, filename?, contentType }`
-- [ ] New tool (or extend `get_record`): `fm_odata_get_field_value` for scalar
+- [x] New tool (or extend `get_record`): `fm_odata_get_field_value` for scalar
   fields (text/number returned unwrapped)
-- [ ] Validate base64 input; warn about media-type inference (FileMaker infers
+- [x] Validate base64 input; warn about media-type inference (FileMaker infers
   from first bytes — misidentification is possible)
-- [ ] Unit tests for base64 construction, binary path (mocked), error handling
+- [x] Unit tests for base64 construction, binary path (mocked), error handling
 
 ---
 

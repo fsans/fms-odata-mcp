@@ -63,6 +63,25 @@ describe("OData Tools", () => {
       runScriptById: jest.fn(() => Promise.resolve({})),
       normalizeFilter: jest.fn((f: string) => f),
       getServerVersion: jest.fn(() => Promise.resolve(null)),
+      uploadContainerBase64: jest.fn(() =>
+        Promise.resolve({ sizeBytes: 68, detectedMime: "image/png" })
+      ),
+      uploadContainerBinary: jest.fn(() => Promise.resolve({ sizeBytes: 68 })),
+      downloadContainer: jest.fn(() =>
+        Promise.resolve({
+          base64Data: "aGVsbG8=",
+          contentType: "image/png",
+          sizeBytes: 68,
+          filename: "photo.png",
+        })
+      ),
+      getFieldValue: jest.fn(() =>
+        Promise.resolve({
+          value: "Alice",
+          contentType: "text/plain",
+          isBinaryContainer: false,
+        })
+      ),
     };
 
     (connectionManager.getCurrentClient as jest.Mock).mockReturnValue(mockClient);
@@ -70,7 +89,7 @@ describe("OData Tools", () => {
 
   describe("Tool Definitions", () => {
     it("should export correct number of tools", () => {
-      expect(odataTools).toHaveLength(20);
+      expect(odataTools).toHaveLength(23);
     });
 
     it("should have metadata tools", () => {
@@ -107,6 +126,13 @@ describe("OData Tools", () => {
       expect(tools).toContain("fm_odata_create_record");
       expect(tools).toContain("fm_odata_update_record");
       expect(tools).toContain("fm_odata_delete_record");
+    });
+
+    it("should have container and field-value tools", () => {
+      const tools = odataTools.map((t: any) => t.name);
+      expect(tools).toContain("fm_odata_upload_container");
+      expect(tools).toContain("fm_odata_download_container");
+      expect(tools).toContain("fm_odata_get_field_value");
     });
   });
 
@@ -339,6 +365,118 @@ describe("OData Tools", () => {
 
         expect(mockClient.deleteRecord).toHaveBeenCalledWith("contacts", "123");
         expect(result.content[0].text).toContain("Record 123 deleted from contacts");
+      });
+    });
+  });
+
+  describe("Container & Field Value Tools", () => {
+    describe("fm_odata_upload_container", () => {
+      it("should upload via base64 mode by default", async () => {
+        const result = await handleODataTool("fm_odata_upload_container", {
+          table: "contacts",
+          recordId: "42",
+          field: "Photo",
+          base64Data: "aGVsbG8=",
+          filename: "photo.png",
+          contentType: "image/png",
+        });
+
+        expect(result.isError).toBeUndefined();
+        expect(mockClient.uploadContainerBase64).toHaveBeenCalledWith(
+          "contacts",
+          "42",
+          "Photo",
+          "aGVsbG8=",
+          "photo.png",
+          "image/png"
+        );
+        const output = JSON.parse(result.content[0].text);
+        expect(output.ok).toBe(true);
+        expect(output.mode).toBe("base64");
+      });
+
+      it("should decode base64 and route to binary upload when mode is 'binary'", async () => {
+        const result = await handleODataTool("fm_odata_upload_container", {
+          table: "contacts",
+          recordId: "42",
+          field: "Photo",
+          base64Data: "aGVsbG8=",
+          filename: "photo.png",
+          contentType: "image/png",
+          mode: "binary",
+        });
+
+        expect(result.isError).toBeUndefined();
+        expect(mockClient.uploadContainerBinary).toHaveBeenCalledWith(
+          "contacts",
+          "42",
+          "Photo",
+          Buffer.from("aGVsbG8=", "base64"),
+          "photo.png",
+          "image/png"
+        );
+        expect(mockClient.uploadContainerBase64).not.toHaveBeenCalled();
+        const output = JSON.parse(result.content[0].text);
+        expect(output.mode).toBe("binary");
+      });
+    });
+
+    describe("fm_odata_download_container", () => {
+      it("should return base64-wrapped container data", async () => {
+        const result = await handleODataTool("fm_odata_download_container", {
+          table: "contacts",
+          recordId: "42",
+          field: "Photo",
+        });
+
+        expect(result.isError).toBeUndefined();
+        expect(mockClient.downloadContainer).toHaveBeenCalledWith(
+          "contacts",
+          "42",
+          "Photo",
+          undefined
+        );
+        const output = JSON.parse(result.content[0].text);
+        expect(output.base64Data).toBe("aGVsbG8=");
+        expect(output.contentType).toBe("image/png");
+        expect(output.sizeBytes).toBe(68);
+        expect(output.filename).toBe("photo.png");
+      });
+    });
+
+    describe("fm_odata_get_field_value", () => {
+      it("should return unwrapped scalar field value", async () => {
+        const result = await handleODataTool("fm_odata_get_field_value", {
+          table: "contacts",
+          recordId: "42",
+          field: "Name",
+        });
+
+        expect(result.isError).toBeUndefined();
+        expect(mockClient.getFieldValue).toHaveBeenCalledWith(
+          "contacts",
+          "42",
+          "Name",
+          undefined
+        );
+        expect(result.content[0].text).toBe("Alice");
+      });
+
+      it("should reject binary container fields with a pointer to download tool", async () => {
+        mockClient.getFieldValue.mockResolvedValue({
+          value: null,
+          contentType: "image/png",
+          isBinaryContainer: true,
+        });
+
+        const result = await handleODataTool("fm_odata_get_field_value", {
+          table: "contacts",
+          recordId: "42",
+          field: "Photo",
+        });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain("fm_odata_download_container");
       });
     });
   });

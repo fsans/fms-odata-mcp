@@ -113,6 +113,175 @@ export interface FMTableDefinition {
 }
 
 /**
+ * Media types FileMaker Server's OData endpoint documents for container
+ * uploads. Uploads outside this list may be rejected server-side.
+ */
+export const SUPPORTED_CONTAINER_TYPES = [
+  "image/gif",
+  "image/png",
+  "image/jpeg",
+  "image/tiff",
+  "application/pdf",
+] as const;
+
+/**
+ * Result of a container upload (base64 or binary mode).
+ */
+export interface ContainerUploadResult {
+  sizeBytes: number;
+  /** MIME type inferred from magic bytes, or null when unrecognized. */
+  detectedMime: string | null;
+}
+
+/**
+ * Result of a container download — raw bytes wrapped in base64 so the
+ * payload is safe for JSON-RPC transport.
+ */
+export interface ContainerDownloadResult {
+  base64Data: string;
+  contentType: string;
+  sizeBytes: number;
+  filename?: string;
+}
+
+/**
+ * Result of a raw `/{field}/$value` read.
+ */
+export interface FieldValueResult {
+  /** Decoded text value, or null for empty/binary fields. */
+  value: string | null;
+  contentType: string;
+  /** True when the response media type indicates container/binary data. */
+  isBinaryContainer: boolean;
+}
+
+/**
+ * Normalize user-supplied base64 input and decode it.
+ *
+ * Accepts raw base64 or a `data:<mime>;base64,<data>` URI, tolerates
+ * embedded whitespace, and enforces canonical padding so corrupt input is
+ * rejected before it reaches the server.
+ */
+export function normalizeAndValidateBase64(input: string): {
+  cleanBase64: string;
+  buffer: Buffer;
+} {
+  let s = String(input ?? "").trim();
+  if (s.startsWith("data:")) {
+    const marker = s.indexOf(";base64,");
+    if (marker !== -1) {
+      s = s.substring(marker + ";base64,".length);
+    }
+  }
+  const cleanBase64 = s.replace(/[\r\n\s]+/g, "");
+  if (
+    cleanBase64.length === 0 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(cleanBase64) ||
+    cleanBase64.length % 4 !== 0
+  ) {
+    throw new Error(
+      "Invalid base64 data: input is empty or contains non-base64 characters / invalid padding"
+    );
+  }
+  const buffer = Buffer.from(cleanBase64, "base64");
+  if (buffer.length === 0) {
+    throw new Error("Invalid base64 data: decoded buffer is empty");
+  }
+  return { cleanBase64, buffer };
+}
+
+/**
+ * Detect the container media type from magic bytes, mirroring the
+ * signatures FileMaker Server itself inspects for base64 uploads.
+ */
+export function detectContainerMimeFromBytes(buf: Buffer): string | null {
+  if (buf.length >= 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) {
+    return "image/gif"; // GIF8
+  }
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buf.length >= 4 &&
+    ((buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2a && buf[3] === 0x00) ||
+      (buf[0] === 0x4d && buf[1] === 0x4d && buf[2] === 0x00 && buf[3] === 0x2a))
+  ) {
+    return "image/tiff"; // II*\x00 (LE) or MM\x00* (BE)
+  }
+  if (buf.length >= 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) {
+    return "application/pdf"; // %PDF
+  }
+  return null;
+}
+
+/**
+ * Validate a string destined for an HTTP header value (filename, MIME
+ * type). Rejects empty values and CR/LF/NUL characters to prevent header
+ * injection.
+ */
+export function sanitizeHeaderValue(value: string, label: string): string {
+  const v = String(value ?? "");
+  if (v.trim().length === 0 || /[\r\n\0]/.test(v)) {
+    throw new Error(
+      `Invalid ${label}: must be non-empty and must not contain CR/LF/null characters`
+    );
+  }
+  return v.trim();
+}
+
+/**
+ * Build an RFC 6266-style `Content-Disposition: inline; filename=...`
+ * header value, quoting/escaping when the filename is not a bare token.
+ */
+export function formatContentDisposition(filename: string): string {
+  const clean = sanitizeHeaderValue(filename, "filename");
+  if (/^[A-Za-z0-9._-]+$/.test(clean)) {
+    return `inline; filename=${clean}`;
+  }
+  const escaped = clean.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `inline; filename="${escaped}"`;
+}
+
+/**
+ * Extract the filename from a `Content-Disposition` response header.
+ * Supports RFC 5987 `filename*=UTF-8''...`, quoted-string, and bare-token
+ * forms. Returns undefined when no filename is present.
+ */
+export function parseContentDispositionFilename(
+  header?: string
+): string | undefined {
+  if (!header) return undefined;
+
+  const ext = /filename\*\s*=\s*UTF-8''([^;\r\n]+)/i.exec(header);
+  if (ext) {
+    try {
+      return decodeURIComponent(ext[1].trim());
+    } catch {
+      return ext[1].trim();
+    }
+  }
+
+  const quoted = /filename\s*=\s*"((?:[^"\\]|\\.)*)"/i.exec(header);
+  if (quoted) {
+    return quoted[1].replace(/\\(.)/g, "$1");
+  }
+
+  const token = /filename\s*=\s*([^;\s\r\n]+)/i.exec(header);
+  if (token) {
+    return token[1].trim();
+  }
+
+  return undefined;
+}
+
+/**
  * OData Client for FileMaker Server
  * Implements Basic Authentication and OData 4.01 operations
  */
@@ -207,7 +376,19 @@ export class ODataClient {
    */
   private handleError(error: any): Error {
     if (error.response) {
-      const odataError = error.response.data as ODataError;
+      // When a request used responseType: "arraybuffer" (/$value reads),
+      // error payloads arrive as Buffer/ArrayBuffer rather than parsed JSON.
+      // Decode UTF-8 and attempt JSON.parse so OData error codes surface.
+      let responseData = error.response.data;
+      if (Buffer.isBuffer(responseData) || responseData instanceof ArrayBuffer) {
+        try {
+          const text = Buffer.from(responseData as any).toString("utf-8");
+          responseData = JSON.parse(text);
+        } catch {
+          // Leave responseData as-is; fall through to HTTP status error below
+        }
+      }
+      const odataError = responseData as ODataError;
       if (odataError?.error) {
         return new Error(
           `OData Error [${odataError.error.code}]: ${odataError.error.message}`
@@ -236,6 +417,36 @@ export class ODataClient {
   private entityKey(recordId: string | number): string {
     const rid = String(recordId);
     return /^-?\d+$/.test(rid) ? `(${rid})` : `('${rid.replace(/'/g, "''")}')`;
+  }
+
+  /**
+   * Encode a field name for use as an OData URL path segment in
+   * `/{table}({id})/{field}/$value` style URLs.
+   *
+   * Spaces and Unicode are percent-encoded, while `:` (FMFID:12345 field
+   * IDs) and `[`/`]` (repetition index, when the caller already embedded
+   * it, e.g. `Field[2]`) stay literal. An optional 1-based `repetition`
+   * index is appended as `[n]` unless the field already ends with `]`.
+   */
+  private encodeFieldSegment(field: string, repetition?: number): string {
+    if (!field || field.includes("/")) {
+      throw new Error(
+        `Invalid field name "${field}": must be non-empty and must not contain '/'`
+      );
+    }
+    const encoded = encodeURIComponent(field)
+      .replace(/%3A/gi, ":")
+      .replace(/%5B/gi, "[")
+      .replace(/%5D/gi, "]");
+    if (repetition === undefined) {
+      return encoded;
+    }
+    if (!Number.isInteger(repetition) || repetition < 1) {
+      throw new Error(
+        `Invalid repetition "${repetition}": must be an integer >= 1`
+      );
+    }
+    return encoded.endsWith("]") ? encoded : `${encoded}[${repetition}]`;
   }
 
   /**
@@ -590,6 +801,175 @@ export class ODataClient {
     const url = `${this.baseUrl}/${table}${this.entityKey(recordId)}`;
     logger.debug(`Deleting record: ${url}`);
     await this.axiosInstance.delete(url);
+  }
+
+  // -------------------------------------------------------------------------
+  // Container & Field Value Operations (Plan 018)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Upload container content inline as base64 inside a JSON PATCH body.
+   *
+   * FileMaker-specific OData extension: the base64 value is accompanied by
+   * `<field>@com.filemaker.odata.Filename` and
+   * `<field>@com.filemaker.odata.ContentType` annotation properties.
+   * FileMaker infers the media type from the first bytes of the decoded
+   * data — callers can compare `detectedMime` (magic-byte sniff on the
+   * client side) with the declared `contentType` and fall back to
+   * {@link uploadContainerBinary} when the types disagree.
+   */
+  async uploadContainerBase64(
+    table: string,
+    recordId: string,
+    field: string,
+    base64Data: string,
+    filename: string,
+    contentType: string
+  ): Promise<ContainerUploadResult> {
+    if (!field) {
+      throw new Error("Invalid field name: must be non-empty");
+    }
+    const safeFilename = sanitizeHeaderValue(filename, "filename");
+    const safeContentType = sanitizeHeaderValue(contentType, "contentType");
+    const { cleanBase64, buffer } = normalizeAndValidateBase64(base64Data);
+    const detectedMime = detectContainerMimeFromBytes(buffer);
+
+    const payload: Record<string, string> = {
+      [field]: cleanBase64,
+      [`${field}@com.filemaker.odata.Filename`]: safeFilename,
+      [`${field}@com.filemaker.odata.ContentType`]: safeContentType,
+    };
+
+    const url = `${this.baseUrl}/${encodeURIComponent(table).replace(/%3A/gi, ":")}${this.entityKey(recordId)}`;
+    logger.debug(`Uploading container (base64): ${url} field=${field} (${buffer.length} bytes)`);
+    await this.axiosInstance.patch(url, payload);
+
+    return { sizeBytes: buffer.length, detectedMime };
+  }
+
+  /**
+   * Upload container content as a raw binary body.
+   *
+   * `PATCH /{table}({id})/{field}` with `Content-Type`, `Content-Disposition`,
+   * and `OData-Version` headers. Use this when FileMaker's magic-byte
+   * inference misidentifies a base64 upload — the explicit `Content-Type`
+   * header wins. Repetition index is NOT supported on upload by FileMaker
+   * OData.
+   */
+  async uploadContainerBinary(
+    table: string,
+    recordId: string,
+    field: string,
+    binaryData: Buffer | Uint8Array,
+    filename: string,
+    contentType: string
+  ): Promise<{ sizeBytes: number }> {
+    if (binaryData.byteLength === 0) {
+      throw new Error("Invalid binary data: buffer is empty");
+    }
+    const safeContentType = sanitizeHeaderValue(contentType, "contentType");
+    const disposition = formatContentDisposition(filename);
+
+    const url = `${this.baseUrl}/${encodeURIComponent(table).replace(/%3A/gi, ":")}${this.entityKey(recordId)}/${this.encodeFieldSegment(field)}`;
+    logger.debug(`Uploading container (binary): ${url} (${binaryData.byteLength} bytes)`);
+    await this.axiosInstance.patch(url, Buffer.from(binaryData), {
+      headers: {
+        "Content-Type": safeContentType,
+        "Content-Disposition": disposition,
+        "OData-Version": "4.0",
+        "OData-MaxVersion": "4.0",
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+
+    return { sizeBytes: binaryData.byteLength };
+  }
+
+  /**
+   * Download raw bytes from a container field via `/{field}/$value`.
+   *
+   * Container fields are excluded from normal record responses, so this is
+   * the only way to read them. Bytes are wrapped in base64 for JSON-RPC
+   * safety. `contentType` comes from the response header, falling back to
+   * magic-byte detection when the server reports
+   * `application/octet-stream` (or omits the header).
+   */
+  async downloadContainer(
+    table: string,
+    recordId: string,
+    field: string,
+    repetition?: number
+  ): Promise<ContainerDownloadResult> {
+    const url = `${this.baseUrl}/${encodeURIComponent(table).replace(/%3A/gi, ":")}${this.entityKey(recordId)}/${this.encodeFieldSegment(field, repetition)}/$value`;
+    logger.debug(`Downloading container: ${url}`);
+    const response = await this.axiosInstance.get(url, {
+      responseType: "arraybuffer",
+      headers: { Accept: "*/*" },
+      maxContentLength: Infinity,
+    });
+
+    const buf = Buffer.from(response.data ?? []);
+    const headerType = response.headers?.["content-type"];
+    let contentType = headerType
+      ? String(headerType).split(";")[0].trim().toLowerCase()
+      : "";
+    if (!contentType || contentType === "application/octet-stream") {
+      contentType =
+        detectContainerMimeFromBytes(buf) ??
+        (contentType || "application/octet-stream");
+    }
+    const filename = parseContentDispositionFilename(
+      response.headers?.["content-disposition"]
+    );
+
+    return {
+      base64Data: buf.toString("base64"),
+      contentType,
+      sizeBytes: buf.length,
+      ...(filename ? { filename } : {}),
+    };
+  }
+
+  /**
+   * Read the raw value of a single field via `/{field}/$value`.
+   *
+   * Scalar fields come back as `text/plain` (HTTP 204 when empty/null).
+   * Container fields return binary media types — those are reported via
+   * `isBinaryContainer` so callers can redirect to
+   * {@link downloadContainer} instead of decoding them as text.
+   */
+  async getFieldValue(
+    table: string,
+    recordId: string,
+    field: string,
+    repetition?: number
+  ): Promise<FieldValueResult> {
+    const url = `${this.baseUrl}/${encodeURIComponent(table).replace(/%3A/gi, ":")}${this.entityKey(recordId)}/${this.encodeFieldSegment(field, repetition)}/$value`;
+    logger.debug(`Getting field value: ${url}`);
+    const response = await this.axiosInstance.get(url, {
+      responseType: "arraybuffer",
+      headers: { Accept: "text/plain, */*" },
+    });
+
+    const headerType = response.headers?.["content-type"];
+    const contentType = headerType
+      ? String(headerType).split(";")[0].trim().toLowerCase()
+      : "text/plain";
+    const isBinaryContainer =
+      contentType.startsWith("image/") ||
+      contentType === "application/pdf" ||
+      contentType === "application/octet-stream";
+
+    if (response.status === 204) {
+      return { value: null, contentType, isBinaryContainer: false };
+    }
+    if (isBinaryContainer) {
+      return { value: null, contentType, isBinaryContainer: true };
+    }
+
+    const value = Buffer.from(response.data ?? []).toString("utf-8");
+    return { value, contentType, isBinaryContainer: false };
   }
 
   // -------------------------------------------------------------------------
